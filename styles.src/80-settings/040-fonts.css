@@ -1,0 +1,77 @@
+/* ---- 字体格（v0.9.16）：样字即预览的字体选择格 + 收系统字体名的输入框 ----
+   与配色方案卡 / 图标格同一形制（格子即预览，选中即所见），但格子比图标大：
+   字体要靠一段样字才能看出差别，36px 的形状格装不下。样字用它代表的字体画
+   （LookTab 内联 fontFamily；内置字体经 @font-face 直接可用），名字放样字下面。
+   选中态照走全局统一那一条：accent-soft 底 + 1px accent 描边 + 名字转 accent。 */
+.momo-settings .momo-set-font {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
+}
+.momo-settings .momo-set-font-grid {
+  display: grid;
+  /* v0.9.42（用户报障「选项里的文字没有全部渲染」）：下限 104 → 116。
+     auto-fill 的 minmax 下限**就是最窄那格的宽**——内容列窄到只放得下四格时，
+     每格按 104px 算，减边框 1px×2、左右内距 10px×2，样字只剩 82px；而
+     「记录此刻 Aa 123」实测最宽 115px（JetBrains 格，真浏览器量 scrollWidth），
+     于是五个格子全变成「记录此刻 Aa …」。116 是「标准内容列仍一排放得下五格」
+     的上界：5×116 + 4×8 = 612 ≤ 618 ✓（六格要 736 > 618，跑不出六列）。
+     所以宽窗五格一排不变，窄窗格子变宽而不再挤扁文字；代价只是极窄窗口
+     少放一格，格子反而更好读。 */
+  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+  gap: 8px;
+}
+.momo-settings .momo-set-font-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  /* v0.9.35：同上——宿主全局 `button { height: var(--input-height) }` 会把这枚
+     <button> 压成 30px，两行内容（字体名 + 样字）直接被切掉。 */
+  height: auto;
+  justify-content: flex-start;
+  padding: 8px 10px;
+  border-radius: var(--momo-r-3);
+  border: 1px solid var(--momo-line);
+  background: var(--momo-surface);
+  min-width: 0;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.momo-settings .momo-set-font-tile:hover {
+  border-color: var(--momo-ink-6);
+}
+.momo-settings .momo-set-font-tile.is-on {
+  border-color: var(--momo-accent);
+  background: var(--momo-accent-soft);
+}
+/* 样字 / 字体名的硬线：minmax 下限 116px → 内容盒 = 116 − 2（边框）− 20（左右内距）= 94px。
+   两行文字都在字典侧（样字 = i18n 三语言 fonts.sample，字体名 = copy.meta.fontName），
+   超宽的后果就是省略号截断——2026-10-06 用户报障的「选项里的文字没有全部渲染」
+   正是样字 115px 撞上 82px 的旧下限，五个格子一起截。守门的是
+   scripts/shots/font-truncation.mjs：真 Chromium 把文案逐语言换成字典真源后量
+   scrollWidth，一处截断整轮截图失败（i18n 改了，守卫自动跟着测新值）。 */
+.momo-settings .momo-set-font-sample {
+  font-size: var(--momo-fs-4);
+  line-height: 22px;
+  color: var(--momo-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.momo-settings .momo-set-font-name {
+  font-size: var(--momo-fs-1);
+  color: var(--momo-ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.momo-settings .momo-set-font-tile.is-on .momo-set-font-name {
+  color: var(--momo-accent);
+  font-weight: 600;
+}
+

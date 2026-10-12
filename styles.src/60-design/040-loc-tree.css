@@ -1,0 +1,329 @@
+/* ---- 侧栏「全部地点」树（v0.9.31 ④；组件 src/ui/locations/tree/LocTreeSection.tsx）----
+   从顶栏跳转浮层搬来：一屏只留一个过滤入口（v0.9.26 密度一刀的同一理由）。
+   侧栏里与标签树并排——地点树紧跟回收站菜单、标签树收尾，两棵树的开关各自独立
+   （prefs.sections.locations / tags；地点树还多一道模式门控：只在地点模式出现）。
+   造型 2026-10-01 换成「大洲分组卡」（用户比稿定案，比稿页在 docs/design/mockups/
+   loc-group-card-v2.html）：**大洲 = 卡 · 国家 = 行 · 地点 = 芯片**。换造型要治的
+   病是两条：缩进三层行那版 12 行 348px（侧栏是固定高度的，标签树被顶到屏外），
+   以及选中态只是一圈 accent-line 细环——0.5px 级的细金边在墨夜里几乎看不出
+   「我正筛着伦敦」。卡片版把同样的数据压到约 287px，三级各有一个明确的选中面。
+   ⚠️ **2026-10-03 用户裁定「全部地点不要有背景色」**：那张大洲卡的 surface-2 底与
+   1px 描边**一起撤掉**（DOM 契约 `data-card` 留着，它现在只表示「这个大洲有子级」）。
+   于是「大洲 = 卡」只剩**排版语义**（大洲 13px/600/ink 顶格，国家 12px/500/ink-3
+   让一档，地点是唯一还带底的胶囊），不再有任何框。下方 data-card 那段有细账。
+   与标签树不再逐字同形，**逐字同语言的只剩那枚「可点」**：hover 给 surface-2、
+   选中给 accent-soft 底 + accent 600 字，全屏只有一处金。
+   与标签树的两处结构差别：① 三级（大洲 → 国家 → 城市）对两级；② 展开钮
+   （twisty）与行是两颗按钮：行内嵌按钮是非法 HTML、读屏会把一行念成两处焦点
+   （LocTreeRows.tsx 文件头）——于是外壳 .momo-locnode 只做**容器**（卡 / 行 /
+   芯片三态），hover 与选中都收在头那一行的 .momo-locnode-row 上。
+   点当前行 = 清除过滤（回「全部地点」），语义住在 LocTreeSection（行上的
+   aria-pressed 就是开关语义）。 */
+.momo-locs-section {
+  /* 2026-10-01 用户要求「取消全部地点上方的分界线」：原来那道 border-top
+     （与 .momo-tags-section 同款）撤掉，只留 8px + 8px 的呼吸缝——树照旧与
+     上面的菜单分开，只是不再画线。 */
+  margin-top: 8px;
+  padding-top: 8px;
+}
+
+/* 「全部地点」与「全部标签」之间：2026-10-01 上午用户要「两个区块之间应该有
+   条线」，同日晚些时候又要求「取消全部地点和全部标签之间的分界线」——线撤掉，
+   缝留下。这条规则仍不能删：下面那条 v0.5 reset（.momo-sidebar .momo-tags-section）
+   把 margin-top / padding-top 都归了零，没有它两个区块会贴在一起。
+   **相邻选择器收口**——只有两个区块真挨着（地点模式）时才让出这段缝；
+   列表模式下菜单与标签区之间维持原样（v0.5 回顾拆掉的正是那里的一道线，
+   理由见 30-pop.css 同处注释）。 */
+.momo-sidebar .momo-locs-section + .momo-tags-section {
+  margin-top: 8px;
+  padding-top: 8px;
+}
+
+.momo-loctree-head {
+  height: 22px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  margin-bottom: 4px;
+}
+
+/* 标题与 .momo-taghead-title 逐字同语言：侧栏宽度用户可拖（下限 150px），
+   窄档下先牺牲标题（省略号）。右端自 2026-10-01 起有工具行了（一颗层级过滤
+   漏斗），标题的 min-width: 0 + 省略号就是让它给工具行让位的——同 .momo-taghead-title。 */
+.momo-loctree-title {
+  font-size: var(--momo-fs-2);
+  font-weight: 600;
+  color: var(--momo-ink-2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 标题行右端的工具行（2026-10-01）：一颗层级过滤漏斗，与 .momo-taghead-tools
+   同款（margin-left: auto 顶右、gap 2、flex: none 不许被挤变形）。按钮本体
+   复用 .momo-tagbtn（20px 小胶囊），不在这里另立一套。 */
+.momo-loctree-tools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
+/* 所选档位下一个节点都没有时的一行灰字（如全库只有顶级地名、选了「国家」）。
+   不塞按钮——点漏斗改回「全部」就回来，第二颗钮只会多一次落空。 */
+.momo-loctree-empty {
+  font-size: var(--momo-fs-1);
+  color: var(--momo-ink-3);
+  padding: 2px 0 4px;
+}
+
+.momo-loctree {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: none;
+}
+
+/* 「地点」平铺档（层级过滤选「地点」）：树根全是芯片，横着排一行、放不下就折
+   ——一列竖排的胶囊不是这个档位该有的样子（平铺大洲 / 国家两档仍是普通行）。 */
+.momo-loctree-chips {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+/* 一个节点 = 外壳 .momo-locnode，三态按 data-depth / data-card 分：
+   ① 大洲卡（data-depth=0 且有子级 → data-card=1）：轻嵌面底 + 10px 圆角 + 7/9/9
+      内距 + 1px 描边，头是卡头、体是「国家一列」；
+   ② 行（大洲无子级 / 国家）：头 = twisty + 可点行；
+   ③ 芯片（data-depth=2）：外壳本身就是那枚胶囊，没有 twisty 也没有体。
+   纵向容器是①②的默认：头在上、体在下。 */
+.momo-locnode {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* 大洲分组：2026-10-03 用户裁定「全部地点不要有背景色」——**底色与描边一起撤**。
+   这条卡原来是「层级承担者」三件套里的一件（surface-2 底 = 浮起、1px 描边 = 分隔，
+   见 ink-night.css 文件头那条历史注释），撤掉之后这棵树**不再有任何框**，层级改由
+   **缩进阶梯**承担（下面体那两条 padding-left）：
+     · 大洲 = 13px/600/--momo-ink 的文字行，顶格（与「全部地点」标题齐平）；
+     · 国家 = 12px/500/--momo-ink-3，缩进 12px，比大洲低一档；
+     · 地点 = 芯片，再缩进 12px，**盒还在**（surface-2 底 + 描边 + 胶囊圆角）——
+       于是整棵树里唯一带框的恰好是最深那一级，「大洲/国家是文字、地点是胶囊」。
+   组与组之间只剩 5px 疏密（下面那条 `+` 规则）+ 大洲行的字重，不再有面。
+   内距的横向两路（8px → 0）都收进缩进阶梯了，纵向 4/6 留作组内呼吸。 */
+.momo-locnode[data-card='1'] {
+  /* box-sizing 留着：.momo-locnode 是 width:100%，撤掉 border 之后 content-box
+     会让内距把它撑宽而溢出侧栏。跟有没有描边无关。 */
+  box-sizing: border-box;
+  padding: 4px 0 6px;
+}
+
+/* 组与组之间 5px：面撤掉之后，这段疏密是**唯一**的分组信号了，别再往下收
+   （树根 gap 只有 1px，收到 2~3px 就分不出哪几行是一洲了）。 */
+.momo-locnode[data-card='1'] + .momo-locnode {
+  margin-top: 5px;
+}
+
+/* 芯片：横向胶囊，宽度由内容定。align-self 收一手——它可能是 .momo-loctree（列）
+   的直接子级，默认的 stretch 会把它拉成整行宽。 */
+.momo-locnode[data-depth='2'] {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  align-self: flex-start;
+  width: auto;
+  flex: none;
+}
+
+/* 头（卡头 / 国家行）：twisty + 行，行铺满剩余宽 */
+.momo-locnode-head {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+}
+
+/* 体：大洲里是国家一列（紧一点），国家里是芯片一行（可折）。
+   padding-left 这两处的 12px 是 2026-10-03 撤掉大洲卡的底与描边之后**新立的层级
+   承担者**——面没了，父子关系只剩缩进可读：大洲顶格、国家缩进 12px、芯片再缩进
+   12px。数值对齐标签树的 20px 档（`.momo-tagrow-sub`，那里是两级的 20px），
+   取 12 是因为这棵树有三级、侧栏最窄 150px，20×2 会把芯片挤到折三行。 */
+.momo-locnode[data-depth='0'] > .momo-locnode-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-left: 12px;
+}
+
+.momo-locnode[data-depth='1'] > .momo-locnode-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 4px 4px 1px 12px;
+}
+
+.momo-app .momo-locnode-twisty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 宽度定死、高度跟着头走（align-self: stretch）——卡头 24px、国家行 20px 两条
+     行高，twisty 不必各写一遍。 */
+  align-self: stretch;
+  width: 18px;
+  flex: none;
+  padding: 0;
+  border: none;
+  border-radius: var(--momo-r-3);
+  background: transparent;
+  color: var(--momo-ink-4);
+  cursor: pointer;
+}
+
+.momo-app .momo-locnode-twisty:hover {
+  color: var(--momo-accent);
+}
+
+/* 叶子节点的占位（没有 twisty 也占住 18px：行首对齐不跳） */
+.momo-locnode-twisty.is-leaf {
+  cursor: default;
+}
+
+.momo-app .momo-locnode-row {
+  /* BUG-212：行的可及名是完整句（「中国，12 条」，LocTreeRows 的 nodeAria）——
+     窄档计数被藏（.momo-loctree-narrow）时它是条数的唯一载体，名字留；但悬停
+     气泡与行上可见的「地名 + 计数」重复，压制：--no-tooltip: true
+     （守卫见 scripts/aria-tooltip-css.test.mts）。三级行同制。 */
+  --no-tooltip: true;
+  display: flex;
+  align-items: center;
+  /* v0.9.35：宿主全局 `button { justify-content: center }` —— 这一行是
+     `flex: 1` 撑满的，中心对齐会把「折叠箭头 + 地名 + 计数」整组挪到中间。 */
+  justify-content: flex-start;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 0 4px;
+  border: none;
+  border-radius: var(--momo-r-2);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* 大洲行（卡头）：13px / 600 / --momo-ink，24px 高 */
+.momo-locnode[data-depth='0'] .momo-locnode-row {
+  height: 24px;
+  font-size: var(--momo-fs-3);
+  font-weight: 600;
+  color: var(--momo-ink);
+}
+
+/* 国家行：12px / --momo-ink-3，20px 高（比卡头弱一档：它在大洲之内） */
+.momo-locnode[data-depth='1'] .momo-locnode-row {
+  height: 20px;
+  font-size: var(--momo-fs-2);
+  font-weight: 500;
+  color: var(--momo-ink-3);
+}
+
+/* 地点芯片：22px 胶囊 */
+.momo-locnode[data-depth='2'] .momo-locnode-row {
+  box-sizing: border-box;
+  height: 22px;
+  gap: 5px;
+  padding: 0 8px;
+  border: 1px solid var(--momo-line);
+  border-radius: var(--momo-r-pill);
+  background: var(--momo-surface-2);
+  font-size: var(--momo-fs-2);
+  font-weight: 500;
+  color: var(--momo-ink-2);
+}
+
+/* hover：行给 surface-2 底，芯片只提描边（它已经有底，再叠一层就糊了）。
+   选中那颗不给 hover——它已经是 accent-soft，再叠会让「选中」看着像悬停。 */
+.momo-locnode[data-depth='0'] .momo-locnode-row:not(.momo-locnode-row-on):hover,
+.momo-locnode[data-depth='1'] .momo-locnode-row:not(.momo-locnode-row-on):hover {
+  background: var(--momo-surface-2);
+}
+
+.momo-locnode[data-depth='2'] .momo-locnode-row:not(.momo-locnode-row-on):hover {
+  border-color: var(--momo-ink-6);
+}
+
+/* hover 行名转 accent（2026-10-12 同 .momo-menu-item / .momo-tagrow）：surface-2
+   底在四套浅色主题 1.02~1.11 等于没有，蓝字是读得出的信号；底色与 depth-2 的
+   ink-6 描边保持原样。选中态 = accent-soft 底 + accent 600，靠填充与字重区分——
+   .momo-locnode-row-on 两条规则在下方，同特异性下源码序在后，悬停选中行时
+   选中外观不被盖掉。 */
+.momo-locnode-row:hover .momo-locnode-label {
+  color: var(--momo-accent);
+}
+
+/* 选中（= 当前过滤节点）：accent-soft 底 + accent 字。祖先节点不高亮——「筛着
+   上海」时亚洲 / 中国都不亮，全屏只有一处金。外壳上的 .momo-locnode-on 只是
+   语义标记（可读性与测试锚点），**上色一律走行上的 .momo-locnode-row-on**：
+   外壳对卡片来说是整张卡的祖先，从它铺后代选择器会把整洲的国家一起染金。 */
+.momo-locnode-row-on {
+  background: var(--momo-accent-soft);
+}
+
+.momo-locnode[data-depth='2'] .momo-locnode-row-on {
+  border-color: var(--momo-accent-line);
+  font-weight: 600;
+}
+
+.momo-locnode-row-on .momo-locnode-label {
+  color: var(--momo-accent);
+  font-weight: 600;
+}
+
+.momo-locnode-row-on .momo-locnode-count {
+  color: var(--momo-accent);
+}
+
+.momo-locnode-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 计数：地名长短不一，等宽数字让一列里的数字对齐 */
+.momo-locnode-count {
+  flex: none;
+  font-family: var(--momo-num);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 大洲行的计数比地名低一档（12px ink-3）；国家行与芯片的更低一档
+   （11px ink-4——2026-10-01 起这棵树常驻，`lint:css:rules` 的弱墨阶门禁量出
+   ink-5 在十套方案上 < 4.5:1，按门禁给的建议收到 ink-4） */
+.momo-locnode[data-depth='0'] .momo-locnode-count {
+  font-size: var(--momo-fs-2);
+  color: var(--momo-ink-3);
+}
+
+.momo-locnode[data-depth='1'] .momo-locnode-count,
+.momo-locnode[data-depth='2'] .momo-locnode-count {
+  font-size: var(--momo-fs-1);
+  color: var(--momo-ink-4);
+}
+
+/* 窄档降级（2026-10-01 用户从「① 芯片只留地名不留计数 / ② 大洲卡折叠成单行 /
+   ③ 照排不管」里选了 ①）：侧栏拖到 200px 以下时，芯片里的计数让位给地名本身。
+   阈值实测在 LocTreeRows 的 LOC_TREE_NARROW_PX，这里只认类不认数值。 */
+.momo-loctree-narrow .momo-locnode[data-depth='2'] .momo-locnode-count {
+  display: none;
+}
+

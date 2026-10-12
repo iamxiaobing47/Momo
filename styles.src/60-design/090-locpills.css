@@ -1,0 +1,60 @@
+/* ---- 交叉引用 pill（F1 卡片 meta 行；组件 src/ui/locations/locPills.tsx）----
+   多地点笔记在 meta 行（Spacer 之后、标签之前）展示「还在哪些组里」，点一颗即
+   跳到那一组。loc-soft 底 + loc 字：地点是内容不是强调，用专用色不用 accent
+   （accent 留给选中 / 危险）。loc × loc-soft 的对比度判定见 check-contrast 的
+   ②c 组（2026-10-12 从 sage × sage-soft 解耦：色值按各方案自己的 palette 重配，
+   墨夜照抄原值）。 */
+.momo-loc-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+/* 带 .momo-app 前缀：(0,2,0) 才压过面板级 button reset 的 (0,1,1)（全表 0 枚
+   !important，底色按特异性与源码序赢，与 .momo-pop-btn 同一套打法）。
+   .momo-settings 那半是设置页预览（mock，2026-10-01 起地点 pill 也进预览卡）：
+   预览卡复用同一枚 pill 的外观，不能因为不在 .momo-app 里就退回裸按钮。 */
+.momo-app .momo-loc-pill,
+.momo-settings .momo-loc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  flex: none;
+  padding: 1px 9px;
+  border: none;
+  border-radius: 9px;
+  background: var(--momo-loc-soft);
+  color: var(--momo-loc);
+  font-family: var(--momo-sans);
+  font-size: var(--momo-fs-2);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+/* hover = 实底反色（与 .momo-card-tag 的 hover 同一语言）；`button.` 限定只给真按钮。
+   2026-10-09 前这条限定的理由是那枚摆着不能点的「+N」span；收纳功能退役后 pills 里
+   全是按钮，限定仍留着——纪律是「非按钮的 pill 成员不吃 hover」，与有没有 span 无关。 */
+.momo-app button.momo-loc-pill:hover {
+  background: var(--momo-loc);
+  color: var(--momo-page);
+}
+
+/* 焦点环：两个宿主都列。预览里那枚是 span、吃不到 focus-visible，列上是为了一条
+   纪律——这个类只要带宿主前缀就双宿主同一条（v0.9.45 host-button-clash 的守卫会查），
+   也为 mock 哪天改用 <button> 时不用回来补。 */
+.momo-app .momo-loc-pill:focus-visible,
+.momo-settings .momo-loc-pill:focus-visible {
+  outline: 2px solid var(--momo-accent);
+  outline-offset: 1px;
+}
+
+/* 地点标签挂卡片底部（prefs.locPosition = 'bottom'，2026-10-01 拆分出的档）：
+   原先这里给一条 margin-top: 10px 与正文隔档，和底部 #标签 行同一视觉节奏。
+   locPosition 与 tagPosition **同时**拨到底部时，地点胶囊与 #标签 必须并排一行
+   （用户反馈分成了两排）——排布改由外层 .momo-card-foot（20-panel/020-card.css）
+   统一给，这条 margin 因此撤掉；-bottom 类本身留在 DOM 里作标记（测试与截图
+   场景靠它定位，见 scripts/baselines/css-class-refs.json 的登记）。 */
+

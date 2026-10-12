@@ -1,0 +1,93 @@
+/* ============================================================================
+    统计页的视觉语言（界面微调三档，0.4.7 首版 / v0.4.18 并入设计令牌体系 /
+    v0.4.19 图表化沿用同一体系）
+    ----------------------------------------------------------------------------
+    三档各自的落点：配色 / 圆角与描边 / 图表与数字（统计 KPI 卡、速览条、回顾组）。
+    旧版的信息密度开关（速览条 / Momo 数 / 时间轴）与图表模块（周分布 / 间隔分布）
+    统一挂进统计页各卡（energy 分组 + 习惯复盘卡），不再单独开一套皮肤。
+
+    新主张：统计页 = 卡片 + 表格 + 图表，只做一种视觉语言——
+    卡片密度 → 表格紧凑度 → 图表刻度，三处由同一组 token 换算。
+    - 统计页不再另起色板：暖纸底 + 白卡片 + 分区标题，与主面板同语言。
+    - token 只落在 .momo-main 上，容器查询（.momo-stats-page，容器名 stats）兜底，
+      不另开专用色——0.4.18 起整页的间距、区块、度量线取值都来自它，
+      卡片 / 表格 / 图表三处的映射随 token 联动，统计页因此与主面板不割裂。
+
+    卡片字阶沿用设计稿：hero 数字 44px · 质量卡 26px · 习惯与速览 20px。
+    深色主题用 .theme-dark 覆写，取值仍来自统计页自己的 token。
+    ============================================================================ */
+/* （这里曾有一条 .momo-mode-stats .momo-chip:hover 的胶囊选中态规则，BUG-16 已删里层、
+    BUG-187 再删 60-design 的 `.momo-mode-stats .momo-chip` 兜底层——`.momo-chip` 的
+    唯一消费者是侧栏置顶胶囊，那层把**全部**胶囊（含未选中）画成了选中态，与
+    `.momo-pin-chip.momo-chip-on` 同值、选中与否不可分。同特异性下 60-design.css
+    更靠后的兜底曾是第二份表述；现在两层都不在，胶囊回归自己的基样式。） */
+
+/* 统计页的入口与容器查询都在统计页自己的容器里：容器查询的作用域必须是
+    .momo-stats-page（容器名 stats）——挂在 .momo-content 上的查询不会命中
+    统计页内部，回到全部笔记 / 回收站 / 视图也不会触发 @container 480px 这一档。 */
+.momo-stats-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  /* 统计页是居中内容列：上限 1180px，两侧留白随窗宽自适应；
+      容器查询以它为单位（@container stats ...）。 */
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  container-type: inline-size;
+  container-name: stats;
+}
+
+/* （BUG-134b 删除页头四条死规则 `.momo-stats-head` / `-head-text` / `-title` / `-sub`：
+   StatsPage 起页面已无页头（配色 / 密度 / 导出三件套各自有卡），src/ 从不产出这些类名。
+   95-responsive 里那条 `.momo-stats-head` 同步删除。） */
+
+
+
+/* 导出按钮：避开统计页里其它按钮的原生底色，导出内容本身用 Markdown
+    上下文渲染（不落 HTML，见 DR-003）；底色走 .momo-app .momo-primary-btn
+    的 (0,2,0)，压过 .momo-app button 那条原生控件 reset，不需要 !important。 */
+.momo-row {
+  display: grid;
+  gap: 16px;
+}
+
+.momo-row-kpi {
+  grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.momo-row-trend {
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+}
+
+/* 双列行：0.5.3 新分组（周分布 / 时长分布）按两列排 */
+.momo-row-dist {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+/* 习惯行固定两列（记录习惯 + 里程碑进度）：v0.6.5 裁掉记录间隔卡后，
+   第三列（原间隔卡）不再存在，别把列数留在三列留一列空白 */
+.momo-row-habits {
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+}
+
+/* 两列行只剩一张卡时占满整行（避免右列留空）。内容与回顾组里剩一对这样的行：
+   字数分布/回顾覆盖率——任意一张被关掉，另一张要自动撑满（最长笔记/字数深度那一对
+   随 v0.6.9 字数深度卡移除而消失）。
+   必须放在容器查询外：>880px 时网格仍是两列，靠这条兜底。 */
+.momo-row-dist > :only-child {
+  grid-column: 1 / -1;
+}
+
+.momo-stats-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--dp-border);
+  border-radius: var(--momo-r-5);
+  /* BUG-134f：卡片面走 --dp-card（= 各主题的 --momo-card），不再直接读宿主
+     --background-primary——那在四套里三套是 #ffffff，与主面板卡片不同色。 */
+  background: var(--dp-card);
+  box-shadow: var(--dp-shadow);
+  padding: 24px;
+}
+

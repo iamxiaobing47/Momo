@@ -1,0 +1,67 @@
+/* ---- 自定义范围编辑条（v0.5.4）：统计页顶部，原生 date input + 快捷档 ---- */
+.momo-range-editor {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  border: 1px solid var(--dp-border);
+  border-radius: var(--momo-r-5);
+  /* BUG-134f：与统计卡同面（--dp-card），见 001-page.css 的同一处注释 */
+  background: var(--dp-card);
+  box-shadow: var(--dp-shadow);
+  padding: 12px 16px;
+}
+
+/* 统计页自定义区间的日期输入：只留布局（外观走 .momo-input） */
+.momo-range-date {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.momo-range-sep {
+  font-size: var(--momo-fs-2);
+  color: var(--dp-text-3);
+}
+
+.momo-range-presets {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.momo-range-preset {
+  border: 1px solid var(--dp-border);
+  border-radius: var(--momo-r-pill);
+  background: transparent;
+  padding: 3px 10px;
+  font-size: var(--momo-fs-2);
+  cursor: pointer;
+}
+
+/* BUG-186：宿主 (0,1,1) 会压掉裸类的 color，宿主前缀单独声明 */
+.momo-app .momo-range-preset {
+  color: var(--dp-text-2);
+}
+
+.momo-range-preset:hover {
+  border-color: var(--dp-accent);
+  color: var(--dp-accent);
+}
+
+.momo-range-close {
+  border: none;
+  background: transparent;
+  padding: 2px 4px;
+  font-size: var(--momo-fs-2);
+  cursor: pointer;
+}
+
+/* BUG-186：同上 */
+.momo-app .momo-range-close {
+  color: var(--dp-axis);
+}
+
+.momo-range-close:hover {
+  color: var(--dp-text);
+}
+

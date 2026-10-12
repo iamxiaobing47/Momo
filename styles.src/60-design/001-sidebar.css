@@ -1,0 +1,309 @@
+/* ============================================================================
+    v0.5 设计语言总述（2026-09-19）
+    ----------------------------------------------------------------------------
+    设计源：docs/design/mockups/danpan-v05-design.html §1 侧栏 / §2 置顶区与发布框 /
+    §3 视图 / §4 回顾 / §5 回收站。
+    实现方式：App/Card/Composer/Review/TagTree/Trash/icons 全部按 §1 设计
+    令牌重排 DOM 与类名；旧版的私有嵌套一律换成 `.momo-*` 前缀，
+    层叠靠两条硬规矩兜住：
+    一是 `.momo-app button` 的原生控件 reset（(0,1,1) + 源码在宿主之后），
+    二是把层叠算清楚——每个组件只用 `.momo-app .xxx { … }`（0,2,0）。
+    （2026-09-25 P3：全表 !important 已收敛为 0，两条规矩都不再靠 !important。）
+    ============================================================================ */
+
+/* ---- 侧栏宽度：设计稿 §1 .sb —— 272px / 底色 #F1EFEB / 14px 内距 / 16px 圆角 ----
+    侧栏本身只做宽度与定位；内距分给两个子元素各管一段（v0.9.2）：
+    .momo-sidebar-fixed（固定块：顶/左右 14px，底部 0）与 .momo-sidebar-inner
+    （滚动区：顶 16px = 旧 flex gap，左右/底 14px）。
+    box-sizing 逐条声明：不声明的话 Obsidian 全局 * 的 content-box 会再吃 28px
+    （侧栏内容宽 = 272 - 2×14）；显式写死 border-box，
+    免得全局那条漏改时侧栏宽度悄悄变宽。 */
+/* 这一层做滚动容器：分区 / 标签树等按 flex 列排，内容超高时在这里滚
+    （分区自身的高度差由各分区的 margin 承担，卡片列表内部滚）。
+    v0.9.2：它已不是侧栏唯一的内容层——固定块（品牌 + 发布框）搬到它上面，
+    两者同为 .momo-sidebar（flex column）的子元素，固定那块的上方没有滚动区。 */
+.momo-side-right .momo-sidebar {
+  border-right: none;
+  border-left: 1px solid var(--momo-line);
+}
+
+/* ---- 侧栏显隐 / 折叠（v0.5.2 重做：先渐隐内容、再收宽度）----
+    整套动效只动 width / border-width / opacity，不碰 display——
+    任何一档的显隐都走同一条过渡，视觉上连续。 */
+.momo-sidebar {
+      display: flex;
+      flex-shrink: 0;
+      overflow-y: auto;
+      flex-direction: column;
+      box-sizing: border-box;
+      /* BUG-134g：fallback 从 272px 改成 232px——真源是 `src/momo/types/prefs.ts`
+         的 `SIDEBAR_WIDTH.default = 232`（同文件下方注释也写 232），272 是分包前的旧默认值。
+         走到「没内联 --momo-sidebar-width」那条路径的（shots / mockup DOM、将来在
+         .momo-app 外复用侧栏骨架）原先会凭空宽 40px。守卫见 scripts/sidebar-width-guard.test.mts。 */
+      width: var(--momo-sidebar-width, 232px);
+      flex: none;
+      padding: 0;
+      transition:
+    width 320ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-right-width 320ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-left-width 320ms cubic-bezier(0.32, 0.72, 0, 1);
+      background: var(--momo-surface);
+      border-right: 1px solid var(--momo-line);
+      border-left: none;
+      overflow: hidden;
+      /* padding 归零：侧栏自己不吃内边距（否则旧版 padding 会和新版叠加）；
+      新版的间距全部交给 .momo-sidebar-inner。 */
+      /* 宽度跟随侧栏（SI-11）：默认 232px，实际值由 --momo-sidebar-width 控制
+      （来源 prefs.sidebarWidth，拖宽写回持久化）。 */
+    }
+
+.momo-sidebar-inner {
+  /* 渐隐：只动 opacity，180ms 淡出（延迟 40ms，等宽度先走） */
+  transition: opacity 180ms ease 40ms;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  /* BUG-134g：同样的 272→232；再加 `max-width: 100%`——`.momo-sidebar` 是
+     border-box 且带 1px 右边框，内容盒只有 W−1，而这一度钉死 W，
+     于是恒溢 1px 被父级 overflow:hidden 裁掉，裁掉的正是 scrollbar-gutter
+     那条常驻槽位的右缘。宽度过渡期仍按 var 走（不跟着父宽重排），
+     max-width 只在「比内容盒还宽」时收住。 */
+  width: var(--momo-sidebar-width, 232px);
+  max-width: 100%;
+  /* 滚动条槽位**常驻**（2026-09-29 报障：筛完标签列表空了，整块侧栏内容忽然变宽一下）。
+     宿主是占位式滚动条（`--scrollbar-native-width: auto`，开「样式化滚动条」后 12px），
+     它一出现就从内容宽里吃掉十几像素 —— 内容高过视口才有、筛空后立刻没有，
+     于是里面的工具行 / 输入框 / 列表一起横向跳一次。
+     宿主自己的 .markdown-preview-view / .bases-view 也用这一条，Electron 里支持。
+     代价是「不滚动时右侧也留着那条空白」——这是**裁决过的取舍**（2026-09-29 与用户确认：
+     宁可常留一条空白，也不要布局跳），别以「右侧多出一条没用的留白」为由删掉它。 */
+  scrollbar-gutter: stable;
+  /* 顶 16px = 以前固定块与速览三格之间那一道 flex gap（v0.9.2 固定块搬出滚动区后，
+     由这里补回，间距逐像素不变）；左右/底部 14px 照旧。 */
+  padding: 16px 14px 14px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.momo-resize-handle {
+      flex-shrink: 0;
+      width: 8px;
+      position: relative;
+      cursor: col-resize;
+      user-select: none;
+      transition:
+    width 320ms cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 200ms ease;
+      touch-action: none;
+    }
+
+/* 拖宽进行中（ResizeHandle 在 app 根上挂的 momo-resizing）：关掉两条 320ms 的
+   width 过渡。那条过渡是折叠/展开动画的参数——拖动时它让侧栏追不上指针，松手后
+   主区还要多回流 ~320ms（卡片跟着「跳一下」）；且 sidebar-inner 的宽度不走过渡、
+   跟变量即时走，外层动画内层不同步，快拖时侧栏内容会被裁掉一截。拖动 1:1 跟手，
+   两条过渡在松手后原样恢复，折叠/展开动画不受影响（那时没有这个类）。 */
+.momo-app.momo-resizing .momo-sidebar,
+.momo-app.momo-resizing .momo-resize-handle {
+  transition: none;
+}
+
+.momo-sidebar-collapsed .momo-sidebar,
+.momo-sidebar-collapsed .momo-resize-handle {
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    width 320ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-right-width 320ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-left-width 320ms cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 200ms ease,
+    visibility 0s linear 320ms;
+}
+
+.momo-sidebar-collapsed .momo-sidebar {
+  width: 0;
+  border-right-width: 0;
+}
+
+.momo-side-right:where(.momo-sidebar-collapsed) .momo-sidebar {
+  border-left-width: 0;
+}
+
+/* v0.9.2 起固定块与滚动区是 .momo-sidebar 的两个子元素，
+   渐隐两条一起收（只淡 inner 的话品牌 + 发布框会赖在收起中的侧栏里） */
+.momo-sidebar-collapsed .momo-sidebar-fixed,
+.momo-sidebar-collapsed .momo-sidebar-inner {
+  /* 收起完成态：内容彻底淡出，130ms 快出——不跟展开的缓动抢时间 */
+  opacity: 0;
+  transition: opacity 130ms ease-out;
+}
+
+.momo-sidebar-collapsed .momo-resize-handle {
+  width: 0;
+}
+
+/* 品牌行（v0.9.37）：品牌按钮 + 侧栏开关并排一行。开关原住顶栏最左，用户要求搬进
+   侧栏给顶栏腾空间——行高仍 34px（开关 34×34 顶满，见 010-sidebar-switch.css 的
+   .momo-panel-toggle-side），品牌按钮吃掉剩余宽度。 */
+.momo-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+/* 品牌行：34px 高——0px 签名色斜体 + Momo / DANPAN 副标 + 窄面板收起钮 */
+.momo-brand {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  /* v0.9.35：宿主全局 `button { justify-content: center }` 会把这行的
+     品牌标 + 名字整组居中——它自己声明了 display/align-items，唯独没声明
+     justify-content，于是宿主那条说了算。 */
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 0;
+  /* v0.9.37：品牌行里多了侧栏开关，品牌按钮改为吃掉剩余宽度（原先 flex:none +
+     width:100% 会把开关顶出这一行）。min-width:0 让过长的品牌名能收缩不撑破。 */
+  flex: 1 1 auto;
+  min-width: 0;
+  /* 品牌行本身是一颗按钮：v0.5.2 之后「回到顶部」= 点品牌行，
+      整块可点 + 窄面板只留图标。 */
+  border: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.momo-brand:hover .momo-brand-name {
+  color: var(--momo-accent);
+}
+
+.momo-brand-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--momo-r-4);
+  background: var(--momo-accent);
+  color: var(--momo-on-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+/* 左上角自定义图标（v0.9.3 → v0.9.9 改）：用户上传的图片盖过预设字形。
+   v0.9.3 的初衷是「不另开一块底色」——把 18px 的图垫在 30px accent 方标里，
+   透明底图透出主色底。实际反馈：上传的图自带颜色与轮廓，再垫一块主色等于
+   加了个相框，深色 / 彩色图上尤其难看。所以 .is-custom 把 mark 的底色退回
+   透明，图片放大到 30px 自己占位——视觉体积与预设那枚 30px 方标相同，
+   品牌行的左边线不变；圆角跟方标同档（r-4），方照片不喇手。
+   object-fit: contain 保住比例：非正方形的 logo 不会被裁。 */
+.momo-brand-mark.is-custom {
+  background: none;
+}
+.momo-brand-img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  border-radius: var(--momo-r-4);
+  display: block;
+}
+
+.momo-brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.momo-brand-name {
+    font-size: var(--momo-fs-5);
+    font-weight: 600;
+    color: var(--momo-ink);
+    line-height: 1.2;
+  }
+
+/* 固定顶部（v0.9.2）：图标 + 品牌名 + 写点什么 —— 常驻入口，不随侧栏滚动。
+   做法：搬出滚动容器，做 .momo-sidebar 的第一个子元素；下面 .momo-sidebar-inner
+   才是滚动区。**不用 position: sticky**：sticky 元素只能在自己的包含块（滚动容器的
+   内容盒）内位移，而滚动容器顶部那 14px 内距属于 scrollport、不属于它——滚动时下方
+   内容会从那一条冒到固定块上方（v0.9.1 的 sticky 方案实测未达标）。
+   搬出来后这块上方不存在任何滚动区，内容无从冒出。 */
+.momo-sidebar-fixed {
+  /* 逐条声明：不声明的话 Obsidian 全局 * 的 content-box 会在 padding 外再吃 28px */
+  box-sizing: border-box;
+  flex: none;
+  /* 顶/左右 14px = 旧版 .momo-sidebar-inner 的内距；底部 0——
+     与下方滚动区的间隔由 .momo-sidebar-inner 的 padding-top:16px 承担
+     （= 以前 flex gap 的那 16px，视觉上逐像素不变）。 */
+  padding: 14px 14px 0;
+  background: var(--momo-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  /* 收起渐隐：与 .momo-sidebar-inner 同曲线同延迟，两段一起淡出 */
+  transition: opacity 180ms ease 40ms;
+}
+
+/* 图标按钮：复古底色 + 白色描边（把面板类整个关掉，重新按需求上色） */
+.momo-icon-btn {
+  width: 30px;
+  height: 30px;
+  /* v0.9.35：定尺方块按钮，内距必须是 0。不声明就等于把宿主全局 `button` 那条
+     的 `padding: 4px 12px` 放进来——30×30 的内容盒只剩 6px 宽（图标靠
+     justify/align 还在正中，所以只有量尺寸才看得出，肉眼几乎不漏）。 */
+  padding: 0;
+  border-radius: var(--momo-r-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  cursor: pointer;
+  transition: box-shadow 120ms ease, background 120ms ease, color 120ms ease;
+}
+
+/* BUG-186：宿主 `button:not(.clickable-icon)`（(0,1,1)）压得住裸类的 color——
+   弱墨阶层级塌成 --momo-ink。宿主前缀单独声明（不动状态规则的特异性）。 */
+.momo-app .momo-icon-btn {
+  color: var(--momo-ink-3);
+}
+
+.momo-brand .momo-icon-btn {
+  width: 28px;
+  height: 28px;
+}
+
+/* hover 底从 surface 改 accent-soft（2026-10-11 用户报「雾蓝下 hover 到按钮上变成
+   浅色，看不清」同族）：侧栏底板就是 surface，按钮浮成 surface 等于没浮——雾蓝下
+   底色差 0/255，顶栏白底上也只 4/255。accent-soft 是同侧栏 .momo-tagbtn /
+   .momo-tag-caret / .momo-composer-entry 的既定 hover 底（030-sidebar-tags.css），
+   与侧栏 surface 在五套主题下都成台阶（雾蓝 11/255）。
+   再补 accent-line 细环（2026-10-11 横展五套实测）：stepfun 的 accent-soft
+   （#cfeaf8）与 surface（#d2edf4）只差 1.023——淡底在青蓝主题上塌成隐形，
+   细环是饱和色相边、五套都看得见（同 .momo-set-stepper-btn 的修法）。
+   环色 accent-line → ink-6（2026-10-12 用户再报「雾蓝下 hover 到选项上，就很难
+   看不清楚了」）：accent-line 在雾蓝是 #cfe4f8、对白底只有 1.30:1——它在
+   check-contrast 里是 advisory 级「装饰描边」，从来不按 3:1 判（该脚本 ⑦ 组：
+   选中胶囊另有 accent-soft 底 + accent 字 + 加粗三重线索，描边只是第三重）。
+   10-11 补的环在墨夜 / 苔绿上成立，在纯白纸感的雾蓝几乎隐形——而雾蓝的
+   page / card 正是纯白。ink-6 是项目登记在册的「hover 描边」令牌
+   （themes/README 门槛表第 3 行；check-contrast PAIRS ⑤/⑤c 已按 card /
+   surface / page 三底各判 3:1，五套现值全过），换色不新增门禁。色相位也说得通：
+   灰边 = 悬停（瞬态），蓝边 = 选中（.momo-seg-on / .momo-card-tag-on 的
+   accent 环），两种状态不混。 */
+.momo-icon-btn:hover {
+  background: var(--momo-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--momo-ink-6);
+  color: var(--momo-ink);
+}
+
+
+/* 回顾档锁住的筛选区块（BUG-123b）：回顾批次是进档那一刻的快照，筛选变了不重抽——
+   活跃度 / 地点树 / 标签树在回顾档里整块 inert（点不到、Tab 不进），视觉上压暗示意
+   「此刻不可用」。说明条已按用户裁定（2026-10-07）撤掉，只留压暗。 */
+.momo-sidebar-locked {
+  opacity: 0.45;
+}

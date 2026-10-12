@@ -1,0 +1,125 @@
+/* ---- 区块 chip 24 / r999 / padding 10 ----
+   选中态同样是全局统一那条：accent-soft 底 + accent 描边 + accent 字 + 一枚前缀勾。
+   此前「开 = accent-soft 底 + accent 字」在石白主题里 soft #f3efe6 与 surface
+   #f1efeb 差不到 3%，chip 又是小字药丸——一屏十一个几乎分不出哪个开着。 */
+.momo-settings .momo-set-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.momo-settings .momo-set-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--momo-r-pill);
+  background: var(--momo-surface);
+  box-shadow: inset 0 0 0 1px var(--momo-line);
+  font-size: var(--momo-fs-1);
+  font-weight: 400;
+  color: var(--momo-ink-3);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+/* hover 只换底（描边恒在——chip 自带 inset line 描边，hover 不加不减）。
+   2026-10-11 改描边语言：底从 surface-2（雾蓝下与 surface 只差 2/255，用户报
+   「hover 还是看不清」）换成把既有的 inset 环提亮到 accent-line——与 icon /
+   scheme 格子的 hover 同一手法；底不动是因为选中态就吃 accent-soft，hover 再
+   用同底会与选中撞脸（选中另有 accent 环与勾）。 */
+.momo-settings .momo-set-chip:hover:not(.is-on) {
+  box-shadow: inset 0 0 0 1px var(--momo-ink-6);
+  color: var(--momo-ink);
+}
+.momo-settings .momo-set-chip:active:not(.is-on) {
+  background: var(--momo-surface-2);
+}
+.momo-settings .momo-set-chip.is-on {
+  background: var(--momo-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--momo-accent);
+  font-weight: 500;
+  color: var(--momo-accent);
+}
+/* 选中态前缀的勾：iconSvg('check') 出来的是 svg，默认收起，只跟着 is-on 现身 */
+.momo-settings .momo-set-chip-check {
+  display: none;
+  flex: none;
+  width: 11px;
+  height: 11px;
+}
+.momo-settings .momo-set-chip.is-on .momo-set-chip-check {
+  display: block;
+}
+
+/* ---- 按钮体系（纪律②）：一族三档，规格全部一致 ----
+   次级（默认）：card 底 + 1px line 描边；文字（.is-ghost）：无底无框，hover 才
+   浮出 surface 底；主行动（.is-primary）：accent 实底 + 白字（页脚「完成」）。
+   统一 32 高 / r6 / 13 Medium，hover 抬一档、active 压一档并 0.5px 下沉、
+   disabled 0.45 透明 + not-allowed（复位块里统一兜底）。
+   此前「移除自定义」的按钮 28 高、描边 / 底 / hover 各写各的——现在全族一句话
+   说清。只剩卡片级「恢复默认」在用这一族（页头那颗 2026-10-04 已移除）。 */
+.momo-settings .momo-set-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-sizing: border-box;
+  height: var(--momo-set-btn-h);
+  padding: 0 14px;
+  border: 1px solid var(--momo-line);
+  border-radius: var(--momo-set-r);
+  background: var(--momo-card);
+  font-size: var(--momo-fs-3);
+  font-weight: 500;
+  color: var(--momo-ink-2);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.momo-settings .momo-set-btn:hover:not(:disabled) {
+  border-color: var(--momo-ink-5);
+  background: var(--momo-surface);
+  color: var(--momo-ink);
+}
+.momo-settings .momo-set-btn:active:not(:disabled) {
+  background: var(--momo-surface-2);
+  transform: translateY(0.5px);
+}
+.momo-settings .momo-set-btn.is-ghost {
+  border-color: transparent;
+  background: transparent;
+}
+.momo-settings .momo-set-btn:where(.is-ghost):hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--momo-surface);
+  color: var(--momo-ink);
+}
+.momo-settings .momo-set-btn.is-primary {
+  border-color: var(--momo-accent);
+  background: var(--momo-accent);
+  color: var(--momo-on-accent);
+  padding: 0 18px;
+}
+.momo-settings .momo-set-btn:where(.is-primary):hover:not(:disabled) {
+  border-color: var(--momo-accent-hover);
+  background: var(--momo-accent-hover);
+  color: var(--momo-on-accent);
+}
+.momo-settings .momo-set-btn svg {
+  flex: none;
+}
+
+/* ---- 键盘可达：焦点环统一 2px accent（键盘 Tab 才现身，鼠标点击不打扰）----
+   方向键在组内循环移动焦点并直接选中（radio / tab 的 ARIA 模式），
+   逻辑在 dom.ts 的 arrowNav()，roving tabindex 由各控件的 paint() 维护：
+   只有选中项 tabindex=0，Tab 键一次进组即落在选中项上，不再逐格停。 */
+.momo-settings button:focus-visible,
+.momo-settings input:focus-visible,
+.momo-settings select:focus-visible,
+.momo-settings textarea:focus-visible  {
+  outline: 2px solid var(--momo-accent);
+  outline-offset: 2px;
+}
+

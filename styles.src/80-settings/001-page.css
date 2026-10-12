@@ -1,0 +1,102 @@
+/* ============================================================================
+   设置页（v0.8 重设计 · v0.9.3 界面外观重设计 · v0.9.6 按设计稿重绘）
+
+   目标：配置页与主面板共用同一套设计令牌与元件规格，消除「配置页是原生灰条、
+   主面板是石白卡片」的割裂。
+
+   取值来源（不在此文件里新造任何色值 / 字号 / 圆角）：
+     · 版式与元件尺寸：Ardot「Momo 设置 · 界面外观 重设计」帧 ① 逐节点读数——
+       顶栏 60 / 标签栏 48 / 底栏 60；内容区 padding 24、卡片间距 16；
+       行 padding 16、标签列与控件列之间 gap 24；卡片 r8、控件 r6；
+       字号只用 15 / 14 / 13 / 12 / 11 五档。
+     · 颜色：00-tokens 的 --momo-* 令牌。设计稿画在雾蓝方案下，它的
+       #EFF4F8 / #FFFFFF / #E1E8EE / #1F1F1F / #5C5C5C / #8A9099 / #1A73E8 /
+       #E8F0FE 一律换成对应令牌——**硬抄 #1A73E8 会让另外三套配色方案里冒出一根
+       蓝线**（换肤的本质是「只换 token、不换结构」，见 themes/ 的注）。
+     · 结构：src/views/settings/*（类名一一对应）
+
+   ★ 每条组件规则都带 `.momo-settings` 前缀（v0.9.12 起，与面板的 `.momo-app`
+     前缀同一纪律）——不是洁癖，是**输不起的层叠战争**：
+       · 宿主 app.css 的 `button:not(.clickable-icon)`（0,1,1）给每个按钮刷
+         `background-color: var(--interactive-normal)`，亮色 Obsidian 主题里
+         它就是**白**。单类规则（0,1,0）压不过它，于是选中墨夜（暗色面板）时
+         浅字落在白按钮上 = 「文字被白色盖住」（v0.9.12 用户反馈 ⑤⑥）。
+       · 宿主 `.vertical-tab-content h3`（0,1,1）还会改卡头标题的颜色与字号。
+     加了前缀 = (0,2,0)，稳压这两条；面板侧同一场战争的证据在
+     scripts/host-obsidian-1.13.7.css 与 css-host-diff.mjs。改这套文件时
+     **别把前缀去掉**——去掉的那天就是暗色方案在设置页瞎掉的那天。
+
+   v0.9.6 四条纪律（对应「交互 / 选中 / 按钮 / 整体视觉」四项反馈）：
+     ① 选中态全页只有**一条**语言：accent-soft 浅底 + 1px accent 描边 + 文字转
+        accent 并加粗。v0.9.12 起方案卡与图标格都不再带勾（色 + 形已够；且
+        「选中」是当前所选，不是已确认的动作），全页仅统计页 chip 还留一枚
+        前缀勾（11px 小药丸，纯色差在石白主题里几乎分不出开合）。
+        分页 tab 是唯一例外，走「accent 下划线 + accent 加粗字」——它是导航不是
+        开关，给它实底药丸会把「我在哪一页」说成「我开了什么」。
+     ② 按钮一族三档：次级（默认）/ 文字（.is-ghost）/ 主行动（.is-primary），
+        统一 32 高 / r6 / 13 Medium；hover 抬一档、active 压一档、disabled 降
+        透明 + not-allowed、focus-visible 出 2px accent 环。
+     ③ 每个可交互元素四态齐全；热区不够的（开关 38×22）用透明 ::before 外扩，
+        视觉尺寸照设计稿、点击区撑到 50×34。
+     ④ 间距 / 字号 / 圆角各一条线：块 16、行 16、卡间 16；字号只用五档；
+        圆角只用「容器 8 / 控件 6」两级。
+
+   配色方案：`display()` 把 momo-theme-* 挂在页根上，上面三个 theme 块已把
+   .momo-settings（以及 .momo-set-scheme，见下）并进选择器组——切方案时设置页
+   和主面板一起变。
+   ============================================================================ */
+
+.momo-settings {
+  display: block;
+  margin: 0;
+  padding: 0;
+  max-width: none;
+  background: var(--momo-page);
+  color: var(--momo-ink);
+  font-family: var(--momo-sans);
+  font-size: var(--momo-fs-4);
+  line-height: 1.5;
+
+  /* ---- 本页组件尺寸（只在本文件内消费，不进全局令牌；全部是设计稿读数）----
+     三条高度线：输入 / 步进器 36，分段轨道 34（段 28），按钮 32。
+     此前 26~34 各写各的，「按钮一会儿大一会儿小」就是没有这条线。 */
+  --momo-set-ctrl-h: 36px;
+  --momo-set-seg-h: 34px;
+  --momo-set-btn-h: 32px;
+  /* 圆角两级：容器（卡片 / 分段轨道）8，控件（按钮 / 段 / 色卡 / 图标格）6 */
+  --momo-set-r-card: 8px;
+  --momo-set-r: 6px;
+  /* 四个横条共用的左右留白：页头 / 标签栏 / 内容列 / 页脚的左边缘成一条线 */
+  --momo-set-gutter: 24px;
+}
+
+/* ---- 控件复位：盖掉 Obsidian 原生 button / input 的底色、边框、阴影、
+   最小高度与行高。没有这一层，下面每个组件都得各自跟原生样式打架——
+   方案卡文字重叠（原生 button 的行高参与布局）、按钮带多余描边，都是它。 ---- */
+.momo-settings button,
+.momo-settings input,
+.momo-settings select,
+.momo-settings textarea  {
+  box-shadow: none;
+  min-height: 0;
+  margin: 0;
+  font-family: var(--momo-sans);
+  line-height: 1.2;
+}
+.momo-settings button  {
+  color: inherit;
+}
+.momo-settings button:disabled  {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ---- 居中内容列：860 上限，两侧留白随窗宽自适应 ----
+   设计稿顶栏 20 / 内容区 24，差 4px；在自适应宽度下那 4px 会让「品牌名」和
+   「卡片左边缘」错开，所以统一取 24——左对齐线比逐像素复刻更重要。 */
+.momo-settings .momo-set-head,
+.momo-settings .momo-set-nav,
+.momo-settings .momo-set-body {
+  padding-inline: max(var(--momo-set-gutter), calc((100% - 860px) / 2));
+}
+

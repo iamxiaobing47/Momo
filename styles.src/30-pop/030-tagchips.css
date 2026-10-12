@@ -1,0 +1,58 @@
+/* ---- 标签树里的胶囊与父子关系（DR-004 / concept-momo-tags）----
+    起因：面板级 button reset（.momo-app button）会连坐面板内所有原生按钮底色，
+    会连坐面板内所有原生按钮底色，于是标签胶囊一律用 div[role=button]，
+    不用 <button> 元素。 */
+
+/* 标签胶囊不用 <button>：绕开面板级 reset 对原生按钮底色的连坐 */
+
+/* （BUG-134b：这里原有 `.momo-app .momo-tag-child` / `.momo-tag-child::before` 的
+   虚线 chip 与斜纹描边、`.momo-tag-parent .momo-tag-label` 的父级加粗三条——
+   旧标签树那套父子形状已被 .momo-tagrow / .momo-tagchip 取代，src/ 不再产出
+   这两个类名，规则已删。） */
+
+/* （BUG-134b：这里原有 `.momo-tag-pill` / `.momo-tag-pill:focus-visible` 与
+   `.momo-tag-pill-open .momo-tag-caret` 三条——旧标签树 / breadcrumb 那套胶囊形状
+   已被 `.momo-tagchip` + `.momo-tagrow` 取代，src/ 不再产出这两个类名；
+   `.momo-loc-pill`（130-sort-menu.css）当初「照 .momo-tag-pill 的形式」收敛，
+   那份骨架现在由它自己承担。胶囊文字省略那条 `.momo-tag-label` 保留——
+   类名仍由标签行产出。） */
+
+/* 胶囊文字过长省略：给 flex 子项留出收缩空间——text-overflow 在 flex
+    容器里不配 min-width:0 不生效。 */
+.momo-tag-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* chip 尾部的小箭头块：原生 <button> 的居中与 focus 样式全部清掉（它只是个 div）；
+    2026-09-18 起箭头常显只留一枚小三角，展开 / 收起态用同一枚图标旋转，
+    不做两套图标。 */
+/* （BUG-134b：这里原有 `.momo-tag-pill-open .momo-tag-caret{opacity:.85}`——
+   祖先类 `momo-tag-pill-open` 无产出点，规则永不匹配，已删；
+   箭头自身的展开态由 `.momo-tag-caret-open` 表达，那颗 src/ 仍在产。） */
+
+/* 虚拟标签的斜体样式：由「未来日期的预测标签」带入，交给 CSS 类表达
+    （DR-004 §2.3）。 */
+.momo-tag-virtual {
+  font-style: italic;
+}
+
+/* ---- 置顶胶囊 ---- */
+
+.momo-pin-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+/* ---- 卡片标签选中态与侧栏联动（本卡片选中，侧栏过滤胶囊同步亮）----
+    选中态不再由侧栏单独设置；与「顶栏搜索命中态」分开，两侧各自只亮自己那一个。 */
+.momo-card-tag-on {
+  box-shadow: 0 0 0 1px var(--momo-accent);
+  font-weight: 600;
+}
+
+/* 置顶胶囊旁的提示行：说明这一组是「手动置顶」，也可从这里取消 */

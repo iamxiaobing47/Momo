@@ -1,0 +1,36 @@
+/* ---- 回收站（concept-momo-trash）：860px 内容宽 + 保留期说明条 ----
+   v0.9.26 起卡片本体与列表页同源（.momo-card / .momo-flow），这里只留版面外壳。 */
+.momo-trcol {
+  width: 860px;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.momo-notice {
+  min-height: 46px;
+  border-radius: var(--momo-r-4);
+  background: var(--momo-accent-soft);
+  border: 1px solid var(--momo-accent-line);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  color: var(--momo-accent);
+}
+
+.momo-notice-text {
+  font-size: var(--momo-fs-3);
+  color: var(--momo-ink-2);
+  line-height: 1.5;
+}
+
+/* BUG-95：回收站卡片读盘失败的降级占位行（顶在正文位置上）——行高与字号跟
+   .momo-card-body 同口径，读回来恢复真身时版面不跳；颜色淡一档，一眼能看出
+   这不是正文而是状态。行本身由 Card 按 entry.readFailed 渲染。 */
+.momo-card-readfail {
+  line-height: 24px;
+  font-size: var(--momo-ui-fs-body);
+  color: var(--momo-ink-4);
+}
+

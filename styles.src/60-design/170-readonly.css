@@ -1,0 +1,43 @@
+/* ---- 只读模式（v0.5.3 prefs.readOnly）----
+    卡片正文不可改、卡片操作行只留「在原生编辑器里打开」；
+    hover 不出浮起（光标也用 default：这一档不提供任何编辑暗示）；
+    多选 / 取消多选仍可用——用 :not() 把这两种态从 hover 复位里摘出来，
+    不让只读把交互入口一起关掉。 */
+.momo-card.momo-card-readonly {
+  cursor: default;
+}
+
+.momo-card-readonly:not(.momo-card-select, .momo-card-checked):hover {
+  border-color: var(--momo-line);
+  box-shadow: var(--momo-shadow-card);
+}
+
+.momo-card-readonly .momo-card-body {
+  cursor: default;
+}
+
+.momo-card-readonly .momo-card-body:hover {
+  background: transparent;
+}
+
+.momo-card-readonly .momo-card-actions {
+  opacity: 1;
+}
+
+.momo-cbwrap {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--momo-r-pill);
+  border: 1px solid var(--momo-line);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: var(--momo-primary-ink);
+}
+
+.momo-cbwrap-on {
+  background: var(--momo-primary);
+  border-color: var(--momo-primary);
+}
+

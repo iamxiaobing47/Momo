@@ -1,0 +1,71 @@
+/* ---- 内容质量四格（分布 + 间隔 + 图表线 + 长间隔，统计页专用）----
+    格子宽度均分：首格固定 16px + 卡片间距 8 = 24，主内容按可用宽度平分；
+    不用 .momo-stats-card 的 flex 布局，改用 grid 均分（flex 只在单卡内部用）。 */
+.momo-quality {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+  align-items: stretch;
+  padding: 24px 8px;
+}
+
+.momo-quality-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  border: none;
+  padding: 0 16px;
+  background: transparent;
+  text-align: left;
+}
+
+.momo-quality-div {
+  width: 1px;
+  align-self: center;
+  height: 44px;
+  background: var(--dp-line);
+}
+
+.momo-quality-label {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: var(--momo-fs-2);
+  color: var(--dp-text-3);
+  /* 卡片文字过长省略（0.5.3 用户反馈「分类看不清」）：窄侧栏里再长一点
+      就会折行，一折行两列就挤成一团；nowrap + ellipsis 只在数据口径处兜底，
+      标题与说明仍可换行。 */
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.momo-quality-label em {
+  font-style: normal;
+  font-size: var(--momo-fs-1);
+  color: var(--dp-axis);
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.momo-quality-value {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 26px 是统计页的字号中档：质量卡数字专用 */
+.momo-quality-num {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--dp-text);
+}
+
+.momo-quality-unit {
+  font-size: var(--momo-fs-2);
+  color: var(--dp-text-3);
+}
+

@@ -1,0 +1,126 @@
+/* =====================================================================
+   UI 微调（v0.9.1 三档 · v0.9.12 字号 / 圆角 / 标题字号改连续滑杆）+ 面板消费端
+   ---------------------------------------------------------------------
+   兑换方式：App.tsx 在 .momo-app 根节点上给正文字号 / 标题字号 / 卡片圆角挂
+   **内联 var**（--momo-ui-fs-body / --momo-ui-fs-title / --momo-ui-r-card，连续
+   px 没有「档」可挂 class），卡片间距仍是三个 class（momo-ui-gap-*）；这里把
+   class 翻译成 --momo-ui-gap 这一个令牌，**消费端统一放在本节**（同优先级规则
+   后写的胜出，所以消费声明一律跟在本节末尾）。
+   默认值 = 升级前各处的实际大小：var 一个都不覆盖时版面与升级前逐像素一致
+   （正文 14.5 与标签从正文折算是设计稿值；标题 17 是 .momo-card 标题一直用的
+   字阶，见 60-design.css 那条覆盖规则）。
+   ===================================================================== */
+.momo-app  {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+  background: var(--momo-page);
+  font-family: var(--momo-sans);
+  font-size: var(--momo-fs-4);
+  color: var(--momo-ink);
+  user-select: text;
+  container-type: inline-size;
+  position: relative;
+  /* 卡片正文 / 回顾正文：App.tsx 的内联 var 覆盖它；这里是设计稿原值（中档） */
+  --momo-ui-fs-body: 14.5px;
+  /* 卡片短首行标题 / 统计页笔记预览标题：v0.9.12 起有**自己的滑杆**
+     （cardTitleSize），所以这里只是兜底默认 = --momo-fs-6，也就是升级前
+     卡片标题实际显示的大小（.momo-card > .momo-card-title 一直用字阶盖着它） */
+  --momo-ui-fs-title: 17px;
+  /* 标签区：比正文小一档半（没有自己的一根滑杆，从正文折算） */
+  --momo-ui-fs-tags: calc(var(--momo-ui-fs-body) - 1.5px);
+  /* 卡片 / 回顾大卡圆角：内联 var 覆盖；这里仍是设计稿原值 */
+  --momo-ui-r-card: 16px;
+  /* 卡片流纵向间隙：三档 class 兑换 */
+  --momo-ui-gap: 10px;
+  -webkit-font-smoothing: antialiased;
+  -webkit-user-select: text;
+  /* 面板通常停靠在 Obsidian 侧边栏，侧栏默认 user-select: none，正文不可选中、
+      无法局部复制。这条把面板内正文的选取恢复为可选，卡片的正文能像普通文本
+      一样拖选复制（2026-09-20 用户反馈）。
+      只重置继承来的默认值，不影响下面显式设置 user-select: none 的元素。 */;
+  /* 面板内浮层定位用 position:absolute，必须有一个定位祖先（相对锚点开），
+      所以 .momo-app 要 position: relative；container-type 会把包含块变成
+      fixed 定位元素，绝对定位的浮层因此找到锚点祖先。 */;
+}
+
+/* ---- 消费端（v0.9.1 的视觉微调；值只经 var 间接进来） ---- */
+/* 卡片间距仍是三档：紧凑 / 标准 / 宽松是**名字**不是尺寸，且它一次影响三种
+   密度的卡片流，给连续值不如给三个想好的数。字号 / 圆角 v0.9.12 起是滑杆，
+   没有 class——值由 App.tsx 的内联 var 直接给。 */
+/* 三档的 class **一个都不能少**：md 的 10px 与上面 .momo-app 块里的默认值同数，
+   但那条默认值只覆盖面板 DOM——设置弹窗（.momo-settings）挂在 body 下，够不到
+   .momo-app。「卡片尺寸」预览的流（mock.ts 的 sizeMock）只挂一个
+   momo-ui-gap-md 时 var 未定义，.momo-flow 的 gap 整条 invalid 落回
+   normal(0)，两张预览卡贴成一张（BUG-92，用户 2026-10-06 报「设置为标准时
+   两个卡片重叠」）。档位 class 各自自供，不靠宿主继承。 */
+.momo-ui-gap-sm { --momo-ui-gap: 6px; }
+.momo-ui-gap-md { --momo-ui-gap: 10px; }
+.momo-ui-gap-lg { --momo-ui-gap: 16px; }
+/* 卡片字体偏好（v0.9.16）：--momo-font-card 由运行时注入（ui/shared/fontStyle.ts，
+   @font-face 在 views/fontFaces.ts）。未选字体时回 inherit——卡片本来就从
+   面板继承字体，行为不变；选了才一切「读一条 Momo 的面」换字体（完整卡 /
+   紧凑行 / 回顾大卡，统计页「最长笔记」那三张预览卡 2026-10-01 起也是完整卡，
+   一并跟着换）。面板字体走 00-tokens.css 的 --momo-sans
+   （运行时整条覆盖本体，不再经 --momo-font-ui 间接），不经这里。 */
+.momo-card,
+.momo-review-card {
+  font-family: var(--momo-font-card, inherit);
+}
+.momo-card  {
+  padding: 28px;
+  background: var(--momo-card);
+  border: 1px solid var(--momo-line);
+  box-shadow: var(--momo-shadow-pop);
+  margin: 0;
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+  border-radius: var(--momo-ui-r-card);
+}
+.momo-review-card  {
+      padding: 28px;
+      margin-top: 20px;
+      background: var(--momo-card);
+      border: 1px solid var(--momo-line);
+      box-shadow: var(--momo-shadow-pop);
+      cursor: default;
+      transition: border-color 120ms ease, background 120ms ease;
+      border-radius: var(--momo-ui-r-card);
+    }
+.momo-flow  {
+  display: flex;
+  flex-direction: column;
+  gap: var(--momo-ui-gap);
+}
+/* （网格档 2026-10-12 整体移除：`.momo-grid .momo-grid-flow` 的 column-width 320px
+   与 `.momo-grid .momo-grid-flow > .momo-card` 的列内节奏（含 BUG-15 那条简写口径）
+   一并删除。） */
+.momo-card-body  {
+  line-height: 24px;
+  color: var(--momo-ink-2);
+  word-break: break-word;
+  font-size: var(--momo-ui-fs-body);
+}
+.momo-review-body  {
+    line-height: 24px;
+    color: var(--momo-ink-2);
+    margin-top: 8px;
+    font-size: var(--momo-ui-fs-body);
+    word-break: break-word;
+  }
+.momo-card-title  {
+  letter-spacing: 0.01em;
+  font-weight: 600;
+  color: var(--momo-ink);
+  margin-bottom: 6px;
+  overflow-wrap: anywhere;
+  font-size: var(--momo-ui-fs-title);
+}
+.momo-card-tags  {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 0;
+  font-size: var(--momo-ui-fs-tags);
+}
+

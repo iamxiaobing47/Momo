@@ -1,0 +1,196 @@
+/* =====================================================================
+   可视化预览（mock，v0.9.32 起 · v0.9.33 重做）
+   ---------------------------------------------------------------------
+   用户反馈「配置页面内容太多，但每一项都是必要的，所以不能删减；希望每个配置项
+   做成可视化的样子，左 / 上是配置项，下 / 右是 mock 后的改动」。落法：**每张配置卡
+   尾随一块预览**（配置在上、预览在下），预览从 service.data.prefs 现读、随每次
+   改动重画（DOM 在 src/views/settings/mock.ts）。
+
+   v0.9.33 的四条纪律（上一版的病根是「一块预览要同时讲四件事、还吊在 800px 之外」）：
+   ① **一个 mock 讲一个区域**：各 Tab 按「一张卡 = 一块区域 = 一块预览」拆卡，
+      每张卡（含预览）压在一屏以内，改哪一行的眼睛就落在下面同一块预览上。
+   ② **一个场景，只亮一块**（`.momo-set-mock-dim` / `-hl`）：卡片类预览共用同一张
+      卡，当前区域垫 accent 浅底 + 描边，其余压到 30%。比换五种画法更省也更准。
+   ③ 预览不持有第二份状态：一律从 service.data.prefs 现读、挂在 ctx.onPrefChange 上
+      （见 context.ts）。漏接线的表现正是用户报的「改了没动」。
+   ④ 卡片 / 标签 / 正文那几件**不在这里重画**——直接复用主面板那套类（.momo-card
+      等，规则在上面的「UI 微调」节），预览卡只补三件事：标签字号的折算（.momo-app
+      上那条的镜像）、去掉指针手型与 hover（mock 不是真卡片）、给个宽度上限。
+      换句话说：**看到的就是面板上那一张**，不是一个仿制品。
+      面板 / 侧栏 / 统计页这种「整个区域」的缩略才自绘，类一律 `momo-set-mock-*`，
+      色值只走 --momo-* 令牌（换方案时预览跟着一起变，不出现第二套配色）。
+   ===================================================================== */
+
+/* ---- 预览块：块头（`预览` 标 + 区域名 + 一句说明）+ 舞台 ---- */
+/* v0.9.33：块头从「一行标题」升级成三件。中间那个名字是**区域名**（信息行 / 标题行 /
+   两张卡…），说的是「下面这块预览画的是哪一块」——一个 mock 只讲一个区域，名字与它
+   一一对应；右边那句弱一档，说这块预览该怎么看。 */
+.momo-settings .momo-set-block.is-mock {
+  gap: 10px;
+  padding: 14px 16px 16px;
+}
+.momo-settings .momo-set-mock-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+/* v0.9.34：`预览` 标从胶囊改回**一枚 accent 圆点 + accent 粗体小字**（设计稿原样）。
+   上一版是 accent 浅底 + 描边的胶囊，和区域名、分段控件的选中段挤在一起像三种「控件」；
+   圆点标签只占一个墨色，块头于是有了清楚的三级：accent 标 → ink-2 区域名 → ink-4 说明。 */
+.momo-settings .momo-set-mock-tag {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  color: var(--momo-accent);
+  font-size: var(--momo-fs-1);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 16.5px;
+}
+.momo-settings .momo-set-mock-tag::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: var(--momo-r-pill);
+  background: var(--momo-accent);
+}
+/* 区域名用 `-region` 不用 `-name`：后者是侧栏那一角的品牌名，同名会被 lint-css 的
+   「重复定义」抓住（同名两处样式将来必然分家）。 */
+.momo-settings .momo-set-mock-region {
+  flex: none;
+  font-size: var(--momo-fs-2);
+  font-weight: 500;
+  color: var(--momo-ink-2);
+}
+.momo-settings .momo-set-mock-note {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--momo-fs-1);
+  color: var(--momo-ink-4);
+}
+/* 舞台：一块**嵌在卡里的浅色衬底**（页面底 + 发丝**实**边）。旧版是「页面底 + 虚线边」，
+   读起来像示意图的脚注；这一版要它像「正在改的那张卡」躺在一块衬底上。
+   v0.9.34 把底色从 --momo-surface 收敛回 --momo-page、边从 --momo-line-soft 提到
+   --momo-line、圆角 6→8：surface 比 page 深一档，衬底与卡片的明度差太大，预览里那张卡
+   像是「掉进一个洞」；page + line 是「同一张纸上的一个内嵌面」，与设计稿同一组取值。 */
+.momo-settings .momo-set-mock-stage {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 12px;
+  overflow: hidden;
+  padding: 14px;
+  background: var(--momo-page);
+  border: 1px solid var(--momo-line);
+  border-radius: var(--momo-set-r-card);
+}
+/* 条形 / 流式预览（顶栏那一排 / 预热条 / 时间线 / 侧栏那一角）**从左起**：它们模拟的是
+   一页的「某一条」，浮在衬底正中会读成展品；卡片类预览保持居中——那才是「一张卡摆出来
+   给你看」。与设计稿 `.stage.is-wide` 同一条规矩。 */
+.momo-settings .momo-set-mock-stage.is-wide {
+  justify-content: flex-start;
+}
+/* 「这里没有可画的东西」的占位（语言 / 配色 / 字体三张卡）：格子里的样字、色卡本身
+/* （语言 / 配色 / 字体三张卡原先在这里有一条 `.momo-set-mock-slot` 斜纹空位，
+   2026-10-04 连同那三块占位预览一起删了——它不渲染任何东西。见 mock.ts 头部。） */
+
+/* ---- 区域高亮：同一张卡，只有当前那一块是亮的 ----
+   卡片类预览共有五块（信息行 / 标题 / 正文 / 操作 + 两张卡的尺寸），五块**共用同一张
+   卡**（mock.ts 的 buildCardScene）：不在焦点里的压到 30%（.momo-set-mock-dim），在
+   焦点里的垫一层 accent 浅底 + 一圈 accent 描边（.momo-set-mock-hl）。于是「改的这一
+   行落在卡的哪儿」不用读文字就看得出来，五块预览也不再长得一模一样。
+   只动 inline 方向的盒模型：.momo-card-meta 自带 margin-bottom: 8px、.momo-card-title
+   自带 margin-bottom: 6px，用 margin / padding 简写会连纵向节奏一起抹掉——预览里的
+   行距就不像真卡片了。 */
+.momo-settings .momo-set-mock-stage :where(.momo-set-mock-dim) {
+  opacity: 0.3;
+}
+.momo-settings .momo-set-mock-stage :where(.momo-set-mock-hl) {
+  margin-inline: -6px;
+  padding-inline: 6px;
+  background: var(--momo-accent-soft);
+  border-radius: 5px;
+  box-shadow: 0 0 0 1px var(--momo-accent-line);
+}
+
+/* 顶栏视图那一排预览：已删除（2026-10-09）
+   「视图」卡尾随那块「顶栏那一排」缩略（按 densityViews 过滤后的可见档画一排
+   chip：图标 + 名字，关掉的档不出现，顺序跟着设置页上的上下箭头走）已按用户
+   要求「去掉预览」整块删除，DOM 侧（mock.ts 的 viewBarMock / densityIcon /
+   densityName）与字典 mock.viewbar 同批删除。删掉的规则：
+   .momo-set-mock-{viewbar,viewbar-gap,view,view-text}。
+   理由是卡里五行说的就是顶栏那五个按钮本身（开着就出现、摆第几位就第几位出现，
+   顶栏时时刻刻在用户眼前），再画一排小 chip 只是同一件事的第二份表述，而且画的
+   只有图标 + 名字，答不出「关掉这一档顶栏少什么」。 */
+
+/* ---- 卡片 / 卡片流预览的宽度：与一列正文等宽，别把设置弹窗撑宽 ---- */
+.momo-settings .momo-set-mock-stage > .momo-card,
+.momo-settings .momo-set-mock-stage > .momo-flow {
+  width: 100%;
+  max-width: 440px;
+}
+/* 预览卡不是真卡片：没有点击、没有 hover 浮起。标签字号与 .momo-app 上那条同一算式
+   （--momo-ui-fs-body 由 mock.ts 内联在卡上，所以这条折算拿得到当期值）。 */
+.momo-settings .momo-set-mock-stage .momo-card {
+  cursor: default;
+  --momo-ui-fs-tags: calc(var(--momo-ui-fs-body) - 1.5px);
+}
+.momo-settings .momo-set-mock-stage .momo-card:where(:hover) {
+  border-color: var(--momo-line);
+}
+/* 只读态预览脚注：卡片自己已经不再有 hover 浮起，这句再说清「点正文也不开」 */
+.momo-settings .momo-set-mock-readonly-tip {
+  margin-top: 10px;
+  font-size: var(--momo-fs-1);
+  line-height: 16px;
+  color: var(--momo-ink-3);
+}
+
+/* ---- 头像与名称预览：已删除（2026-10-09）----
+   「头像与名称」卡那块「侧栏左上角那一角」的预览整组规则（.momo-set-mock-brand /
+   -mark / -mark.is-custom / -mark svg / -mark-img / -name）已按用户要求「去掉预览」
+   整块删除，DOM 侧（mock.ts 的 brandMock）与字典 mock.brand 同批删除。理由与「整块
+   面板」「统计页」「回顾与活跃度」三块同族：卡里两行（左上角图标 / 左上角名称）指的
+   就是侧栏左上角那一角本身，时时刻刻在用户眼前，再画一枚小 mark + 一个名字只是同一
+   件事的第二份表述。 */
+
+/* ---- 面板缩略：已删除（2026-10-09）----
+   「面板与侧栏」卡那块「整块面板」缩略的整组规则（.momo-set-mock-app / -side /
+   -sidebar-brand / -quick / -side-heat / -side-heat-col / -menu / -menu-item /
+   -menu-text / -side-tree / -tree-row / -main / -topbar / -cards / -cardbar）已按
+   用户要求「去掉整块面板的预览」整块删除，DOM 侧（mock.ts 的 panelMock）与字典
+   mock.panel 同批删除。理由是它讲的三行偏好（停靠侧 / 宽度 / 侧栏功能开关）指的就是
+   主面板那条真侧栏本身，再画一张缩略只是同一件事的第二份表述。 */
+
+/* ---- 回顾与活跃度预览：已删除（2026-10-09）----
+    「回顾与活跃度」卡那块预览（一批抽多少条画几张卡 + 一颗「还有 N 条」收尾；热力图
+    窗口铺几个月画几列格子）已按用户要求「配置页面 - 回顾与活跃度，去掉回顾与活跃度的
+    预览」整块删除，DOM 侧（mock.ts 的 reviewMock / heatLevel）与字典 mock.review 同批
+    删除。删掉的规则：.momo-set-mock-{review,sub,batch,batch-card,batch-more,heat,
+    heat-month,heat-month-label,heat-cols,heat-col}，以及 .momo-set-mock-heat-cell
+    （含 l1–l4 四档色阶）——热力格子原本由面板缩略与回顾预览两任消费者共用，两者都已
+    不在（面板缩略删于同日上午），色阶变量 --momo-heat-* 归侧栏真热力图，不受影响。
+    理由是它讲的两行指的就是回顾页与侧栏热力图本身：进回顾档那一刻用户就看见这一批有
+    多厚，侧栏热力图时时刻刻铺在眼前，再画一份只是同一件事的第二份表述。 */
+
+/* ---- 统计页缩略：已删除（2026-10-09）----
+   「统计页」卡那块按 STATS_GROUPS 分组的区块缩略（每个 chip 一张小卡、关掉的留虚线
+   空位）已按用户要求「配置页面 - 统计页，去掉统计页的预览」整块删除，DOM 侧
+   （mock.ts 的 statsMock）与字典 mock.stats 同批删除。整组规则：
+   .momo-set-mock-{stats,stat-group,stat-group-title,stat-cards,stat-card,
+   stat-card-name}。
+   理由是它讲的十一个 chip 指的就是统计页上那十一个区块本身，再画一排只是同一件事的
+   第二份表述，而且画出来的只有一排名字，答不出「这张卡长什么样」。 */
+
+/* ---- 地点（分组档位 + 树的展开方式）：已删除（2026-10-11）----
+   「地点」卡那块缩略（组头写到哪一级 + 三级树画不画展开钮）已按用户要求「去掉地点
+   分组与树的预览面板」整块删除，DOM 侧（mock.ts 的 locMock）与字典 mock.loc 同批
+   删除。整组规则：.momo-set-mock-loc{,-group,-group-name,-group-count,-tree,-node,
+   -node.is-d1,-node.is-d2,-twisty,-twisty svg,-node-label}。
+   理由与「整块面板」「统计页」两块同族：它讲的两行指的就是侧栏地点树与地点分组流
+   本身，缩略图只是同一件事的第二份表述（画出来的那棵树还是假的）。 */

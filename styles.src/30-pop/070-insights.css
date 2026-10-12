@@ -1,0 +1,42 @@
+/* ---- 洞察区（DR-005 空间受限：最近半年 2 项布局）---- */
+.momo-insights {
+  /* 洞察行两列排布：0.4.17 起只留 10 个数据点，长内容可读性优先；
+      720px 容器查询把两列合回一列，标签侧不再挤成竖排。 */
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 24px;
+  row-gap: 6px;
+}
+
+.momo-insight-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  font-size: var(--momo-fs-3);
+  letter-spacing: 0.01em;
+  color: var(--dp-text);
+}
+
+.momo-insight-label {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+/* 洞察数值右对齐 + 截断兜底：长文案一律省略号，全量信息放 title */
+.momo-insight-value {
+  margin-left: auto;
+  flex-shrink: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-normal);
+  font-variant-numeric: tabular-nums;
+}
+

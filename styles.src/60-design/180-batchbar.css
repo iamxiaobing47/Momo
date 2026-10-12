@@ -1,0 +1,99 @@
+/* ---- 底部多选操作条（设计稿 §2 .fab）----
+    多选条贴底居中（2026-09-19 用户截图反馈）——不再漂浮在卡片右下角。
+    底色 surface + 描边 + 浮起投影：压在最下层卡片之上、不遮正文；
+    主色胶囊按需出现（这是项目语言里唯一允许它出现的浅色主按钮位）。
+    圆角随宽度切换：宽面板是设计稿的胶囊，窄面板换行后成正圆角小卡片
+    （胶囊圆角被 clamp 成半高时行首 / 行尾按钮会压进圆角里）。 */
+.momo-fab {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 24px;
+  /* 高度不写死（2026-09-22 窄面板遮挡修复）：五颗按钮横排放不下时要能换行，
+     硬编码 52px + 不换行的结果是内容顶出 max-width，被 .momo-main 的 overflow:hidden
+     从右端裁掉——窄侧边栏里「取消」看不见就是这个原因。
+     放得下时仍是一行 52px，视觉不变；放不下就整颗按钮换行（按钮内部 nowrap，不会切字）。 */
+  min-height: 52px;
+  height: auto;
+  flex-wrap: wrap;
+  justify-content: center;
+  border-radius: var(--momo-r-pill);
+  background: var(--momo-card);
+  border: 1px solid var(--momo-line);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 18px;
+  box-shadow: var(--momo-shadow-float);
+  z-index: var(--momo-z-mask);
+  max-width: calc(100% - 24px);
+}
+
+.momo-fab-count {
+  font-size: var(--momo-fs-3);
+  font-weight: 600;
+  color: var(--momo-ink);
+  margin-right: 4px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.momo-fab-sep {
+  width: 1px;
+  height: 20px;
+  flex: none;
+  background: var(--momo-line-soft);
+}
+
+.momo-app .momo-fab-btn {
+  height: 36px;
+  /* 窄面板下文字被藏起来时（见 .momo-fab-text），靠这条撑出一个够点的方形目标 */
+  min-width: 34px;
+  justify-content: center;
+  border-radius: var(--momo-r-pill);
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--momo-ink-2);
+  font-size: var(--momo-fs-3);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+/* hover = 淡底 + 墨色前景（只换底不换字色）：切到主文字色 primary-ink 会
+    让整颗按钮在淡底上过亮，不是项目语言里的悬浮反馈。
+    底从 surface 改 accent-soft（2026-10-11 用户报「hover 还是看不清」同批）：
+    批量条是 card 纯白，surface 只差 4/255，等于没浮。 */
+.momo-app .momo-fab-btn:hover:not(:disabled) {
+  background: var(--momo-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--momo-ink-6);
+  color: var(--momo-ink);
+}
+
+.momo-app .momo-fab-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.momo-fab-btn.momo-fab-danger {
+  color: var(--momo-danger);
+}
+
+/* 危险项 hover：只是淡底 + danger-hover 前景（用 :not 排除禁用态）——
+    不做实底变红：低频破坏性操作不该和常用动作抢视觉重量。
+    底同批从 surface 改 accent-soft（2026-10-11）：卡白上 surface 只有 4/255。 */
+.momo-fab-btn.momo-fab-danger:hover:not(:disabled) {
+  background: var(--momo-accent-soft);
+  color: var(--momo-danger-hover);
+}
+
+.momo-fab-btn.momo-fab-ghost {
+  color: var(--momo-ink-3);
+}
+

@@ -1,0 +1,53 @@
+/* ---- 统计页 · 按 §4 的图表语言（v0.5.9 加入）----
+    图表组件 = 设计稿 §4 的一组色阶 + 度量线（hero KPI + 迷你可视化 + 目标进度），
+    统计页与主面板同源；v0.4.19 起所有图表化开关并入统计页自己的 token 层
+    （--dp-*，见上方 .momo-mode-stats 的 token 块），单个图表不再自带皮肤。
+    图表区块改用卡片 + 表格呈现，度量线 / 网格线 / 空态与主面板卡片一致。 */
+.momo-mode-stats .momo-main {
+  /* 统计页的二级 token（--dp-*）从 --momo-* 翻译一层，挂在 .momo-main 上：
+      配色方案（prefs.colorScheme）只改这一层就能整页换肤；
+      统计页内部一切组件只认 --dp-*，不直接碰 --momo-*。 */
+  --dp-page: var(--momo-page);
+  /* BUG-134f：卡片面单独一档。此前 --dp-page 定义后**没有任何消费者**，
+      而统计页三处卡片底直接读宿主 `var(--background-primary, #fff)`——四套主题里
+      两套的宿主底是 #ffffff（moss-green / mist-blue），卡片色 --momo-card 却带暖或绿调，
+      于是同一页上「统计页卡片纯白 / 主面板卡片带暖或绿调」两张脸。
+      现在：页面底走 --dp-page（下面那条 background 就是它的消费者），卡片面走 --dp-card。 */
+  --dp-card: var(--momo-card);
+  --dp-border: var(--momo-line);
+  --dp-line: var(--momo-line-soft);
+  --dp-text: var(--momo-ink);
+  --dp-text-2: var(--momo-ink-2);
+  --dp-text-3: var(--momo-ink-3);
+  --dp-axis: var(--momo-ink-4);
+  --dp-accent: var(--momo-accent);
+  --dp-accent-2: var(--momo-heat-3);
+  --dp-accent-3: var(--momo-heat-2);
+  --dp-accent-4: var(--momo-heat-1);
+  --dp-pill: var(--momo-accent-soft);
+  --dp-shadow: var(--momo-shadow-card);
+  background: var(--dp-page);
+  /* 统计页的二级 token（--dp-*）全部从 --momo-* 翻译一层，挂在 .momo-main 上：
+      配色方案（prefs.colorScheme）只改这一层就能整页换肤，组件只认 --dp-*。 */
+}
+
+.momo-app.momo-selecting {
+  user-select: none;
+}
+
+/* 多选进行中：给底部操作条让位——内容区底部预留按实测高度算 */
+.momo-selecting .momo-content {
+  /* 底部预留按批量条的**实测高度**算（App.tsx 把它的 offsetHeight 写进 --momo-fab-h）：
+     面板窄时五颗按钮放不下会换行成 2–4 行，写死 100px 会算少，最后几张卡片就被浮条盖住。
+     拿不到实测值（未布局 / 测试环境）时回落到 52px，合成 100px——与旧行为一致。 */
+  padding-bottom: calc(var(--momo-fab-h, 52px) + 48px);
+}
+
+.momo-tagrow-open .momo-tag-caret {
+  color: var(--momo-accent);
+}
+
+.momo-heat-l0 {
+  background: var(--momo-heat-0);
+}
+

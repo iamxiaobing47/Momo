@@ -1,0 +1,84 @@
+/* ---- 记录概览条（v0.6.2，v0.6.3 改白底）：核心指标行之下的「状态解读层」。----
+   底色与其它卡片一致（白）：淡色底把摘要卡从数据卡里挑出来，但整页只有它一块
+   有色、反而像贴错位置的补丁（用户反馈）。层次改由**标题前的 accent 竖条**
+   承担——与组标题同一套视觉语言，不靠底色区别身份。 */
+.momo-ov {
+  gap: 14px;
+}
+
+/* 卡片头与格子的间距交给 flex gap，不叠 card-head 的 margin-bottom */
+.momo-ov .momo-card-head {
+  margin-bottom: 0;
+}
+
+/* 标题前的 accent 竖条：与 .momo-stats-group-title::before 同款，
+   标识「这是页面级摘要」而不引入第二块底色 */
+.momo-ov .momo-card-title::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 12px;
+  margin-right: 7px;
+  border-radius: var(--momo-r-1);
+  background: var(--dp-accent);
+  vertical-align: -1px;
+}
+
+.momo-ov-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+
+.momo-ov-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.momo-ov-label {
+  font-size: var(--momo-fs-2);
+  color: var(--dp-text-3);
+  white-space: nowrap;
+}
+
+.momo-ov-value {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 22px：比内容质量的 26px 小一档——六格并排时降一档才不挤，也顺势让
+   「大数字归 hero 与质量卡、概览只做速读」的层级差看得出来 */
+.momo-ov-num {
+  font-size: var(--momo-fs-7);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--dp-text);
+}
+
+.momo-ov-unit {
+  font-size: var(--momo-fs-1);
+  color: var(--dp-text-3);
+}
+
+.momo-ov-sub {
+  font-size: var(--momo-fs-1);
+  line-height: 1.4;
+  color: var(--dp-axis);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 副行色调：up = 在变好（主色），down = 在退步（danger 色），flat = 灰 */
+.momo-ov-sub-up {
+  color: var(--dp-accent);
+}
+
+.momo-ov-sub-down {
+  color: var(--momo-danger);
+}
+

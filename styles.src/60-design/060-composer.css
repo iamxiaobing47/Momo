@@ -1,0 +1,83 @@
+/* ---- 发布框（设计稿 §1 .cw / .composer）---- */
+.momo-composer {
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+  flex: none;
+  margin: 16px 24px 0;
+  height: 52px;
+  background: var(--momo-card);
+  border: 1px solid var(--momo-line);
+  border-radius: var(--momo-r-4);
+  box-shadow: var(--momo-shadow-card);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+}
+
+.momo-composer-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: var(--momo-fs-4);
+  color: var(--momo-ink-3);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* ---- 发布框（v0.5.3 重做：无描边主按钮 + 古铜主按钮 + 古铜边框）----
+    视觉主张：发布框不再画自己的外壳（底色 / 描边 / 投影全部让位给主按钮），
+    整条语义收到「点击就写」这一颗上；hover / cursor:text 沿用卡片正文的暗示。
+    复位写在 .momo-app 下、带前缀与源码在后的双保险——
+    旧规则（.momo-composer 自身那套底色 / 高度）全部作废。 */
+.momo-app .momo-composer,
+.momo-app .momo-composer:hover,
+.momo-app .momo-composer:focus-within {
+  margin: 0;
+  height: 46px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+}
+
+.momo-app .momo-composer-entry {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--momo-card);
+  border: 1px solid var(--momo-accent);
+  border-radius: var(--momo-r-4);
+  color: var(--momo-accent);
+  font-size: var(--momo-fs-4);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0;
+  cursor: pointer;
+  text-align: center;
+  transition: background 120ms ease, color 120ms ease, transform 120ms ease;
+  box-shadow: none;
+}
+
+.momo-app .momo-composer-entry:hover {
+  background: var(--momo-accent-soft);
+  color: var(--momo-accent-hover);
+}
+
+.momo-app .momo-composer-entry:active {
+  transform: scale(0.99);
+}
+
+.momo-app .momo-composer-text {
+  color: inherit;
+  font-size: var(--momo-fs-4);
+  /* 层级里的 flex:1 让位给内容：任何一列被压缩时，先收内容不收结构 */
+  flex: none;
+}
+

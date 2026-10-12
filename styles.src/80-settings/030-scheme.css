@@ -1,0 +1,98 @@
+/* ---- 配色方案卡（v0.9.6）：auto-fit 网格，每张顶部一条 22px 的三色预览 ----
+   宽处一行铺开、窄处 3 / 2 / 1 列。v0.9.10 起十套。
+   预览三段 = 该方案自己的 底色 / 卡片色 / 强调色。**卡自己挂 momo-theme-*，
+   三段直接读 --momo-page / --momo-card / --momo-accent**（themes/<id>.css 与
+   00-tokens.css 的令牌宿主选择器里都有 .momo-set-scheme），所以每张卡各自穿
+   自己那套衣服，TS 侧一个色值都不用抄。
+   选中态 = 全局统一那一条：accent-soft 底 + 1px accent 描边 + 名称转 accent
+   加粗（v0.9.12 起名称右侧不再有勾——色 + 形两信号已够，且选中是「当前所
+   选」不是「已确认的动作」）。窄屏下 auto-fit 自动降成 3 / 2 / 1 列。 */
+.momo-settings .momo-set-schemes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+.momo-settings .momo-set-scheme {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* v0.9.35：宿主 app.css 有一条**元素选择器**的全局 `button { display:inline-flex;
+     align-items:center; justify-content:center; height: var(--input-height); … }`。
+     这张卡是 <button>，而下面这些属性插件从没声明过 —— 宿主那条就接管了：
+     整卡被压成 30px（内容盒只剩 10px）、三段预览条被 flex 挤到 0 高、两个子元素
+     又被 align-items:center 收成内容宽。2026-10-02 前截图脚手架不加载宿主 CSS，
+     这个「真 Obsidian 里配色卡全是扁的」的问题一张图都没拍到。 */
+  height: auto;
+  align-items: stretch;
+  justify-content: flex-start;
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 10px;
+  border: 0;
+  border-radius: var(--momo-set-r);
+  background: var(--momo-card);
+  box-shadow: inset 0 0 0 1px var(--momo-line);
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease, box-shadow 120ms ease;
+}
+.momo-settings .momo-set-scheme:hover:not(.is-on) {
+  box-shadow: inset 0 0 0 1px var(--momo-ink-6);
+}
+.momo-settings .momo-set-scheme:active:not(.is-on) {
+  background: var(--momo-surface-2);
+}
+.momo-settings .momo-set-scheme.is-on {
+  background: var(--momo-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--momo-accent);
+}
+.momo-settings .momo-set-scheme-preview {
+  display: flex;
+  height: 22px;
+  border-radius: var(--momo-r-2);
+  overflow: hidden;
+}
+.momo-settings .momo-set-scheme-chip {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.momo-settings .momo-set-scheme-chip.is-page {
+  background: var(--momo-page);
+}
+.momo-settings .momo-set-scheme-chip.is-card {
+  background: var(--momo-card);
+}
+.momo-settings .momo-set-scheme-chip.is-accent {
+  background: var(--momo-accent);
+}
+.momo-settings .momo-set-scheme-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+  font-size: var(--momo-fs-2);
+  font-weight: 500;
+  line-height: 16px;
+  color: var(--momo-ink);
+}
+.momo-settings .momo-set-scheme.is-on .momo-set-scheme-name {
+  font-weight: 600;
+  color: var(--momo-accent);
+}
+.momo-settings .momo-set-scheme-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* StepFun 方案的品牌标（官方标：黑圆 + 白色阶梯像素，SVG 在 settings/dom.ts 的
+   stepfunLogoSvg）。名称行右侧一枚 15px 小黑圆——圆取 currentColor（卡面自己的
+   墨色），阶梯是白的，所以每张色卡各自的纸面上都读得清。只此一套有：别的方案卡
+   不挂这个类，名称行仍是「标签独占」。flex:none 防窄卡把标压扁。 */
+.momo-settings .momo-set-scheme-logo {
+  flex: none;
+  width: 15px;
+  height: 15px;
+}
+

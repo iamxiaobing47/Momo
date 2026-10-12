@@ -1,0 +1,368 @@
+/* ============================================================================
+   浮层骨架（Momo · Dialog 视觉系统，2026-09-23；设计稿 docs/design/mockups/momo-dialog-v1.png）
+   ----------------------------------------------------------------------------
+   一处骨架、四个浮层：批量标签（加 / 去）、标签管理、卡片右键菜单、二次确认。
+   四个浮层只覆盖各自差异（卡片菜单免头部；确认框换底栏内容），不再各写一套。
+   解剖（设计稿 card 01–04）：容器 328 · r 12 · 描边 1px · shadow 0 8 24-8；
+   头 36（左右内缩 14；标题衬线 14.5 / 字距 .09em）；输入 32；行 28（r 8 ·
+   左右内缩 8；图标 14；行距 2）；底 44（按钮 h 32 / r 9 / 内缩 14）。
+   颜色一律走项目 token（描边 --momo-line、主按钮 --momo-accent、危险
+   --momo-danger）：设计稿的 #E9E9E6 / 绿 #35745A 是 mockup 对 token 的中性化
+   渲染（设计稿的 shadow 0 8 24-8 与 --momo-shadow-float 逐字相同可证），
+   详见工单 2026-09-23-dialog-visual-system §3 偏离 1。
+
+   ---- v0.9.26 密度一刀（用户反馈「所有的 dialog 都很大，空间利用率低」）----
+   骨架的整体收紧，**六个调用点（含确认弹窗）一次到位**，不为某个弹层开小灶：
+     头 44 → 36    输入 34 → 32    行 32 → 28
+     底 54 → 44    列表上限 264 → 300    列表行距 3 → 2
+   少的是 chrome，多的是内容：同样一屏，列表从 8 行变 10 行（300 / (28+2)）。
+   与之配套的「去装饰」在组件层：标签管理弹层的候选行不再画恒空的 check 圈
+   （PopRow 的 bare）、地点队列 chip 不再每颗挂一枚 mappin、输入框下与底栏里
+   几句把按钮念一遍的文言整句删除（见各调用点注释）。
+   ⚠️ 行高 28 只属于**浮层候选行**（.momo-pop-row）；卡片右键菜单 / 排序菜单的
+   .momo-pop-menu-item 仍是 32——那是菜单不是列表，条目 ≤4，密度不是它的矛盾。
+   ⚠️ 改这里任何度量，同步改三处估算值：TagEditMenu.MENU_H / TagSortMenu.MENU_H /
+   TagFilterMenu.MENU_H / LocEditPop.POP_H（落点夹取用，别在两处各写一个数）。
+   ============================================================================ */
+
+/* 全屏点击遮罩：只负责「点外面关上」，不当任何容器。卡片右键菜单自带
+   pointerdown 监听、不用遮罩（层级 token 见 .momo-app 令牌块）。 */
+.momo-pop-mask {
+  position: fixed;
+  inset: 0;
+  z-index: var(--momo-z-mask);
+}
+
+/* 弹层本体。位置两种用法二选一：
+   ① 锚定（.momo-pop-below，fab 里由 .momo-fab .momo-pop 翻到向上开）：
+      挂在 .momo-batchtag-wrap（position: relative）下；
+   ② 自由落点（.momo-pop-free，JS 换算相对 .momo-app 的 left/top）。 */
+.momo-pop {
+  position: absolute;
+  z-index: var(--momo-z-pop);
+  width: 328px;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--momo-r-4);
+  border: 1px solid var(--momo-line);
+  background: var(--momo-card);
+  box-shadow: var(--momo-shadow-float);
+  font-family: var(--momo-sans);
+}
+
+/* 不渲染头行的弹层（2026-10-02 起 free 小浮层都不要左上角标题；2026-10-10 起批量
+   标签弹层连标题带「已选 N 条」都不往头顶放，见 BatchTagPicker 文件头）：首块自带的
+   上内距只有 5px，顶边会显挤，由壳补到与左右 14px 相称的一刀。 */
+.momo-pop-nohead {
+  padding-top: 8px;
+}
+
+/* 头部：h 36、左右内缩 14（v0.9.26 起 44 → 36）。只在调用方真传 title / meta 时
+   渲染（都不传 → `.momo-pop-nohead`，见上）。2026-10-10 起七个调用点全都不再传
+   title（批量标签 / 地点两个弹层跟删，那些话入口按钮已经说过一遍），头部眼下只剩
+   meta 一类行内小字——`.momo-pop-title` 与它唯一的消费者 `--momo-serif` 随
+   BUG-187 一并退役。 */
+.momo-pop-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  flex: none;
+  padding: 0 14px;
+}
+
+.momo-pop-meta {
+  margin-left: auto;
+  font-size: var(--momo-fs-2);
+  color: var(--momo-ink-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 头部与输入之间的说明行（去模式「只摘标签本身，不动子标签」这类控件不自明的坑；
+   标签管理的改名预览句、非法输入提示也用它——都紧跟输入框，不压底部）。
+   v0.9.26：上下内距 4/6 → 2/4（说明行是「有话说才出现」的，不是常驻空白带）。 */
+.momo-pop-note {
+  padding: 2px 14px 4px;
+  font-size: var(--momo-fs-2);
+  letter-spacing: 0.01em;
+  color: var(--momo-ink-3);
+}
+
+/* 说明行的非法输入变体（改名预览句里的「不能作标签」） */
+.momo-pop-note-bad {
+  color: var(--momo-danger);
+}
+
+/* 弹层输入：只留定位（外观走 .momo-input）——左右各缩 14px 与头部对齐。
+   高 32（v0.9.26 起 34 → 32），与按钮同档：底栏按钮也是 32，两排齐高。 */
+.momo-pop-input {
+  width: calc(100% - 28px);
+  height: 32px;
+  flex: none;
+  margin: 0 14px;
+}
+
+/* 待处理队列（待添加 / 待移除）：前缀标签 + chip 同一行，chip 换行时它跟着第一行 */
+.momo-pop-pending {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 14px 0;
+}
+
+.momo-pop-qlabel {
+  flex-shrink: 0;
+  font-size: var(--momo-fs-1);
+  letter-spacing: 0.04em;
+  color: var(--momo-ink-3);
+}
+
+.momo-pop-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  padding: 2px 4px 2px 9px;
+  border-radius: var(--momo-r-pill);
+  border: 1px solid var(--momo-accent-line);
+  background: var(--momo-accent-soft);
+  color: var(--momo-accent);
+  font-size: var(--momo-fs-2);
+}
+
+.momo-pop-chip-x {
+  border: none;
+  padding: 0 2px;
+  font-size: var(--momo-fs-1);
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* BUG-186：宿主 (0,1,1) 会压掉裸类的 color，宿主前缀单独声明 */
+.momo-app .momo-pop-chip-x {
+  color: var(--momo-accent);
+}
+
+.momo-pop-chip-x:hover {
+  color: var(--momo-accent-hover);
+}
+
+/* 地点 chip（批量「设地点」的待处理队列，设计稿 F4）：与标签 chip 共用骨架，
+   几何两处随稿不同——高 24、圆角收成 r-3（不是全胶囊）。
+   v0.9.26 起前缀不再有 mappin，于是左右内距对称成 8、gap 收回 4：队列里的
+   「这是地点不是标签」由方角（vs 标签 chip 的全胶囊）与没有 # 前缀说完了，
+   每颗再挂一枚地图钉只是把同一句话说 N 遍。
+   排在基础规则之后：(0,1,0) 同特异性靠源码序覆盖（lint-css 的重复定义只数
+   同选择器，这两个选择器不同名，不算重复）。 */
+.momo-loc-chip {
+  gap: 4px;
+  height: 24px;
+  padding: 2px 8px;
+  border-radius: var(--momo-r-3);
+}
+
+/* chip 里的地名：长地名截断，不让 chip 把弹层撑宽（chip 自己有 max-width: 100%） */
+.momo-loc-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 列表：行距 2（v0.9.26 起 3 → 2），左右各让 5px、行自身再缩 8px，
+   文字与头部 14px 对齐。高度随内容，超长内部滚。
+   上限 264 → 300：一屏多摆两行（300 / (28+2) = 10 行）——这才是「空间利用率」。 */
+.momo-pop-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 5px;
+}
+
+/* 分组标签：常一起出现 / 全部标签 / 这批 Momo 身上有 / 合并到已有标签 */
+.momo-pop-seclabel {
+  padding: 3px 8px 1px;
+  font-size: var(--momo-fs-2);
+  letter-spacing: 0.02em;
+  color: var(--momo-ink-3);
+}
+
+.momo-pop-seclabel:first-child {
+  padding-top: 0;
+}
+
+/* 行：h 28 · r 8 · 左右内缩 8（v0.9.26 起 32 → 28）。三态——未选（空心圈）/ 待处理（accent 实心白勾）/
+   全命中（灰勾 + 右列「已含」，禁用）。hover 与键盘游标共用一套底。
+   面板级 reset 是 .momo-app button（0,1,1）：行要铺底必须同时带 .momo-app，
+   (0,2,0) 才压得住那条 reset——与打不打 !important 无关（2026-09-25 P3 起全表无 !important）。
+   ⚠️ 28 只适用于浮层候选行；菜单项（.momo-pop-menu-item）仍是 32，见文件头。 */
+.momo-app .momo-pop-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 28px;
+  flex: none;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--momo-r-3);
+  background: transparent;
+  font: inherit;
+  font-size: var(--momo-fs-3);
+  letter-spacing: 0.01em;
+  color: var(--momo-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.momo-app .momo-pop-row:hover:not(:disabled),
+.momo-app .momo-pop-row-cursor {
+  background: var(--momo-accent-soft);
+  color: var(--momo-accent);
+}
+
+.momo-app .momo-pop-row-on,
+.momo-app .momo-pop-row-on:hover {
+  background: var(--momo-accent-soft);
+  color: var(--momo-accent);
+  font-weight: 600;
+}
+
+.momo-app .momo-pop-row:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* 行首 check：14px 圈（设计稿「图标 14」）。未选空心；待处理 accent 实心 + 白勾；
+   全命中灰勾无圈；新建行是 ＋（无圈）。 */
+.momo-pop-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: var(--momo-r-pill);
+  border: 1px solid var(--momo-ink-5);
+  color: var(--momo-ink-5);
+}
+
+.momo-pop-row-on .momo-pop-check {
+  background: var(--momo-accent);
+  border-color: var(--momo-accent);
+  color: var(--momo-on-accent);
+}
+
+.momo-pop-check-have {
+  border-color: transparent;
+  color: var(--momo-ink-4);
+}
+
+.momo-pop-check-new {
+  border-color: transparent;
+  color: var(--momo-accent);
+}
+
+.momo-pop-row-on .momo-pop-check-have,
+.momo-pop-row-on .momo-pop-check-new {
+  color: var(--momo-on-accent);
+}
+
+.momo-pop-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 右列只说「点下去会变多少」：+N / −N / 已含；口径长句进 title（hover） */
+.momo-pop-stat {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: var(--momo-fs-2);
+  color: var(--momo-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 新建行（「新建 #xxx」）：挂在列表外、与队列之间留 4px，不跟着列表的内边距走 */
+.momo-pop-newrow {
+  margin-top: 4px;
+}
+
+.momo-pop-empty {
+  padding: 4px 8px 6px;
+  font-size: var(--momo-fs-3);
+  color: var(--momo-ink-3);
+}
+
+/* 底栏：h 44（6 + 32 + 6，v0.9.26 起 54 → 44）、分隔线在上。左：状态块 / 摘要 /
+   文字按钮；右：动作按钮。
+   破坏性且低频的操作（删除标签）降级成左下角文字按钮，与主按钮分居底栏两端。
+   ⚠️ 底栏只在实际有内容时渲染（PopDialog 接住 undefined），但「取消 + 主动作」这两颗
+   几乎常在，所以 44 是常态高——从 11+32+11 收到 6+32+6，每个弹层净矮 10px。 */
+.momo-pop-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  flex: none;
+  padding: 6px 14px;
+  border-top: 1px solid var(--momo-line-soft);
+}
+
+.momo-pop-footleft {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+/* 底栏左列的状态块（2026-10-10，批量标签弹层去掉头部标题后「已选 N 条」的新家）：
+   两行小字——已选条数常驻，影响面摘要（.momo-pop-sum）只在有待处理队列时出现。
+   **刻意不排成一行**：328 的弹层里底栏两颗按钮实测约占 145px，左列只剩 ≈146px，
+   而 count ≈48 + sum ≈130 已经超出（真 Chromium 量过，挤一行会折成三行）；两句话
+   本来就各说一件事（选区语境 / 队列影响），一行一句反而好扫。
+   两行合计仍低于底栏 44 的 min-height——队列为空时底栏高度一寸没长。 */
+.momo-pop-status {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+/* 状态块第一行：「已选 N 条」。与 .momo-pop-meta 同款小字 + 表格数字，只是不再
+   靠 margin-left: auto 贴右边（底栏左列才是它的位置）。 */
+.momo-pop-count {
+  font-size: var(--momo-fs-2);
+  color: var(--momo-ink-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 状态块里的摘要不再当「弹性填充」：列方向上没有剩余空间可抢，而 flex: 1 的
+   flex-basis: 0 会把假设主尺寸归零——排布跟着内容走更稳（真 Chromium 量过）。 */
+.momo-pop-status .momo-pop-sum {
+  flex: none;
+}
+
+.momo-pop-sum {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--momo-fs-2);
+  color: var(--momo-ink-2);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.momo-pop-acts {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+

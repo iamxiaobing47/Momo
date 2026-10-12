@@ -1,0 +1,169 @@
+/* ---- hero 数字卡 ---- */
+.momo-kpi-card {
+  gap: 12px;
+}
+
+.momo-kpi-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 24px;
+}
+
+.momo-kpi-name {
+  font-size: var(--momo-fs-2);
+  color: var(--dp-text-3);
+}
+
+/* 环比变化胶囊：与上一周期（近 30 天）做对照 */
+.momo-kpi-delta {
+  flex-shrink: 0;
+  border-radius: var(--momo-r-pill);
+  background: var(--dp-pill);
+  padding: 3px 9px;
+  font-size: var(--momo-fs-1);
+  line-height: 1.4;
+  color: var(--dp-accent);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.momo-kpi-icon {
+  flex-shrink: 0;
+  color: var(--dp-axis);
+}
+
+.momo-kpi-value {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 44px 是统计页的字号上限：hero 数字专用 */
+.momo-kpi-num {
+  font-size: var(--momo-fs-8);
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--dp-text);
+}
+
+.momo-kpi-unit {
+  font-size: var(--momo-fs-2);
+  color: var(--dp-text-3);
+}
+
+.momo-kpi-foot {
+  margin-top: auto;
+  font-size: var(--momo-fs-2);
+  color: var(--dp-text-2);
+}
+
+/* 连续记录数字卡：达标天数 + 起止日期 */
+.momo-kpi-ring {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 迷你走势图：纯 SVG + 少量 line 元素（不引第三方图库）。
+    transform-box 让描边缩放只作用在 svg 自身；
+    margin-top:auto 把走势贴到卡片底部——hero 主内容结束后，
+    这块剩下的空间正好给迷你卡收尾。 */
+.momo-spark {
+  position: relative;
+  margin-top: auto;
+  height: 52px;
+}
+
+.momo-spark-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.momo-spark-line {
+  fill: none;
+  stroke: var(--dp-accent-2);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.momo-spark-dot {
+  position: absolute;
+  right: 0;
+  width: 8px;
+  height: 8px;
+  margin-right: -4px;
+  border: 1.6px solid var(--dp-accent-2);
+  border-radius: 50%;
+  /* BUG-134f：端点这枚「挖空」点要跟着它所在那张卡的面色走（--dp-card），
+     直接读宿主底色会在 moss-green / mist-blue 下露出一个比卡面更白的点。 */
+  background: var(--dp-card);
+  transform: translateY(-50%);
+}
+
+/* 30 天达标的小圆环：52px 直径，放在 hero 卡与统计卡之间 */
+.momo-ring {
+  position: relative;
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.momo-ring svg {
+  position: absolute;
+  inset: 0;
+}
+
+.momo-ring-track,
+.momo-ring-fill {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.momo-ring-track {
+  stroke: var(--dp-line);
+}
+
+.momo-ring-fill {
+  stroke: var(--dp-accent);
+}
+
+.momo-ring-num {
+  font-size: var(--momo-fs-4);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--dp-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.momo-ring-num em {
+  font-size: var(--momo-fs-1);
+  font-style: normal;
+  font-weight: 500;
+  color: var(--dp-axis);
+}
+
+.momo-ring-cap {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: var(--momo-fs-2);
+  color: var(--dp-text-3);
+}
+
+.momo-ring-cap em {
+  font-style: normal;
+  font-size: var(--momo-fs-2);
+  color: var(--dp-text-2);
+  font-variant-numeric: tabular-nums;
+}
+

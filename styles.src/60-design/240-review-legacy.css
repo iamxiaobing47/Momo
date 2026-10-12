@@ -1,0 +1,72 @@
+/* ---- v0.5 回顾 · 第 2 项：卡片居中 / 多选条叠层 ---- */
+.momo-review {
+  padding: 32px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  /* .momo-content 是 flex 列的主滚动容器：flex:1 让它吃满剩余高度，
+      卡片不需要 min-height 自己撑。 */;
+  min-height: 100%;
+  overflow-y: auto;
+  outline: none;
+}
+
+/* 卡片标题与统计卡同语言：统一走 .momo-card-title（复用 .momo-card 的字阶），
+    回顾正文里的 Momo 标题因此与统计页规格一致。
+    v0.9.12：字号从写死的 --momo-fs-6 改成**偏好 var**（--momo-ui-fs-title，
+    「短首行作为标题」的字号滑杆）。默认值就是这里的 17px——观感不变，
+    只是「谁说了算」从字阶挪到了用户的滑杆上。 */
+.momo-card > .momo-card-title {
+  font-size: var(--momo-ui-fs-title);
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--momo-ink);
+  margin-bottom: 6px;
+  overflow-wrap: anywhere;
+}
+
+.momo-card.momo-card-checked {
+      background: var(--momo-accent-soft-2);
+      border-color: var(--momo-accent);
+      box-shadow: none;
+    }
+
+/* v0.5 回顾 · 第 3 项：选中态原本是「换 card 底 + 极淡投影」——2026-10-02 横展十套改为
+   「透明底 + accent 描边 + accent 字」，与 20-panel.css 的 .momo-seg-on、
+   80-settings.css 的 .momo-set-seg-item.is-on 三处同一手法。
+   为什么撤掉投影：墨夜 shadow-card 是 rgba(0,0,0,0.4)，投影在深底上等于没有；
+   而 card 底在十套里 1.03~1.29 两头失效（浅色浮成白板、墨夜隐形）。
+   accent 描边十套 4.71~6.80 全过 3:1，是唯一横展得过去的强信号。 */
+.momo-segmented .momo-seg-on,
+.momo-segmented .momo-seg-on:hover {
+      background: transparent;
+      color: var(--momo-accent);
+      box-shadow: inset 0 0 0 1px var(--momo-accent);
+      font-weight: 600;
+    }
+
+/* v0.5 回顾 · 第 4 项：补上 v0.4 遗漏的侧栏内距 / 搜索宽度两处细节。 */
+.momo-sidebar .momo-sidebar-section {
+    padding: 0;
+  }
+
+.momo-sidebar .momo-tags-section {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.momo-sidebar .momo-menu {
+    padding: 0;
+  }
+
+
+/* v0.5 回顾 · 第 5 项：TagTree 子级缩进改用 padding + margin 双轨
+    （缩进 16px）：用 padding 会同时吃掉点击命中区，
+    margin + padding 各管各的，命中区才够大。 */
+.momo-tagrow.momo-tagrow-sub {
+  padding-left: 8px;
+}
+

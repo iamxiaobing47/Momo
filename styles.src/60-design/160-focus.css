@@ -1,0 +1,226 @@
+/* ---- 焦点滚动视图（v0.8.0 密度档，prefs.density === 'focus'）----
+   任一时刻只有一张卡片占焦点（停在滚动视口中心、实底完整尺寸）；上下相邻的卡片
+   退后成**毛玻璃**：半透明底 + backdrop 模糊 + 内容柔化 + 轻微缩放。
+   卡片之间用负 margin 叠瓦——backdrop-filter 需要「背后有东西」才模糊得出来，
+   压边那一圈模糊到的正是下一张卡；焦点卡再用 z-index 盖回压边上方，内容不被遮。
+   槽位不设最小高度：卡片多高槽位就多高，相邻卡片因此恒定互相压住 72px，
+   一屏看得见两三张（中间清晰、上下磨砂），而不是一屏一张大空板。
+   v0.9.2：毛玻璃只给焦点 ±2 的卡（momo-focus-near），更远的 momo-focus-far
+   只留半透明——每层 backdrop-filter 都是每帧一次 GPU 模糊，实测记录见
+   src/ui/focus/FocusScroll.tsx 头部。
+   2026-09-27：清晰度改连续化——「退后多少」由 JS 每帧写在槽位根上的
+   --momo-focus-k（卡心与视口中心的归一距离）插值出来，过路卡渐变退后/清晰，
+   不再是焦点一切换整卡瞬变；三阶类名退化为静置兜底 + backdrop 开关 + 投影开关。
+   根因与实测记录见 src/ui/focus/FocusScroll.tsx 头部。 */
+.momo-content > .momo-focus-wrap {
+  /* 盖掉 .momo-content > :first-child 的 12px 顶距：焦点视图要整屏可用 */
+  margin-top: 0;
+  height: 100%;
+}
+
+.momo-focus-wrap {
+  position: relative;
+  height: 100%;
+}
+
+.momo-focus {
+  /* Obsidian 原生 tooltip 抑制（2026-10-12 用户报障「很影响体验感」，BUG-211）：
+     Obsidian 在 body 上委托 pointerover[aria-label]——鼠标落在焦点视图任意位置
+     （含卡片上）时，最近的带名祖先都是本容器，于是整屏悬停都弹出 aria-label
+     那枚黑底白字气泡，位置默认 bottom，被顶到窗口底部。
+     --no-tooltip: true 让 Obsidian 对这枚气泡整体跳过（其源码：
+     getComputedStyle(el).getPropertyValue("--no-tooltip").trim() === "true"）。
+     aria-label 本身保留在 FocusScroll.tsx——读屏软件的无障碍名不丢
+     （BUG-159 判据：不重复可见文字的名字值得留）。改动前先读
+     scripts/focus-depth-css.test.mts 的守卫。 */
+  --no-tooltip: true;
+  height: 100%;
+  overflow-y: auto;
+  /* 同上（scrollbar-gutter）：一屏一卡的构图里，卡片是按视口宽算的，
+     滚动条一出一没整张卡就会横向抽一下。 */
+  scrollbar-gutter: stable;
+  /* 吸附滚动只在本容器内消化，不把余势甩给外层 .momo-content */
+  overscroll-behavior-y: contain;
+  scroll-snap-type: y mandatory;
+  outline: none;
+}
+
+.momo-focus-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  /* 一屏一卡（v0.9.15 三轮，构图规则的现行版）：槽位 = 整个滚动视口高。任意卡居中
+     静止时，相邻卡最近的边缘也在视口外 ≥ 2vh——**顶部与底部都保证干净**，任何高度
+     组合都成立（构造保证，不靠测量）。滚动途中邻居照常滑过视口，玻璃景深（半透明 +
+     blur + k 插值）在运动中仍然生效：静置 = 独处，滚动 = 上下文。
+     ---- 前两轮记录 ----
+     ① 卡片定高（height = 一屏 − 96px）：构图绝对对称，但短笔记卡框内大片留白，
+        用户否决（「上下空白太大」）；
+     ② 槽位下限（min-height 45vh）：短卡之间有了空档，但 -36px 叠瓦压边让上一张卡
+        的底部**探出自己槽位 36px**，短卡居中时这条尾巴正好落在屏幕顶端——用户报
+        「最上部分不要有其他卡片的影子」。根因是压边（一张 100px 的短卡会被叠掉
+        72%）+ 槽位不足一屏，两者都随本轮退场。
+     卡片自然高 + max-height 截断不变，见下面 .momo-focus-item > .momo-card。 */
+  height: var(--momo-focus-h, 100vh);
+  scroll-snap-align: center;
+  justify-content: center;
+  /* 快滑也不跳过中间张：一次手势最多过一张（触摸 / 触控板路径）。
+     鼠标滚轮路径 Chromium 不遵守 snap-stop（2026-09-26 对照实验：纯静态复刻页同样
+     跳，见 FocusScroll.tsx 头部「滚轮一格翻一张」）——滚轮一格翻一张由 FocusScroll
+     的 wheel 监听自管，别指望这条拦得住滚轮。 */
+  scroll-snap-stop: always;
+  /* 连续景深参数（2026-09-27）：JS 每帧把「卡心离视口中心多远」归一成
+     --momo-focus-k（1 = 压在中线，卡高当尺子）写在槽位根上，卡片据此插值退后
+     程度。缺省值与旧三阶对齐：k=1 = on（全尺寸实底）、k≈0.35 = near、k=0 = far。 */
+  --momo-focus-back: 0.06; /* 缩放退后量：scale = 1 − back×(1−k) → .96 / .94 */
+  --momo-focus-lo: 0.5; /* 最低不透明度：opacity = lo + (1−lo)×k */
+  /* 内容柔化峰值：blur = peak×(1−k)。v0.9.13 用户要求「背景再模糊一点，突出当前的
+     卡片」——原值 2px 在 near 档（k≈0.35）只剩 1.3px，截图上看不出磨砂，退后的卡
+     跟清晰卡只差一层透明度。峰值抬到 3.5px：near ≈2.3px / far = 3.5px，
+     文字还是「看得出是字」的一团，但眼睛只会挑中心那张清晰的看。 */
+  --momo-focus-blur: 3.5px;
+}
+
+/* 三阶类名现在只提供两样东西：静置兜底 k（JS 没写 / reduced-motion / 老引擎时
+   接管视觉）与 backdrop-filter 的开关、投影的有无。插值本身全走 --momo-focus-k。 */
+.momo-focus-item.momo-focus-on {
+  --momo-focus-k: 1;
+}
+.momo-focus-item.momo-focus-near {
+  --momo-focus-k: 0.35;
+}
+.momo-focus-item.momo-focus-far {
+  --momo-focus-k: 0;
+}
+
+.momo-focus-item > .momo-card {
+  width: 100%;
+  max-width: 720px;
+  /* 卡片自然高 + 一屏上限（v0.9.15 二轮）：不超过一屏（--momo-focus-h 由组件写入
+     滚动视口高度），超长 Momo 的正文改为卡内滚动，否则 mandatory 吸附下永远翻不到
+     它的结尾。短卡贴内容、不灌空气——构图规则（槽位下限 + 定高试验的否决记录）
+     见上面 .momo-focus-item 的注释。 */
+  max-height: calc(var(--momo-focus-h, 100vh) - 96px);
+  /* 叠瓦压边已随「一屏一卡」退场（v0.9.15，见 .momo-focus-item 的三轮记录）：
+     原先 margin: -36px 0 让相邻卡互相压住 72px，给毛玻璃「背后有东西」可模糊，
+     也是当时的构图语言；代价是每张卡都探出槽位 36px——短卡居中时上一张的尾巴
+     正好落在屏幕顶端（「顶部残影」报障的根因）。现在槽位 = 一屏、卡永远在槽内，
+     静止时邻居不入画；滚动途中的玻璃靠半透明 + blur 本身成立，不再依赖叠瓦。 */
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  /* 连续景深（2026-09-27）：缩放 / 不透明度 / 内容柔化 / 底色 / 描边都按
+     --momo-focus-k 插值——过路卡是渐变着退后 / 清晰的，不再是焦点一切换整卡瞬变
+     （用户报障「像从一张卡跳到另一张」的根因，见 FocusScroll.tsx 头部）。底色 /
+     描边用 color-mix（Chromium 111+，Obsidian 的 Electron 130+ 原生支持）；引擎
+     不支持时整条 calc 表达式失效，回落到 .momo-card 底座的实底描边， degraded 但可用。
+     **过渡只留给 box-shadow**（2026-09-27 用户报障「被滚上去的卡有残留，不像真正的
+     滚动」的修复）：上面五个属性由 JS **每帧按真实位置**写出的 k 插值，挂 transition
+     等于让视觉值永远追着位置跑——滑行中滞后约半个时长，滑行结束后还要再过渡最多
+     220ms，观感就是「位置到了、样子还没退」。真正的滚动里样子只由位置决定，所以
+     这五个属性一律不过渡（随 k 每帧即时变）。
+     v0.9.2 那条「砍掉四个主线程绘制属性的过渡 → 掉帧 3~4 涨到 37~45」的口径**没有
+     被推翻**，但它量的是**类名瞬时翻转**这种离散变化；现在 k 走内联样式、压过类名
+     兜底值，类名翻转这一刻这五个属性的计算值根本不变、不触发重绘——掉帧的因没了。
+     box-shadow 仍要过渡：它是类名驱动的离散属性（投影刻意不接 k 的逐帧插值——每帧
+     插值投影是每帧一次整卡重绘，红线见上面 .momo-focus-on 段），翻转时给它 220ms
+     淡出才不被一帧吞下整卡的重绘。 */
+  transform: scale(calc(1 - var(--momo-focus-back) * (1 - var(--momo-focus-k))));
+  opacity: calc(var(--momo-focus-lo) + (1 - var(--momo-focus-lo)) * var(--momo-focus-k));
+  filter: blur(calc(var(--momo-focus-blur) * (1 - var(--momo-focus-k))));
+  background: color-mix(in srgb, var(--momo-card) calc(55% + 45% * var(--momo-focus-k)), transparent);
+  border-color: color-mix(in srgb, var(--momo-line) calc(100% * var(--momo-focus-k)), transparent);
+  transition: box-shadow 220ms ease;
+}
+
+/* 卡片自然高（只有一屏上限）：元信息行 / 标题 / 底部信息行 / 标签行不收缩，
+   超长卡被截断时正文区在卡内滚动 */
+.momo-focus-item .momo-card-meta,
+.momo-focus-item .momo-card-title,
+.momo-focus-item .momo-card-foot,
+.momo-focus-item .momo-card-tags {
+  flex: none;
+}
+
+.momo-focus-item .momo-card-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* 占焦点：实底、完整尺寸、浮起——前三样由 k=1 插值出来，这里只留浮起投影。
+   （投影不接 k 的连续插值：逐帧插值 shadow 是每帧整卡重绘，v0.9.2 那条「渐变摊开
+   绘制」的红线在这里反过来用——它由类名切换 + 220ms 过渡承担，增量最小。） */
+.momo-focus-item.momo-focus-on > .momo-card {
+  box-shadow: var(--momo-shadow-pop);
+}
+
+/* 退后一档（焦点 ±GLASS_RADIUS，类名由 FocusScroll 按距离下发）：完整毛玻璃。
+   backdrop-filter 模糊背板（压边处是下一张卡的内容）——每层都是每帧一次 GPU 采背板
+   再模糊，v0.9.2 实测口径不变：只有 ±2 内戴这顶帽子，far 一分钱不付。
+   内容柔化 / 缩放 / 透明度已由 --momo-focus-k 连续插值（k≈0.35 即本档静置值），
+   这里不再写死。这里不接 hover 浮起：退后的卡点了只会滚到中心，不该有「可点按钮」的暗示。
+   v0.9.13 用户要求「背景再模糊一点，突出当前的卡片」：半径 10px → 14px。
+   涨的是**半径**不是层数——层数一动就是每帧多几份采背板，那条红线（v0.9.2）不让碰。 */
+.momo-focus-item.momo-focus-near > .momo-card {
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: none;
+}
+
+/* 退后二档（焦点 ±3~4）：k=0 插值即「最淡 + 最小 + 内容柔化拉满（3.5px）」，
+   但**不跑 backdrop-filter**——每帧要重新采背板再模糊一次，替看不见的卡付这笔
+   GPU 钱就是滚动掉帧的大头（实测见 FocusScroll.tsx 头部 v0.9.2 一段）。
+   内容那层柔化是元素自己的 filter，随 k 连续插值， far 一分钱 backdrop 都不付。 */
+.momo-focus-item.momo-focus-far > .momo-card {
+  box-shadow: none;
+}
+
+/* 导航溶解（v0.9.15 四轮，用户报「每次都整卡上去，晃眼睛」）：一屏一卡后，滚轮 /
+   键盘的每一步在物理上都是整屏位移——一张卡完整掠过视口，连续步进读作大幅度的
+   反复上扫。离散输入（滚轮 / 方向键 / 点卡）改为**原地溶解**：旧卡淡出（轻微上漂
+   16px），单次落位后新卡自下方 18px 淡入——零整屏位移。原生滚动（触摸 / 滚动条）
+   保持物理滑行：直接操纵就该有直接反馈，k 插值在那条路上继续服务。
+   这两条 animation 动的正是 opacity / transform（k 插值的属性）——与「不许
+   transition」的红线不冲突：那条红线管的是「视觉值追着滚动位置跑」（滑行中每帧
+   位置在变），溶解是独立的入场 / 退场，期间没有滚动位置在变；动画结束后无缝交还
+   k=1 的静置值。reduced-motion 下 JS 不挂类（瞬时落位），见 FocusScroll。 */
+.momo-focus-item.momo-focus-leave > .momo-card {
+  animation: momo-focus-nav-out 140ms ease-in forwards;
+}
+
+.momo-focus-item.momo-focus-enter > .momo-card {
+  animation: momo-focus-nav-in 220ms ease-out;
+}
+
+@keyframes momo-focus-nav-out {
+  to {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+}
+
+@keyframes momo-focus-nav-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
+
+/* 多选态由卡片本身承载：点正文 / 标签 / 卡片操作 / 滚动都进同一套多选
+    （Card.tsx 的选择模式统一收口）。这里只重置正文区——多选卡片下正文恢复
+    可选文本、hover 不再出底色，避免跟选中态打架。 */
+.momo-card-select .momo-card-body {
+  cursor: pointer;
+}
+
+/* 多选卡片下正文 hover 不出底色：把底色留给选中态自己说 */
+.momo-card-select .momo-card-body:hover {
+  background: transparent;
+}
+
+.momo-card.momo-card-checked:hover {
+    border-color: var(--momo-accent);
+    box-shadow: var(--momo-shadow-pop);
+  }
+

@@ -1,0 +1,255 @@
+/* ---- 主区（设计稿 §1 .mn）---- */
+.momo-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--momo-page);
+  overflow: hidden;
+  position: relative;
+}
+
+/* ---- 顶栏（设计稿 §1 .tb：64px / 24px 内距 / 10px 间距）---- */
+.momo-topbar {
+  flex-wrap: wrap;
+  min-height: 64px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 24px;
+  margin: 0;
+}
+
+.momo-flex1 {
+  flex: 1;
+  min-width: 0;
+}
+
+
+
+
+/* 分段控件：34px 底 + 28px 单项白底（选中态）
+   BUG-127b：`height:34px` 改 `min-height:34px`。定高与 95-responsive.css ≤480 档
+   给这段加的 `flex-wrap:wrap` 天生矛盾（换行必然要两行高，定高盒只会把它裁掉）——
+   而 flex-wrap 在 `flex:none` 下从未真正生效过（收缩系数 0，容器永远取自然宽），
+   于是那一档「允许换行、可收缩」的注释一直是空头支票：真正的失败形态是**整段被
+   面板右缘切掉**（.momo-main 的 overflow:hidden）。两处一起修：这里放开高度随
+   内容长，≤480 档补 `flex-shrink:1` 让换行真能发生——窄面板里换行成两行也胜过
+   把最后一种模式切到看不见。宽面板自然高 36px（28 单项 + 3 内距 ×2 + 2 描边），
+   比原定高多 2px：原先那 2px 是把段的上下内距各裁了 1px。 */
+.momo-segmented {
+  border: 1px solid var(--momo-border);
+  min-height: 34px;
+  flex: none;
+  border-radius: var(--momo-r-4);
+  background: var(--momo-surface);
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.momo-app .momo-seg {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--momo-r-3);
+  border: none;
+  background: transparent;
+  color: var(--momo-ink-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  font-size: var(--momo-fs-2);
+  white-space: nowrap;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+/* hover 给淡底（2026-10-11 用户报「hover 的时候还是看不清」）：旧款只换字色，
+   而这排图标本来就是灰（ink-3 → ink，两档都灰），底又全白——雾蓝下几乎看不出。
+   accent-soft 是同一排 .momo-panel-toggle / .momo-sortbtn 同批统一的 hover 底
+   （雾蓝 11/255，底是分段轨道的 surface）。已选中那一枚的底由
+   240-review-legacy.css 的 `.momo-segmented .momo-seg-on:hover`（同 (0,3,0)、
+   源码序在后）保回透明——悬停当前视图不浮淡底，蓝环仍是唯一主信号。
+   再补 ink-6 细环（2026-10-12 用户报「雾蓝下 hover 到选项上，就很难看清楚了」
+   同批，同 .momo-icon-btn 的换色理由）：雾蓝 page / card 是纯白，accent-soft
+   底被「ink-4 文字 × hover 底 ≥4.5:1」压在上限（#f0f0f0 对白 card 只有
+   1.14:1）——白纸方案上单靠底永远只是低语，读得出的信号在边界（2026-10-02
+   选中态改描边同一理由）。ink-6 是登记在册的「hover 描边」令牌（三底 3:1，
+   五套全过）。选中那一枚连环一起保底：上面那条 240 规则在同特异性下源码序
+   更靠后，把 box-shadow 写回 accent 环——悬停当前视图仍是蓝环，不与未选项的
+   灰环混（tagpicker 的 .momo-seg-on:hover 同理，见 30-pop/040-tagpicker.css）。 */
+.momo-app .momo-seg:hover {
+  background: var(--momo-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--momo-ink-6);
+  color: var(--momo-ink);
+}
+
+.momo-app .momo-seg-text {
+  width: auto;
+  padding: 0 11px;
+}
+
+/* 文字按钮（顶栏 / 分段 / 多选条 / 视图菜单里的轻动作）：透明底、无边框。 */
+.momo-app .momo-textbtn {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--momo-ink-3);
+  font-size: var(--momo-fs-2);
+  padding: 4px 6px;
+  /* v0.9.35：宿主全局 `button { height: var(--input-height) }` 会把它顶到 30px
+     ——文字按钮的高度是「内距 + 行高」算出来的（25），不是控件标准高。 */
+  height: auto;
+  border-radius: var(--momo-r-3);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+/* hover 底 surface → accent-soft（2026-10-11 用户报「hover 还是看不清」同批）：
+   顶栏是 page 纯白，surface 只差 4/255，等于没浮。accent-soft 与同排
+   .momo-seg / .momo-panel-toggle 的 hover 底统一（雾蓝 15/255），
+   五套主题下都成台阶。
+   同批补 ink-6 细环（2026-10-12，理由同 .momo-seg / .momo-icon-btn）：
+   纯白底上淡底只是低语，边界才读得出；ink-6 三底 3:1 五套全过。 */
+.momo-app .momo-textbtn:hover:not(:disabled) {
+  background: var(--momo-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--momo-ink-6);
+  color: var(--momo-ink);
+}
+
+/* 窄档模式分段（≤620px 专属的第二份 DOM）：侧栏在那档被容器查询强制藏掉后，
+   五个模式的入口只剩顶栏这一处（F1 第 6 枚 mappin）。宽面板下隐藏，620 档那条
+   (0,3,0) 在 95-responsive.css 里压回来——与本文档上方 .momo-composer-top
+   同一套路（基础 (0,2,0) + 窄档 (0,3,0)），两份注释互为索引。
+   组件在 Topbar.tsx，进 / 出都给全五项（见该文件头）。 */
+.momo-app .momo-topbar-modes {
+  display: none;
+}
+
+.momo-app .momo-textbtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.momo-app .momo-textbtn-danger,
+.momo-app .momo-textbtn-danger:hover:not(:disabled) {
+  color: var(--momo-danger);
+}
+
+/* 主按钮：统计页顶栏的「生成洞察」实底款 */
+.momo-app .momo-primary-btn {
+  height: 34px;
+  border-radius: var(--momo-r-4);
+  padding: 0 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--momo-card);
+  border: 1px solid var(--momo-accent);
+  color: var(--momo-accent);
+  font-size: var(--momo-fs-3);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+/* BUG-185：这条 hover 是「所有方案共用」的常规款，但实底款（.momo-primary-btn-solid，
+   2026-10-09 加）的 hover 用 :where() 压住了特异性（(0,2,0)）——旧写法 (0,3,0)
+   把实底款的 hover 整条压掉（StepFun 上就是紫框 + 淡蓝底 + 蓝字，跨色相）。
+   把常规款也收进 :where()、并排除实底款：两款同级（0,2,0），各归各的 hover。 */
+.momo-app .momo-primary-btn:where(:hover:not(.momo-primary-btn-solid)) {
+  background: var(--momo-accent-soft);
+  color: var(--momo-accent-hover);
+}
+
+.momo-app .momo-primary-btn-sm {
+  height: 30px;
+  padding: 0 11px;
+  font-size: var(--momo-fs-3);
+}
+
+/* 实底变体（2026-10-09，StepFun v4 合并版）：上一条是白底 + accent 描边的
+ * 「描边款」，实底款把 --momo-primary 真正铺出来。
+ *
+ * 为什么要另起一个类而不直接改 .momo-primary-btn：那条是**所有配色方案共用**的
+ * 皮肤（苔绿 / 雾蓝 / 蛤白 / 墨夜都在用），把它改成实底等于替所有方案改按钮。
+ * StepFun 想让「像素紫」当主行动色就得有个只给它走的道。
+ * 文字用 --momo-primary-ink（白字），各方案下白字对 primary 的对比度由
+ * check-contrast ⑤ 拦（StepFun 紫罗兰实测 5.23:1）。
+ * hover 走「压深」而不是「变浅」——浅底上没法靠变浅看出区别。
+ * ⚠️ hover 不能借 --momo-accent-hover：那是**签名色**的深档，配 primary 的底
+ *   会跨色相（StepFun 上就是紫底蓝边）。用 color-mix 在 primary 自身上压深，
+ *   各方案都拿到「同色相更深一档」，不会串色。 */
+.momo-app .momo-primary-btn-solid {
+  background: var(--momo-primary);
+  border-color: var(--momo-primary);
+  color: var(--momo-primary-ink);
+}
+
+/* ⚠️ hover / disabled 一律用 `:where(...)` 包起来：stylelint 的
+ * selector-max-specificity 卡在 0,3,0，而 `.momo-app .momo-primary-btn-solid:hover:not(:disabled)`
+ * 正好是 0,4,0。`:where()` 不计特异性，所以写进括号里不涨分值 ——
+ * 与本文件其它 hover 款（.momo-set-btn:hover:not(:disabled) 那批）同一手法。 */
+.momo-app .momo-primary-btn-solid:where(:hover:not(:disabled)) {
+  /* 底是 color-mix 压深，进不了 check-contrast 的 PAIRS（那里只认令牌对）：
+     向黑压深对 primary-ink 在两个明度方向上都单调不劣化（深底白字 / 浅底深字
+     对比度都只升不降），BUG-190 裁定不造动态判定，以本注释为凭。 */
+  background: color-mix(in srgb, var(--momo-primary) 84%, black);
+  border-color: color-mix(in srgb, var(--momo-primary) 84%, black);
+  color: var(--momo-primary-ink);
+}
+
+.momo-app .momo-primary-btn-solid:where(:disabled) {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.momo-topbar-rule {
+  height: 1px;
+  flex: none;
+  background: var(--momo-line);
+}
+
+/* 筛选栏（设计稿 §1 .fb：44px） */
+.momo-filterbar {
+  min-height: 44px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 24px;
+  flex-wrap: wrap;
+}
+
+.momo-app .momo-filter-chip {
+  height: 24px;
+  border-radius: var(--momo-r-pill);
+  background: var(--momo-accent-soft);
+  border: 1px solid var(--momo-accent-line);
+  padding: 0 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--momo-accent);
+  cursor: pointer;
+  flex: none;
+}
+
+.momo-app .momo-filter-chip:hover {
+  border-color: var(--momo-accent);
+}
+
+.momo-filter-text {
+  font-size: var(--momo-fs-2);
+  font-weight: 500;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+

@@ -1,0 +1,201 @@
+/* ---- 回顾（设计稿 §3：整页居中 / 780px 内容宽 / 卡片 + 图表）---- */
+.momo-review-col {
+  width: 780px;
+  max-width: 100%;
+}
+
+/* 回顾档顶部的**筛选回显**（只读；BUG-123b 的可见面）：回顾批次是进档那一刻
+   matched() 的快照，回顾档的侧栏筛选区块整块锁着、顶栏也没有搜索框，「这批是
+   按什么筛出来的」只剩这一行说得清——所以它原样摆出，且一个都点不掉。
+   挂位与几何**复用筛选条** `.momo-filterbar`（组件上同时带那个类：同一个位置、
+   同一排左对齐，窄档内距也跟着走），这里只补两处只读差别：
+   · 胶囊换中性配色 + cursor 归位 + 没有 hover 变色（筛选条那颗是 accent 底 +
+     hover 描边，一眼就分出「点得掉」与「点不掉」）；
+   · 行首那一小行说明文字（这一排不是筛选条，只是把生效中的条件念一遍）。 */
+.momo-review-filters-label {
+  font-size: var(--momo-fs-2);
+  color: var(--momo-ink-4);
+  flex: none;
+}
+
+.momo-review-filters .momo-filter-chip {
+  background: var(--momo-surface);
+  border-color: var(--momo-line);
+  color: var(--momo-ink-2);
+  cursor: default;
+}
+
+.momo-review-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.momo-review-step,
+.momo-review-streak {
+  font-size: var(--momo-fs-3);
+  font-weight: 500;
+  color: var(--momo-ink-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.momo-review-bar {
+  height: 6px;
+  border-radius: var(--momo-r-pill);
+  background: var(--momo-surface);
+  overflow: hidden;
+}
+
+.momo-review-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--momo-r-pill);
+  background: var(--momo-accent);
+  transition: width 200ms ease;
+}
+
+.momo-review-card.momo-review-card-on {
+  border-color: var(--momo-accent);
+  background: var(--momo-accent-soft-2);
+  cursor: pointer;
+}
+
+.momo-review-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.momo-review-date {
+  font-family: var(--momo-num);
+  font-size: var(--momo-fs-2);
+  font-weight: 500;
+  color: var(--momo-ink-4);
+}
+
+.momo-review-hero {
+  font-size: var(--momo-fs-6);
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--momo-ink);
+  margin: 14px 0 0;
+  overflow-wrap: anywhere;
+}
+
+/* 引用块 / 行内代码 = 设计稿 §3 的 .qb 卡片语言 */
+.momo-review-body blockquote {
+  background: var(--momo-surface-2);
+  border-left: none;
+  border-radius: var(--momo-r-4);
+  padding: 14px 16px;
+  margin: 10px 0;
+  color: var(--momo-ink-2);
+}
+
+.momo-review-body blockquote > :first-child {
+  margin-top: 0;
+}
+
+.momo-review-body blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.momo-review-body > :first-child {
+  margin-top: 0;
+}
+
+.momo-review-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.momo-app .momo-review-open {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--momo-accent);
+  font-size: var(--momo-fs-2);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.momo-app .momo-review-open:hover {
+  color: var(--momo-accent-hover);
+}
+
+.momo-review-acts {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.momo-app .momo-review-acts .momo-btn {
+  height: 40px;
+  border-radius: var(--momo-r-4);
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--momo-fs-4);
+  font-weight: 500;
+  background: var(--momo-card);
+  border: 1px solid var(--momo-line);
+  color: var(--momo-ink-2);
+}
+
+.momo-review-acts .momo-btn:hover:not(:disabled) {
+  border-color: var(--momo-ink-6);
+  color: var(--momo-ink);
+}
+
+.momo-review-acts .momo-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* BUG-187：基础款规则带 `.momo-app` 前缀（(0,3,0)），而这条主动作只有 (0,2,0)——
+   四条声明整块空转，「回到全部笔记」与普通按钮同款。补宿主前缀拉平到 (0,3,0)，
+   靠源码序在后取胜（两条 hover 同理：基础 hover 带 :not(:disabled) 是 (0,4,0)，
+   主动作 hover 也补前缀到 (0,4,0) 并列、源码序在后）。 */
+.momo-app .momo-review-acts .momo-btn-primary {
+  background: var(--momo-card);
+  border-color: var(--momo-accent);
+  color: var(--momo-accent);
+  font-weight: 600;
+}
+
+.momo-app .momo-review-acts .momo-btn-primary:hover {
+  background: var(--momo-accent-soft);
+  color: var(--momo-accent-hover);
+}
+
+.momo-review-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.momo-review-done-text {
+  font-size: var(--momo-fs-5);
+  font-weight: 600;
+  color: var(--momo-ink);
+}
+

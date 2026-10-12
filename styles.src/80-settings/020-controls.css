@@ -1,0 +1,214 @@
+/* ---- 行：左文字列（名称 13/500 + 说明 12/17 + 补充 11），右控件列固定 260 ----
+   v0.9.34：行距从 16 收到 13、文字列与控件列之间 24 → 20（设计稿同值）。设置页一张卡
+   常有四五行的，16 的上下留白叠起来比卡头还高，整页读起来比设计稿「松一圈」。 */
+.momo-settings .momo-set-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 13px 16px;
+}
+/* 全宽行（配色方案 / 自定义 CSS）：标签在上、控件在下铺满 */
+.momo-settings .momo-set-row.is-wide {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  padding: 13px 16px;
+}
+.momo-settings .momo-set-info {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.momo-settings .momo-set-name {
+  font-size: var(--momo-fs-3);
+  font-weight: 500;
+  color: var(--momo-ink);
+}
+.momo-settings .momo-set-desc {
+  font-size: var(--momo-fs-2);
+  line-height: 17px;
+  color: var(--momo-ink-2);
+}
+.momo-settings .momo-set-note {
+  font-size: var(--momo-fs-1);
+  line-height: 16px;
+  color: var(--momo-ink-3);
+}
+.momo-settings .momo-set-warn {
+  font-size: var(--momo-fs-2);
+  line-height: 16px;
+  color: var(--momo-warn);
+}
+.momo-settings .momo-set-ctrl {
+  flex: 0 0 260px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+/* 全宽行的控件列：纵向排（色卡组在上、「当前取值」在下，gap 12） */
+.momo-settings .momo-set-row:where(.is-wide) .momo-set-ctrl {
+  flex: none;
+  width: 100%;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 12px;
+}
+/* 控件列里有多个元件时（步进器 + 范围提示）从左排 */
+.momo-settings .momo-set-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  justify-content: flex-start;
+}
+.momo-settings .momo-set-hint {
+  flex: none;
+  font-size: var(--momo-fs-2);
+  color: var(--momo-ink-4);
+}
+
+/* 设置页的表单控件：字体与 outline 归我们管，**外观（描边 / 圆角 / 底 / 焦点环）
+   全部走统一输入语言 .momo-input**（text input 与自定义 CSS 代码框都挂该类）。
+   （v0.8 给原生 select 包的那层——右内缩 + mask chevron——随 v0.9.3「左上角图标」
+   改成图标格子整块移除：设置页不再有下拉框。） */
+.momo-settings input.momo-set-input,
+.momo-settings textarea.momo-set-code  {
+  font-family: inherit;
+  outline: none;
+}
+/* 输入框 36 / r6 / padding 12（设计稿读数；覆盖 20-panel 的 34 / r10） */
+.momo-settings .momo-set-input  {
+  width: 100%;
+  height: var(--momo-set-ctrl-h);
+  padding: 0 12px;
+  border-radius: var(--momo-set-r);
+}
+.momo-settings .momo-set-input.is-num {
+  flex: 0 0 72px;
+  width: 72px;
+  font-family: var(--momo-num);
+  font-weight: 500;
+}
+/* 自定义 CSS 代码框：同输入语言的底与描边（高度 / 圆角按代码框自己那套）。
+   焦点环与输入框同一条（2026-09-28）：outline 2px accent——此前这里是
+   `box-shadow: 0 0 0 3px var(--momo-accent-soft)`，实测那个环与底色只有 1.0–1.16:1，
+   看不见（见 20-panel.css 焦点段的实测数据）。本规则随 v0.9.16 的自定义 CSS 退役，
+   类在 DOM 里已无人挂——留着一并改对，免得日后复用又抄回那个看不见的环。 */
+.momo-settings .momo-set-code {
+  width: 100%;
+  min-height: 128px;
+  padding: 12px 14px;
+  border: 1px solid var(--momo-border);
+  border-radius: var(--momo-r-4);
+  background: var(--momo-surface);
+  font-family: var(--font-monospace, monospace);
+  font-size: var(--momo-fs-2);
+  line-height: 20px;
+  color: var(--momo-ink-2);
+  resize: vertical;
+  white-space: pre;
+}
+.momo-settings .momo-set-code:focus {
+  border-color: var(--momo-accent);
+  background: var(--momo-card);
+  outline: 2px solid var(--momo-accent);
+  outline-offset: 1px;
+}
+
+/* ---- 分段控件 34 / r8 / surface：段 28 / r6 ----
+   选中态 = 全局统一的那一条：**白底浮起 + 1px accent 描边 + accent 加粗字**。
+   三个信号一起说，且不靠明度差（石白主题里 card 与 surface 只差 3%，只做
+   「白底浮起」等于没做）。段内**不放勾**——勾会让选中段变宽，切换时整条控件
+   左右抖一下（这是上一版反馈里最烦人的一处）。 */
+.momo-settings .momo-set-seg {
+  display: flex;
+  gap: 2px;
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--momo-set-seg-h);
+  padding: 3px;
+  border-radius: var(--momo-set-r-card);
+  background: var(--momo-surface);
+}
+.momo-settings .momo-set-seg-item {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  /* BUG-86（2026-10-06）：13 → 10。三等分段的文字余量原只有 57px，en「Month-day」
+     （实测 66px）/ ja「コンパクト」（65px）直接截断，用户报「文字没渲染出来」。
+     收 3px 后三等分 63 / 四等分 42 / 二等分 106；同时 en 字典把 Month-day→Day、
+     A quarter→1/4、ja コンパクト→ミニ、完全な日付→フル、zh 四分之一→1/4。
+     两侧的账：真 Chromium 探针（tmp/seg-probe.mjs）+ 用户机截图实测，57px 线上
+     52px 能完整显示。字典侧仍是第一纪律——见 .momo-set-seg-text 注释。 */
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--momo-set-r);
+  background: transparent;
+  font-size: var(--momo-fs-3);
+  font-weight: 400;
+  color: var(--momo-ink-2);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+/* 层级载体统一（2026-10-02）：hover 只换底不加描边（同 nav-chip）。
+   2026-10-11 底 surface-2 → accent-soft + accent-line 细环：雾蓝下 surface-2 ×
+   轨道 surface 只差 2/255（用户报「hover 还是看不清」）；横展五套实测再补细环——
+   stepfun 的 accent-soft（#cfeaf8）与轨道 surface（#d2edf4）只差 1.023，淡底在
+   青蓝主题上隐形，饱和色相边五套都看得见。选中态是透明底 + accent 描边 +
+   accent 字 600，与 hover 的淡底 + 细环不会混。 */
+.momo-settings .momo-set-seg-item:hover:not(.is-on) {
+  background: var(--momo-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--momo-ink-6);
+  color: var(--momo-ink);
+}
+.momo-settings .momo-set-seg-item:active:not(.is-on) {
+  background: var(--momo-surface-2);
+}
+/* 选中：与顶栏 .momo-seg-on 同一手法（透明底 + accent 描边 + accent 字），
+   两处分段从此同语言。原先吃 card 底，墨夜下等于没换底。 */
+.momo-settings .momo-set-seg-item.is-on {
+  background: transparent;
+  color: var(--momo-accent);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--momo-accent);
+}
+/* 段内文字：28px 高的段塞不下第二行，超宽一律省略号而不是折行撑破。
+   防截断的纪律在字典侧：档位名一律两字（见 i18n 注释）。
+   2026-10-06 BUG-86：纪律只覆盖了 zh 语感——en「Month-day」/ ja「コンパクト」
+   这类 9 字母 / 5 假名的档名在三等分里照样截。探针实测的硬线：三等分 span 63px
+   （padding 10 后）、四等分 42px、二等分 106px。**harness 与单测只渲染中文，
+   en/ja 截断天然逃逸**——守卫见 scripts/shots/seg-truncation 的对照。
+   is-hug 是唯一的例外（界面语言那行）：语言名必须用各语言自己的写法，
+   压不成两字，所以轨道抱内容、段也跟着内容走——配合 is-wide 行拿整卡宽度。 */
+.momo-settings .momo-set-seg-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* 2026-10-11 修「English 下方压字」：段是 button，被 001-page.css 的控件复位
+     按 line-height:1.2 压着——span 作为弹性项被块状化，它的盒子高就是行盒高
+     （13px × 1.2 = 15.6px），而 overflow:hidden 就裁在这个盒子上。Noto Sans SC
+     的墨迹高约 1.45em（18.8px），行盒比墨迹矮一截，英文降部（g / y / p）连底
+     被削掉约 1px——中文档名（系统默认 / 中文 / 日本語）的字形不贴降部区所以看不出来，
+     只有语言行的 English 露馅（用户 2026-10-11 报障）。1.5 与页面正文同值，
+     垫过 1.45em 的墨迹还有余量；段高 28px 不受影响（弹性居中，基线位置不变，
+     肉眼唯一的差别就是降部回来了）。 */
+  line-height: 1.5;
+}
+/* is-hug（界面语言行专属）：轨道不再均分撑满，改为抱内容宽；段也从「均分」改成
+   「跟内容走」，但保留 min-width: 0 —— 窄到极限时仍旧省略号而不是撑破行。
+   特异度用 :where() 压到与基础段规则同权（靠本文件源序决胜，同 is-wide 控件列）。 */
+.momo-settings .momo-set-seg.is-hug {
+  width: fit-content;
+  max-width: 100%;
+}
+.momo-settings .momo-set-seg:where(.is-hug) .momo-set-seg-item {
+  flex: 0 1 auto;
+}
+

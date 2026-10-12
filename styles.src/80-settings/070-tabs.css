@@ -1,0 +1,332 @@
+/* ---- 卡片内的块：路径预览 / 侧栏功能网格 / 统计区块组 ---- */
+.momo-settings .momo-set-block {
+  display: flex;
+  flex-direction: column;
+}
+.momo-settings .momo-set-block.is-preview {
+  gap: 8px;
+  padding: 16px;
+}
+.momo-settings .momo-set-block.is-tiles {
+  gap: 10px;
+  padding: 16px;
+}
+/* 视图块（v0.9.17）：与上面的开关网格同一条内边距节奏，只是行不是 2 列格子、而是有
+   先后的一列（见 .momo-set-views）。v0.9.33 起**没有块头**——它自己成了一张卡，
+   卡头（「视图」+ 说明）就是原来那块块头。 */
+.momo-settings .momo-set-block.is-views {
+  gap: 10px;
+  padding: 16px;
+}
+.momo-settings .momo-set-block.is-group {
+  gap: 9px;
+  padding: 16px;
+}
+.momo-settings .momo-set-block-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.momo-settings .momo-set-block-title {
+  font-size: var(--momo-fs-2);
+  font-weight: 600;
+  color: var(--momo-ink-2);
+}
+.momo-settings .momo-set-block:where(.is-preview) .momo-set-block-title {
+  font-size: var(--momo-fs-1);
+}
+.momo-settings .momo-set-block-note {
+  font-size: var(--momo-fs-2);
+  color: var(--momo-ink-4);
+}
+
+/* ---- 目录树：r6 / surface-2，等宽 12/19 ---- */
+.momo-settings .momo-set-tree {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: var(--momo-set-r);
+  background: var(--momo-surface-2);
+  font-family: var(--font-monospace, monospace);
+  font-size: var(--momo-fs-2);
+  line-height: 19px;
+  color: var(--momo-ink-2);
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* ---- 开关网格 2 列：开关卡 r6 / surface-2 / 1px line-soft ---- */
+.momo-settings .momo-set-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 10px;
+}
+.momo-settings .momo-set-tile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--momo-set-r);
+  background: var(--momo-surface-2);
+  box-shadow: inset 0 0 0 1px var(--momo-line-soft);
+  transition: background 120ms ease, box-shadow 120ms ease;
+}
+/* 开关合上时**整块卡**跟着进选中态（全局统一那条语言的放大版）。只靠右侧那颗
+   38×22 的开关表达状态，扫一遍六张卡要在列里来回找小白点；卡片自己变色 + 描边，
+   才是一眼能扫完的。:has() 已在 20-panel.css 的 modal 容器上用过。 */
+.momo-settings .momo-set-tile:has(.momo-set-switch.is-on) {
+  background: var(--momo-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--momo-accent-line);
+}
+.momo-settings .momo-set-tile-name {
+  font-size: var(--momo-fs-3);
+  font-weight: 500;
+  color: var(--momo-ink);
+}
+.momo-settings .momo-set-tile:has(.is-on) .momo-set-tile-name {
+  /* 只写 :has(.is-on) 不写 :has(.momo-set-switch.is-on)：后者算进去是 (0,4,0)，
+     越 stylelint 的 selector-max-specificity 上限。卡里会带 is-on 的只有那颗开关。 */
+  color: var(--momo-accent);
+}
+.momo-settings .momo-set-tile .momo-set-desc {
+  font-size: var(--momo-fs-2);
+  line-height: 16px;
+}
+
+/* ---- 顶栏视图分段行（v0.9.17）：一档一行 —— 名称 + 说明 | 上移 / 下移 | 开关 ----
+   行容器**直接复用**开关网格那枚 .momo-set-tile（surface-2 底 + 1px line-soft，
+   开关合上时整行跟着进选中态），只有排布是自己的：单列铺开，序位钮排在开关左侧。
+   为什么不摊成 2 列网格：视图是一条有**先后**的列，网格会让人以为左右两列是
+   两件事；而且行里的上移 / 下移只在同一列内才有意义。 */
+.momo-settings .momo-set-views {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.momo-settings .momo-set-viewmove-group {
+  flex: none;
+  display: flex;
+  gap: 4px;
+}
+/* 序位钮 28×28：刻意比右侧那颗 38×22 的开关矮一档（它是辅助动作，视觉重量必须
+   低于「这一档开不开」这个主开关），但**不能弱到看不见**——
+   2026-10-06 用户报「上下移动的按钮，在墨夜下，应该正常渲染，我希望换一个更明显
+   的图标」。两件事一起修：
+   ① 图标换成实心三角（PanelTab 的 triangleSvg）：同一块面积里墨最重的形状，
+      28px 的钮里不再是两道细丝；
+   ② 默认色 ink-3 → ink-2（与步进器同色）：ink-3 是「说明文字」一档的灰度，
+      墨夜（ink-night）的深炭底上糊，亮色三套的纸底上也轻。
+   禁用态（首行的 ↑、末行的 ↓）仍走全局那条 button:disabled（0.45 透明 + not-allowed）。 */
+.momo-settings .momo-set-viewmove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  /* v0.9.35：同 .momo-set-stepper-btn —— 不给 padding 就被宿主的 `4px 12px` 顶上 */
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: var(--momo-surface);
+  box-shadow: inset 0 0 0 1px var(--momo-line-soft);
+  color: var(--momo-ink-2);
+  cursor: pointer;
+  transition: box-shadow 120ms ease, background 120ms ease, color 120ms ease;
+}
+/* 同 .momo-set-stepper-btn：hover 不浮 card 底——雾蓝 card = 纯白，序位钮直接坐在
+   白卡片上，浮起即整颗消失（实测底色差 0/255，2026-10-11 用户报「hover 变成浅色，
+   看不清」）。底色留在静置值的 surface，信号交给基态那圈 inset 环：
+   line-soft → accent-line，加字色加深一档。 */
+.momo-settings .momo-set-viewmove:hover:not(:disabled) {
+  box-shadow: inset 0 0 0 1px var(--momo-ink-6);
+  color: var(--momo-ink);
+}
+.momo-settings .momo-set-viewmove:active:not(:disabled) {
+  background: var(--momo-surface-2);
+}
+.momo-settings .momo-set-viewmove svg {
+  display: block;
+}
+
+/* ---- 地点分页（F7 星球视图的坐标管理；组件 src/views/settings/LocTab.ts）----
+   两张表（坐标 / 大洲与国家，同形制）：每行 名称 | 条数 | 坐标（归属） | 来源 | 动作，
+   编辑态把动作列换成两个输入 + 保存 / 取消（行结构不变，只是尾部几格换内容）。
+   坐标 / 条数走等宽数字：不同行的同一列要竖着对得齐（tabular-nums）。
+   上面的「手填新坐标」/「手填新归属」两块添加入口与它们的 .momo-set-loc-add* 规则
+   已于 2026-10-11 按用户要求整块删除（写入口只剩行内「填写 / 修改 / 移除」）。 */
+/* 列表：纵列；行间分隔线由行自带（不用 gap——线要连到文字两侧的边缘外） */
+.momo-settings .momo-set-loc-list {
+  display: flex;
+  flex-direction: column;
+}
+.momo-settings .momo-set-locrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+/* 行间 1px：加在相邻行顶部，末行下缘不跟线（块自带 padding 16 收口） */
+.momo-settings .momo-set-locrow + .momo-set-locrow {
+  border-top: 1px solid var(--momo-line-soft);
+}
+/* 名称：13/500，超长省略；编辑态两个输入框跟在它后面（同样靠它撑位） */
+.momo-settings .momo-set-locrow-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--momo-fs-3);
+  font-weight: 500;
+  color: var(--momo-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.momo-settings .momo-set-locrow-count {
+  flex: none;
+  font-family: var(--momo-num);
+  font-size: var(--momo-fs-2);
+  color: var(--momo-ink-4);
+  font-variant-numeric: tabular-nums;
+}
+/* 坐标：固定一栏右对齐，`39.90, 116.40` 一栏装下；无坐标走 is-none 暗一档 */
+.momo-settings .momo-set-locrow-coord {
+  flex: none;
+  width: 108px;
+  text-align: right;
+  font-family: var(--momo-num);
+  font-size: var(--momo-fs-2);
+  color: var(--momo-ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.momo-settings .momo-set-locrow-coord.is-none {
+  color: var(--momo-ink-4);
+}
+/* 归属（v0.9.30「大洲与国家」块的中列）：`亚洲 · 中国`。与坐标列同一形制
+   （固定一栏右对齐、is-none 暗一档），两处差别：普通字体（归属是文本不是数字，
+   tabular-nums 没有可对齐的意义）+ 宽一档（两个地名加连接符比
+   `39.90, 116.40` 长，108px 装不下会省略号）。 */
+.momo-settings .momo-set-locrow-region {
+  flex: none;
+  width: 132px;
+  text-align: right;
+  font-family: var(--momo-sans);
+  font-size: var(--momo-fs-2);
+  color: var(--momo-ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.momo-settings .momo-set-locrow-region.is-none {
+  color: var(--momo-ink-4);
+}
+/* 来源：内置 / 手填两枚小札（11px 弱一档，固定一栏） */
+.momo-settings .momo-set-locrow-src {
+  flex: none;
+  width: 28px;
+  text-align: center;
+  font-size: var(--momo-fs-1);
+  color: var(--momo-ink-4);
+}
+/* 动作列：贴右缘；gap 6 与按钮族一致（保存是次级 plain，其余 ghost） */
+.momo-settings .momo-set-locrow-acts {
+  flex: none;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* 一条地点都没用过：列表位置上的空态一句话 */
+.momo-settings .momo-set-loc-empty {
+  padding: 6px 0;
+  font-size: var(--momo-fs-2);
+  line-height: 1.6;
+  color: var(--momo-ink-4);
+}
+/* 校验行：行内没有警示槽，挂块级一行；默认收起，.is-show 才现身 */
+.momo-settings .momo-set-loc-warn {
+  display: none;
+  font-size: var(--momo-fs-2);
+  line-height: 16px;
+  color: var(--momo-warn);
+}
+.momo-settings .momo-set-loc-warn.is-show {
+  display: block;
+}
+
+/* ---- 标签分页（失效标签体检；组件 src/views/settings/TagsTab.ts）----
+   一张卡：块头写「失效标签」+ 摘要，下面是动作行（一颗「全部修复」+ 一颗
+   「重新检查」），再下面是清单——每行 原样标签 | → 修复后 | 条数 | 动作。
+   行结构与地点行同形制（名称 | 固定栏 | 贴右动作列），但**名称列允许换行**：
+   失效标签多半是长标题（「第七章　不再在葬礼上哭泣」），省略号会把「坏在哪」正好
+   藏起来，而这一页的全部意义就是让人看清标签原样长什么样。 */
+/* 动作行：块头下方一颗主行动 + 一颗文字档（块自带 gap 9，这里不再叠内边距） */
+.momo-settings .momo-set-tag-acts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* 清单：纵列；行间分隔线由行自带（同地点列表，不用 gap——线要连到文字两侧的边缘外） */
+.momo-settings .momo-set-tag-list {
+  display: flex;
+  flex-direction: column;
+}
+.momo-settings .momo-set-tagrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+.momo-settings .momo-set-tagrow + .momo-set-tagrow {
+  border-top: 1px solid var(--momo-line-soft);
+}
+/* 标签原样：吃掉剩余宽度，可换行（坏在哪儿不能被省略号吃掉） */
+.momo-settings .momo-set-tagrow-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--momo-fs-3);
+  font-weight: 500;
+  color: var(--momo-ink);
+  overflow-wrap: anywhere;
+}
+/* 空白标记（␣）：accent-soft 底 + accent 字，把「看不见的空白」画成一个方框。
+   它是这一页唯一该抢眼的东西——用户要的就是「这里有个空格」。 */
+.momo-settings .momo-set-tagrow-ws {
+  color: var(--momo-accent);
+  background: var(--momo-accent-soft);
+  border-radius: 2px;
+  font-family: var(--momo-num);
+}
+/* 「修复后」栏：固定一栏右对齐，`→ 第七章不再在葬礼上哭泣`；修不了的走 is-none 暗一档 */
+.momo-settings .momo-set-tagrow-to {
+  flex: none;
+  max-width: 45%;
+  text-align: right;
+  font-size: var(--momo-fs-2);
+  color: var(--momo-ink-2);
+  overflow-wrap: anywhere;
+}
+.momo-settings .momo-set-tagrow-to.is-none {
+  color: var(--momo-warn);
+}
+/* 条数：等宽数字（不同行的同一列要竖着对得齐） */
+.momo-settings .momo-set-tagrow-count {
+  flex: none;
+  font-family: var(--momo-num);
+  font-size: var(--momo-fs-2);
+  color: var(--momo-ink-4);
+  font-variant-numeric: tabular-nums;
+}
+/* 动作列：贴右缘；没有按钮的行也占着它，一列才对得齐 */
+.momo-settings .momo-set-tagrow-acts {
+  flex: none;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* 一个失效标签都没有：列表位置上的空态一句话 */
+.momo-settings .momo-set-tag-empty {
+  padding: 6px 0;
+  font-size: var(--momo-fs-2);
+  line-height: 1.6;
+  color: var(--momo-ink-4);
+}
+

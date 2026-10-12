@@ -1,0 +1,90 @@
+/* ---- 内容区（设计稿 §1 .feed：64px 内距）---- */
+/* ---- 顶栏那一份发布框（v0.8.5）----
+   发布框常驻侧栏最上方（v0.5.1），但面板窄到 620px 以下时整个侧栏被 CSS 藏掉，
+   它跟着一起消失 —— 那一档面板里就再没有「新建 Momo」的入口了（只剩命令面板里那条
+   命令，离手太远）。所以同一颗按钮在顶栏最左再渲染一份：宽面板隐藏（侧栏里那份才是
+   常态），620 档才翻上来占满顶栏首行（那条规则写在文件上方的 620 容器块里，两份注释互为索引）。
+   基础隐藏为什么不写 !important：上面 `.momo-app .momo-composer` 是 (0,2,0) 且声明了
+   display: flex，所以基础规则必须同档 (0,2,0) **且排在它后面**（就排在这里），
+   620 档那条再用 (0,3,0) 压回来。层叠算得清，就不必再往样式表里添一枚 !important。
+   （2026-09-25 P3 后这条道理推到了全表：reset 与组件规则全部按特异性排，0 枚 !important。） */
+.momo-app .momo-composer-top {
+  display: none;
+}
+
+.momo-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* 同上（scrollbar-gutter）：搜一个词 / 选一个标签把结果筛到不足一屏时，
+     滚动条消失、卡片整体变宽一下——同一类跳动，主区更要命（卡片是主角）。 */
+  scrollbar-gutter: stable;
+  padding: 24px;
+  /* 首个子元素的顶部留白（消费见 20-panel/020-card.css 的 `margin-top: var(--top-gap)`）。
+     BUG-134h：原先这里的注释断言「顶部 padding 定为 0，留白由第一个子元素 margin 提供」，
+     而下一行就是 `padding: 24px`——前提与代码各说一套，`--top-gap` 因此在宽面板里
+     是一颗恒为 0 的空声明。实情是：
+       · 宽面板 padding-top 24px，顶部留白由 padding 提供，`--top-gap` 取 0；
+       · ≤380 档把 padding 收成 `0 8px 18px`（顶部真的归零了），那一档由
+         `--top-gap` 补回顶部留白，否则首张卡 / 组头顶到 .momo-topbar-rule 分界线上。 */
+  --top-gap: 0px;
+}
+
+.momo-content > .momo-group,
+.momo-content > .momo-flow,
+.momo-content > .momo-loc-flow,
+.momo-content > .momo-globe {
+  width: 860px;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+/* （网格档 2026-10-12 整体移除：`.momo-flow.momo-grid-flow` 的 1076px 列宽与
+   `.momo-grid .momo-grid-flow.momo-grid-filling` 的「顺序填充 + 钉高」规则一并删除，
+   后者是 v0.9.51 BUG-195 为增量补批期写的。） */
+
+/* 日期分组头（设计稿 §1 .dayh） */
+.momo-group + .momo-group {
+  margin-top: 18px;
+}
+
+.momo-group-head {
+    font-size: var(--momo-fs-3);
+    letter-spacing: 0.02em;
+    color: var(--text-muted);
+    height: 30px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding: 0;
+    position: static;
+    background: transparent;
+    box-shadow: none;
+    top: 0;
+    z-index: 2;
+    /* 一条淡描边分隔：分组头吸附时上方补一条线，滚动中分组界限仍然可分 */
+  }
+
+.momo-group-title {
+  font-size: var(--momo-fs-3);
+  font-weight: 600;
+  color: var(--momo-ink);
+  white-space: nowrap;
+}
+
+.momo-group-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--momo-line);
+}
+
+/* 置顶组（v0.8.3）：标题走签名色 + 一枚图钉，与下面的日期组在扫视时一眼可分。
+   只动标题，不动分隔线——置顶是「排序上的特殊」，不是另一个视觉层级。 */
+.momo-group-pinned .momo-group-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--momo-accent);
+}
+

@@ -1,0 +1,165 @@
+/* ---- 页头 60：品牌标记 26×26 + 品牌名 15/600 + 分隔点 + 页名 15 ---- */
+.momo-settings .momo-set-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 60px;
+  background: var(--momo-card);
+  border-bottom: 1px solid var(--momo-line);
+}
+.momo-settings .momo-set-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--momo-r-4);
+  background: var(--momo-accent);
+  color: var(--momo-on-accent);
+}
+.momo-settings .momo-set-mark svg {
+  width: 16px;
+  height: 16px;
+}
+.momo-settings .momo-set-brand {
+  font-size: var(--momo-fs-5);
+  font-weight: 600;
+  color: var(--momo-ink);
+}
+.momo-settings .momo-set-dot {
+  flex: none;
+  width: 3px;
+  height: 3px;
+  border-radius: var(--momo-r-pill);
+  background: var(--momo-ink-4);
+}
+.momo-settings .momo-set-page {
+  font-size: var(--momo-fs-5);
+  color: var(--momo-ink-2);
+}
+
+/* ---- 分页导航：分段轨道（与页内 .momo-set-seg 同一套选中语言）----
+   旧版是通栏白带上的下划线 tab：在设置弹窗这个白底环境里，可点区域和选中态
+   都只靠一根 72px 的短线 + 换色，五个 tab 读起来像五个文本链接。改成页内
+   分段控件（停靠侧 / 密度）同款——浅灰轨道 + 选中段白底浮起 + 1px accent
+   描边 + accent 加粗字，整页只剩一种选中语法。轨道宽随内容（不铺满），
+   nav 条仍贴顶 sticky，窄屏时轨道整体横向滚动。 */
+.momo-settings .momo-set-nav {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  height: 56px;
+  background: var(--momo-page);
+  border-bottom: 1px solid var(--momo-line);
+  overflow-x: auto;
+}
+.momo-settings .momo-set-nav-track {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--momo-set-r-card);
+  background: var(--momo-surface);
+}
+.momo-settings .momo-set-nav-chip {
+  display: flex;
+  align-items: center;
+  height: var(--momo-set-seg-h);
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--momo-set-r);
+  background: transparent;
+  font-size: var(--momo-fs-3);
+  font-weight: 400;
+  color: var(--momo-ink-2);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+/* 层级载体统一（2026-10-02 横展十套，B 路）：hover 底从 --momo-card 改 --momo-surface-2
+   ——hover **只换底不加描边**，必须比选中轻一档（否则两级一样重）。
+   2026-10-11 再改 accent-soft：surface-2 × surface 在雾蓝下只差 2/255（surface
+   #fbfbfb / surface-2 #fdfdfd），用户报「hover 还是看不清」。accent-soft 与
+   面板同批按钮的 hover 底统一（雾蓝 11/255）；选中态另有 accent 描边 + 600
+   + accent 字三层信号，不会与它混。 */
+.momo-settings .momo-set-nav-chip:hover:not(.is-on) {
+  background: var(--momo-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--momo-ink-6);
+  color: var(--momo-ink);
+}
+.momo-settings .momo-set-nav-chip:active:not(.is-on) {
+  background: var(--momo-surface-2);
+}
+/* 选中：轻嵌面底 + accent 描边（accent 十套 4.71~6.80 全过 3:1）+ accent 字 600。
+   原先吃 card 底，在墨夜/mist-blue 下 card×surface 只有 1.03~1.07、底色等于没换。 */
+.momo-settings .momo-set-nav-chip.is-on {
+  background: var(--momo-surface-2);
+  color: var(--momo-accent);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--momo-accent);
+}
+
+/* ---- 内容列：卡片间距 16 ---- */
+.momo-settings .momo-set-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 24px;
+  padding-bottom: 24px;
+}
+
+/* ---- 卡片：白底 + 1px line + r8；卡头下、每块之间一条 line-soft ----
+   分页：同一时刻只有一个区段可见（v0.9.6 起一个区段可以有多张卡）。
+   `is-active` 由 settings.ts 的 paintTab() 打上，它在所有卡片都建完之后才调用，
+   所以这里不必担心「谁都没亮」导致整页空白。 */
+.momo-settings .momo-set-card {
+  display: none;
+  background: var(--momo-card);
+  border: 1px solid var(--momo-line);
+  border-radius: var(--momo-set-r-card);
+  overflow: hidden;
+}
+.momo-settings .momo-set-card.is-active {
+  display: block;
+}
+.momo-settings .momo-set-card > * + * {
+  border-top: 1px solid var(--momo-line-soft);
+}
+/* ---- 卡头：左 = 标题 + 说明一列；右 = 卡片级「恢复默认」（v0.9.12，ghost 文字钮，
+   只有复杂配置卡有——见 settings.ts 的 card()）。按钮贴顶，说明折几行都不跟着走 ---- */
+.momo-settings .momo-set-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px 12px;
+}
+.momo-settings .momo-set-card-head-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.momo-settings .momo-set-card-reset {
+  flex: none;
+}
+.momo-settings .momo-set-card-title {
+  margin: 0;
+  /* v0.9.35：宿主有 `.vertical-tab-content h1,h2,h3,h4 { padding: 0 var(--size-4-4) }`
+     ——文档标题那一族，卡头这枚 h3 也吃到了，左右各缩进 16px（宿主特异性 (0,1,1)
+     只赢在没有对手：插件从没声明过它的 padding）。 */
+  padding: 0;
+  font-size: var(--momo-fs-4);
+  font-weight: 600;
+  color: var(--momo-ink);
+}
+.momo-settings .momo-set-card-desc {
+  margin: 0;
+  font-size: var(--momo-fs-2);
+  line-height: 18px;
+  color: var(--momo-ink-2);
+}
+

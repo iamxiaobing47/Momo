@@ -1,0 +1,452 @@
+/* ============================================================================
+    响应式总段：全部 @container / @media 断点集中于此（2026-09-25 治理 · 方案 §5 的 95-responsive）
+    ----------------------------------------------------------------------------
+    口径：断点以内容区宽度为准（容器 = .momo-app，container-type: inline-size）。
+    回顾 / 统计 / 回收站三套布局共用同一组断点，不各自为政；统计页另有命名容器
+    stats（它那几个块排在面板块之后，互不干扰）。
+    回顾页是 1440px 设计稿的等比缩放：Obsidian 侧栏通常只给 300–600px，
+    按比例缩排会让卡片密度崩塌；所以用容器查询换挡，而不是等比缩。
+    第一档（面板宽 620px 以下）：侧栏直接隐藏（原先靠 !important 硬藏的那套删掉）。
+    块序：620 面板块 → stats 命名容器 → 面板块按宽度降序（900 → 720 → 560 → 480 → 380），
+    同一宽度只开一次。等特异性冲突时「更窄的档后来者胜」，与断点语义一致——
+    P3 并块（480×4 / 380×3 → 各一次）因此恢复了三条被源码序雪藏的窄档规则，
+    裁决记录见治理报告 docs/design/reports/css-governance.html。
+    为什么集中：容器规则要排在所有基础规则之后才压得住。散在组件段之间时，
+    「同一选择器基础段写一次、容器段写一次」永远合并不掉（治理前 15 个断点块
+    散在五处：侧栏可见性 / 统计页 / 主响应式 / 回顾容器查询 / 洞察兜底）。
+    ============================================================================ */
+/* 输入框的 hover 描边（2026-09-28 起这条是**兜底**，不是主力）：鼠标悬停时真正生效的
+   是宿主 app.css 的 `input[type=…]:not(:disabled):hover`（(0,3,1)，压过这里的 (0,3,0)），
+   它读的 `--background-modifier-border-hover` 已在 00-tokens.css 里接管成 --momo-ink-6。
+   这条也改成读同一个变量（此前两边各写一遍 --momo-ink-6，靠注释维持「同值」）：
+   于是无论宿主那条落不落得上，取到的都是同一个值；**聚焦时那个变量在该元素上已被
+   20-panel.css 改写成 accent**，这条跟着一起变，不会再出现「同特异性撞车把焦点描边
+   拉回 ink-6」的情况。留着它是为了「宿主那条规则不落上」的路径（旧版 Obsidian /
+   未来宿主改版）。断点集中在 95 分片的口径见文件头。 */
+@media (hover: hover) {
+  .momo-app .momo-input:hover,
+  .momo-settings .momo-input:hover {
+    border-color: var(--background-modifier-border-hover);
+  }
+}
+
+/* ---- 侧栏可见性：由容器查询决定（随面板宽度自动显隐）----
+     面板宽度由 Obsidian 侧栏决定，用户拖到极窄时会出问题，用容器查询兜底。 */
+@container (max-width: 620px) {
+  .momo-sidebar {
+    display: none;
+  }
+
+  /* 面板窄到只容内容时：连同拖宽手柄一起收掉 */
+  .momo-resize-handle {
+    display: none;
+  }
+
+  /* 侧栏在这一档被 CSS 强制藏起来了（上面那条 display: none，源码在后压过基础段），
+     prefs.sidebar 已经管不着它的可见性——留着开关只会「点了没有任何变化」，
+     图标的开合态也就无从谈起。跟着一起收掉，别留一个说了不算的控件。
+     只收**顶栏那份**（.momo-panel-toggle-top）：侧栏那份在 .momo-sidebar（display:none）
+     里，本就看不见；这一条要压过 .momo-app.momo-sidebar-collapsed .momo-panel-toggle-top
+     的 display:inline-flex（同为 0,3,0，靠源码序取胜——95-responsive 排在 60-design 之后）。
+     （v0.8.4；v0.9.37 开关搬进侧栏后改为点名顶栏那份。） */
+  .momo-app .momo-topbar .momo-panel-toggle {
+    display: none;
+  }
+
+  /* 藏了侧栏，挂在侧栏最上方的发布框（写点什么）也跟着没了 —— 这一档就再没有任何
+     「新建 Momo」的入口。把顶栏里那份翻上来，顶栏首行整行归它（flex-basis 100% 逼出
+     一次换行，搜索 / 视图 / 排序等自然落到第二行）。两份发布框互斥，任何宽度只看见一颗。
+     （v0.8.5；基础规则「宽面板隐藏」在下面发布框那一节，两份注释互为索引。）
+     这条写 (0,3,0)：要压过 .momo-app .momo-composer{display:flex}（0,2,0），
+     所以不能只写 .momo-composer-top——那会被它按层叠盖掉，两份同时出现。 */
+  .momo-app .momo-topbar .momo-composer-top {
+    display: flex;
+    flex: 1 1 100%;
+  }
+
+  /* 宽面板隐藏的第二份模式分段（60-design.css 的 .momo-app .momo-topbar-modes，
+     (0,2,0)）：侧栏在这一档被上面那条 display:none 收掉，五个模式的入口只剩它，
+     所以这里写 (0,3,0) 压回来。与 .momo-composer-top 同一套路（基础 (0,2,0) +
+     窄档 (0,3,0)），两份注释互为索引；进 / 出都给全五项（Topbar.tsx 文件头）。 */
+  .momo-app .momo-topbar .momo-topbar-modes {
+    display: block;
+  }
+}
+
+/* ---- 统计页容器查询（容器名 stats，v0.5.9 加入）----
+     口径 = .momo-stats-page 的内联尺寸，与 .momo-app 那一套容器查询互不干扰。 */
+@container stats (max-width: 880px) {
+  /* 趋势行 / 分布行 / 习惯行在这一档折一列：卡片不再硬挤，宽度不足 260px 时
+     改纵向排；柱状图与星期柱状图跟着收窄。 */
+  .momo-row-trend,
+  .momo-row-dist,
+  .momo-row-habits {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* 概览条改 3 列：880px 里每格约 130px，22px 数字 + 副行还够读（5 格 = 3 + 2） */
+  .momo-ov-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container stats (max-width: 720px) {
+  /* 双列 KPI 卡在 720px 折成 2 列、hero 卡独占一行：230px 一列刚好放得下
+     44px 的大数字；两列时 hero 与速览条仍同排。 */
+  .momo-row-kpi {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .momo-kpi-lead {
+    grid-column: 1 / -1;
+  }
+
+  /* 内容质量四格也折 2 列：间距跟着收紧，避免图例与数值挤在一行 */
+  .momo-quality {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 24px;
+    padding: 20px 16px;
+  }
+
+  .momo-quality-div {
+    display: none;
+  }
+
+  .momo-quality-cell {
+    padding: 0;
+  }
+}
+
+@container stats (max-width: 520px) {
+  .momo-stats-card {
+    padding: 16px;
+  }
+
+  .momo-row-kpi {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* 大数字整体降一档：hero 44 → 36，颗粒度更细的卡片不至于把数字挤出卡片 */
+  .momo-kpi-num {
+    font-size: 36px;
+  }
+
+  .momo-quality-num {
+    font-size: var(--momo-fs-7);
+  }
+
+  /* 概览条改 2 列：520px 里 3 列每格约 100px，副行（「↑ 上周 +3」）会换行；
+     2 列留给数字 + 单位，副行截断兜底（momo-ov-sub 已设 ellipsis） */
+  .momo-ov-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .momo-ov-num {
+    font-size: 20px;
+  }
+
+  /* 习惯区的「连续记录 · 数字变化」两列折一列：窄容器里各占一行更清楚。 */
+  .momo-habit-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .momo-hbars {
+    height: 96px;
+  }
+
+  .momo-wbars {
+    height: 76px;
+  }
+}
+
+/* ---- 面板块：宽度降序，同宽度只开一次（P3 并块）---- */
+
+@container (max-width: 900px) {
+  .momo-content {
+    padding: 16px;
+  }
+
+  .momo-content > .momo-group,
+  .momo-content > .momo-flow,
+  .momo-content > .momo-loc-flow,
+  .momo-content > .momo-globe {
+    width: 100%;
+  }
+}
+
+@container (max-width: 720px) {
+  .momo-topbar {
+    min-height: 56px;
+    flex-wrap: wrap;
+    row-gap: 8px;
+    padding: 8px 16px;
+  }
+
+  .momo-composer {
+    margin: 12px 16px 0;
+  }
+
+  .momo-filterbar {
+    padding: 0 16px;
+  }
+
+  .momo-review {
+    padding: 20px 16px;
+  }
+
+}
+
+/* 560px 以下（度量的是内容区宽 = .momo-app 的内联尺寸）：锚点退化成 static，
+   弹层变成贴底整宽面板，列表从「定高内滚」改成「吃掉剩余高度」。
+   fab 那一份不再单独抄一遍：fab 宽模式规则（.momo-fab .momo-pop）特异性
+   (0,2,0) 写在上面，这里同特异性 + 源码在后，窄面板两种锚点一次覆盖。 */
+@container (max-width: 560px) {
+  .momo-batchtag-wrap {
+    position: static;
+  }
+
+  .momo-batchtag-wrap .momo-pop {
+    top: auto;
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-width: none;
+    max-height: calc(100% - 20px);
+  }
+
+  .momo-pop-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+  }
+
+  .momo-content {
+    padding: 14px;
+  }
+
+  /* ---- 顶栏窄档瘦身（2026-10-01 用户窄面板反馈 · CAP-7 ①）----
+     这一档顶栏只留**视图切换 + 排序 + 多选**三项，收起两块：
+       · 搜索框 `.momo-search-wrap`：基础态钉 240px 宽（20-panel.css），
+         是这一排唯一会把其余控件挤到下一行的块——它走，视图切换才留得住；
+       · 窄档模式分段 `.momo-topbar-modes`（≤620px 翻上来那份功能入口，见文件头
+         的 620 块）：与视图选择语义重、窄面板里又占一整段，一并收掉。
+     **保留视图选择**（密度分段 `.momo-density-seg`，含星球 / 地点分组两档）：
+     2026-10-01 那版反过来把分段整段收起、搜索改可收缩——用户窄面板反馈明确
+     否决了那个取舍（「窄的时候别收视图切换，收搜索」）。三项合计 ≈308px
+     （分段最宽七颗 ≈190 + 排序 34 + 「多选」≈64 + 间距），480 档的面板也摆得
+     下一行；拉宽面板搜索与功能入口即回，密度偏好本来就不丢。 */
+  .momo-search-wrap {
+    display: none;
+  }
+
+  /* 与 620 块那条 display: block 同为 (0,3,0)，靠源码序取胜（本段在文件更下方）；
+     基础段 `.momo-app .momo-topbar-modes` 是 display: none（60-design.css），
+     于是这一档等于「本来就没翻上来过」，三段注释互为索引。 */
+  .momo-app .momo-topbar .momo-topbar-modes {
+    display: none;
+  }
+
+  .momo-fab {
+    left: 12px;
+    right: 12px;
+    transform: none;
+    max-width: none;
+    justify-content: center;
+    /* 560px 以下批量条会撑满可用宽度，也就从这一档开始可能放不下而换行（见基础样式的 flex-wrap）。
+       多行高度上 999px 的胶囊圆角会被 clamp 成半高（约 45px），行首 / 行尾的按钮会压进圆角里，
+       所以换行区间改成正圆角小卡片；宽面板仍是设计稿的胶囊。 */
+    min-height: 48px;
+    padding: 6px;
+    border-radius: var(--momo-r-5);
+  }
+}
+
+/* ---- 星球视图：宽档球居中 → 窄档缩到列宽（命名容器 globe = .momo-globe-card）----
+   560 与 GlobeView 的 GLOBE_WIDE_PX 是同一个数：CSS 折布局、JS 镜像管滚轮
+   启用与否（容器查询管不了「要不要 preventDefault」）。JS 量的 .momo-globe-body
+   宽正是这个容器的内容宽，两边不会算出两个答案。 */
+@container globe (max-width: 559px) {
+  .momo-globe-body {
+    flex-direction: column;
+  }
+
+  /* 堆叠档球缩到列宽（不超过放大后的尺寸），居中；高度跟 aspect-ratio 走。
+     这里的 height: auto 不是多余的：基类钉着 height: calc(400px · zoom)，
+     而宽高都不是 auto 时 aspect-ratio 会被**忽略**——卡片窄到 400 以下
+     （分屏 / 手机）时舞台就成了 250×400 的长方形，canvas 被拉成竖椭圆，
+     而 SVG 叠层自己保比例，于是锚点离开它标的那块地。显式 auto 才真让高度跟着宽度走。
+     上限也要乘 --globe-zoom：窄档虽然滚轮缩放关着（面板自身可能就在滚，截滚轮会把
+     「滚列表」变成「放大星球」，见 GlobeView 的 zoomable），但从宽档带过来的缩放值还在，
+     上限不跟着乘的话球会比宽档里看起来更大。 */
+  .momo-globe-stage {
+    width: 100%;
+    max-width: calc(400px * var(--globe-zoom, 1));
+    height: auto;
+    margin: 0 auto;
+  }
+}
+
+/* 480px 以下：只留最省空间的排布——外边距收一档，横排卡片改满宽。
+   （P3 并块：原 480 四块合一；内部顺序 = 原四块的先后，块间相对位置不变。
+    三条窄档规则随之恢复「后来者胜」：search-wrap 的 flex、content 的内距、
+    composer 的左右外距——裁决见工单。） */
+@container (max-width: 480px) {
+  /* 220px 侧栏下：6px 外距 + 16px 卡内距收进一档，剩下都留给正文 */
+  .momo-topbar,
+  .momo-composer {
+    margin-left: 10px;
+    margin-right: 10px;
+  }
+
+  /* 搜索框在这一档不再排版：≤560 那条 display: none 一定命中（容器查询是
+     阈值序，≤480 蕴含 ≤560），原来这条「占满剩余宽度」的 flex 基准已随窄档
+     瘦身一起退役——留着只会让人以为搜索还在。 */
+
+  /* 分段控件的窄面板兜底：允许换行、可收缩——flex-wrap + min-width:0 + flex-shrink:1，
+     200px 侧栏也不会溢出 1px。 */
+  .momo-segmented {
+    min-width: 0;
+    flex-wrap: wrap;
+    /* BUG-127b：补收缩系数——基础态（60-design/050-topbar.css）是 `flex:none`，
+       容器永远拿自然宽，于是上面注释里「可收缩」三个字从来没成立过：窄面板上
+       顶栏分段（回顾五模式 / 统计四范围）是整段被 .momo-main 裁掉，不是换行。
+       容器同步改成 min-height（见 050-topbar.css 的头注），长高不再被裁。 */
+    flex-shrink: 1;
+  }
+
+  /* 多选操作条在窄面板只占一行：flex1 的位置在这一档回收 */
+  .momo-topbar > .momo-flex1 {
+    display: none;
+  }
+
+  /* 地点组头在这一档收起条数：组名 + mappin 之外再挂一串数字，窄侧栏里组头一行
+     放不下；条数在组内卡片上与侧栏「全部地点」树的右列都读得到，不丢信息。 */
+  .momo-loc-count {
+    display: none;
+  }
+
+  /* 回收站预览：折叠时只显示分类 / 图标，展开才显示具体 Momo 卡片 */
+
+  /* ---- 洞察区的窄面板兜底（容器 = .momo-app）----
+     统计页自己的容器查询写在上方 @container stats 那两节（容器名 stats），
+     这里只管非统计页场景。 */
+  .momo-insights {
+    grid-template-columns: 1fr;
+  }
+
+  .momo-content {
+    padding: 10px;
+  }
+
+  .momo-topbar {
+    padding: 8px 10px;
+  }
+
+  .momo-composer {
+    margin: 10px 10px 0;
+    padding: 0 10px;
+  }
+
+  .momo-filterbar {
+    padding: 0 10px;
+  }
+
+  .momo-card {
+    padding: 18px;
+  }
+
+  /* （v0.9.15）窄面板的叠瓦压边收窄规则已随「一屏一卡」退场——叠瓦负 margin
+     整体删了（见 60-design.css .momo-focus-item > .momo-card），这条没有存在意义。 */
+
+  .momo-review-card {
+    padding: 18px;
+  }
+
+  .momo-review-hero {
+    font-size: var(--momo-fs-5);
+  }
+
+
+  .momo-fab {
+    /* 形状（可换行 / 正圆角小卡片）已提到 560px 那一档，这里只把图标之间的间距再收紧一格 */
+    gap: 2px;
+  }
+
+  /* 窄面板：批量条只留图标。五颗带文字的按钮在 300px 侧栏里排不下（要三行），
+     去掉文字后一行就够，省下的高度直接还给列表。
+     语义由文字本身兜住——这里转 sr-only（不出视觉、仍在无障碍树）；aria-label
+     不传（BUG-197：与可见文字同键会被部分 Electron 漏成黑底气泡）；加 / 去标签
+     的形状本身可分（tag / tag-off）。 */
+  .momo-fab-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .momo-fab-count {
+    flex: 1 1 100%;
+    text-align: center;
+    margin: 2px 0 4px;
+  }
+
+  /* 同值 (0,3,0) 版：基础段 .momo-app .momo-review-acts .momo-btn 也是 (0,3,0)
+     且写了 padding: 0 16px——等特异性只认源码序，本段在文件末尾才压得住它。
+     (0,2,0) 那条压不过（P3 实测：只留它，480 档按钮内距退回 16px），别删。 */
+  .momo-app .momo-review-acts .momo-btn {
+    flex: 1 1 auto;
+    justify-content: center;
+    padding: 0 12px;
+  }
+}
+
+/* 380px 以下：字号与内距再收一档，正文仍然可读
+   （P3 并块：原 380 三块合一；内部顺序 = 原三块的先后。
+    content 内距与 composer 左右外距的 380 档值随之压过 480 档——裁决见工单。） */
+@container (max-width: 380px) {
+  .momo-content {
+    padding: 0 8px 18px;
+    /* BUG-134h：这一档 padding-top 真的归零，顶部留白交给 --top-gap 补
+       （宽面板由 padding 的 24px 提供，那一档 --top-gap 是 0）。
+       没有这一行时首张卡 / 组头顶到 .momo-topbar-rule 分界线上。 */
+    --top-gap: 12px;
+  }
+
+  .momo-topbar,
+  .momo-composer {
+    margin-left: 8px;
+    margin-right: 8px;
+  }
+
+  /* 多选操作条：只把图标留下——最小可点面积一行放得下 */
+  .momo-topbar .momo-btn {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .momo-card {
+    padding: 14px 16px;
+  }
+
+  .momo-composer-text {
+    font-size: var(--momo-fs-3);
+  }
+
+  /* 两条同值 fab-btn 缩窄规则：(0,1,0) 与 (0,2,0) 历史双写——.momo-fab 恒在
+     .momo-app 内，真实 DOM 里 (0,2,0) 兜底；两条都留，去重留待特异性治理。 */
+  .momo-fab-btn {
+    padding: 0 8px;
+    font-size: var(--momo-fs-2);
+  }
+
+  .momo-app .momo-fab-btn {
+    padding: 0 8px;
+    font-size: var(--momo-fs-2);
+  }
+}

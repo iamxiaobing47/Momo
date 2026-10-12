@@ -1,0 +1,157 @@
+/* ---- 开关 38×22 / r999，滑块 18 ----
+   视觉尺寸照设计稿；22px 高在触屏 / 高分屏下热区太勉强，用一枚透明的 ::before
+   把点击区撑到 50×34（反馈①「点击热区」——加大的是热区不是外观）。 */
+.momo-settings .momo-set-switch {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  width: 38px;
+  height: 22px;
+  padding: 2px;
+  border: 0;
+  border-radius: var(--momo-r-pill);
+  background: var(--momo-ink-6);
+  cursor: pointer;
+  transition: background 0.16s ease;
+}
+.momo-settings .momo-set-switch::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+.momo-settings .momo-set-switch:hover:not(.is-on) {
+  background: var(--momo-ink-5);
+}
+.momo-settings .momo-set-switch.is-on {
+  background: var(--momo-accent);
+}
+.momo-settings .momo-set-switch-knob {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--momo-r-pill);
+  background: var(--momo-card);
+  box-shadow: var(--momo-shadow-card);
+  transition: transform 0.16s ease;
+}
+.momo-settings .momo-set-switch.is-on .momo-set-switch-knob {
+  transform: translateX(16px);
+}
+
+/* ---- 滑块行：轨道 4 / r999，滑块 14（1px accent 描边），右侧当前值 ---- */
+.momo-settings .momo-set-slider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.momo-settings .momo-set-range {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 14px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+.momo-settings .momo-set-range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: var(--momo-r-pill);
+  background: linear-gradient(
+    to right,
+    var(--momo-accent) 0 var(--momo-fill, 0%),
+    var(--momo-line) var(--momo-fill, 0%) 100%
+  );
+}
+.momo-settings .momo-set-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: var(--momo-r-pill);
+  background: var(--momo-card);
+  box-shadow: inset 0 0 0 1px var(--momo-accent);
+}
+.momo-settings .momo-set-range::-moz-range-track {
+  height: 4px;
+  border-radius: var(--momo-r-pill);
+  background: var(--momo-line);
+}
+.momo-settings .momo-set-range::-moz-range-progress {
+  height: 4px;
+  border-radius: var(--momo-r-pill);
+  background: var(--momo-accent);
+}
+.momo-settings .momo-set-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--momo-r-pill);
+  background: var(--momo-card);
+  box-shadow: inset 0 0 0 1px var(--momo-accent);
+}
+.momo-settings .momo-set-slider-val {
+  flex: none;
+  font-family: var(--momo-num);
+  font-size: var(--momo-fs-2);
+  color: var(--momo-ink-2);
+}
+
+/* ---- 步进器 36 / r6 / surface：减 32 + 数值 46 + 加 32 ---- */
+.momo-settings .momo-set-stepper {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  box-sizing: border-box;
+  height: var(--momo-set-ctrl-h);
+  padding: 2px;
+  border-radius: var(--momo-set-r);
+  background: var(--momo-surface);
+}
+.momo-settings .momo-set-stepper-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  /* v0.9.35：不给 padding 就等于用宿主 `button` 那条的 `4px 12px`（36 的盒子
+     只声明了宽度），32×32 的内容盒被吃到 8px 宽。定尺图标钮本来就是 0 内距。 */
+  padding: 0;
+  border: 0;
+  border-radius: var(--momo-set-r);
+  background: transparent;
+  color: var(--momo-ink-2);
+  cursor: pointer;
+  transition: box-shadow 120ms ease, background 120ms ease, color 120ms ease;
+}
+/* hover 不浮 card 底（2026-10-11 用户报「雾蓝下 hover 到按钮上，会变成浅色，
+   导致什么都看不清」）：card 在雾蓝里是纯白 #ffffff，而步进器轨道（surface）
+   与本页卡片同为白系——按钮浮过去就是一块白板，反馈归零（实测底色差 4/255）。
+   设计文档对 card 浮起的裁定见 60-design/030-sidebar-tags.css：「card × surface
+   两头失效——浅色浮成白板、墨夜下归零」。信号改走本页既有的描边语言（同
+   .momo-set-icon / .momo-set-scheme 的 hover：accent-line 细环 + 字色加深），
+   细环是带色相的浅 accent，五套主题下都与静置态差一档。 */
+.momo-settings .momo-set-stepper-btn:hover:not(:disabled) {
+  box-shadow: inset 0 0 0 1px var(--momo-ink-6);
+  color: var(--momo-ink);
+}
+.momo-settings .momo-set-stepper-btn:active:not(:disabled) {
+  background: var(--momo-surface-2);
+}
+.momo-settings .momo-set-stepper-btn svg {
+  width: 14px;
+  height: 14px;
+}
+.momo-settings .momo-set-stepper-val {
+  flex: none;
+  width: 46px;
+  text-align: center;
+  font-family: var(--momo-num);
+  font-size: var(--momo-fs-3);
+  font-weight: 600;
+  color: var(--momo-ink);
+}
+

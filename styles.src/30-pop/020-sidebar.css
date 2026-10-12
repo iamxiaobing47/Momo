@@ -1,0 +1,80 @@
+/* ---- 侧栏整体：宽度过渡 + 内容渐隐（收起时像纸被抽走，而不是一刀没了）----
+    动效三件套：.momo-sidebar 的宽度 / 描边宽度过渡，内容 opacity 渐隐。
+    不写 display:none——整栏瞬间消失太硬，所以额外包一层 .momo-sidebar-inner
+    做渐隐容器。 */
+
+/* BUG-153：删掉 `.momo-stats` / `.momo-stat` 两条规则——src 里从没有这两个类名
+   （统计数字现在走 `momo-stats-card` / `momo-stats-group-*`）；此前被
+   `momo-stats-*` 的子串匹配掩盖，裸边界判据下现出原形。 */
+
+
+
+
+
+.momo-tags-section {
+  border-top: 1px solid var(--momo-border);
+  margin-top: 8px;
+  padding-top: 8px;
+}
+
+/* v0.9.13：这里原是 `.momo-sidebar .momo-menu:last-child { margin-top: auto }`
+   （从 danpen 时代改名继承下来的老规则）。它只在「菜单是侧栏最后一个子元素」时生效，
+   而侧栏里唯一可能排在菜单后面的区块就是标签区（afterNav，见 registry/sidebarSections）：
+   **关掉标签区开关后菜单就变成末元素**，于是整条菜单被 auto 外边距推到侧栏最底部，
+   分隔线与菜单之间凭空多出上百像素的空洞——用户原话「它上方的内容全落下来了」。
+   开着标签区时菜单上方没有空余可吃，所以同样的代码在默认状态下毫无症状，
+   只有拨过开关的人才看得见（真 Chromium 量过：关掉后 menu margin-top = 137.8px）。
+   删掉的判断依据：区块的开与关是增删一颗子元素，不该牵动别的区块的位置。
+   顺带删掉 padding-bottom: 4px——.momo-sidebar-inner 自己有 14px 底内距，
+   这一条只在末元素时多 4px，纯属历史遗留，没有视觉主张。 */
+
+/* ---- 要盖住 Obsidian 原生控件底色：统一透明，上色交给组件类自己 ----
+   L1 reset（治理方案 §04 铁律 3 的 !important 配额段，2026-09-25 P3 起配额为 0）。
+   这一段曾经整段带 !important，代价是全表 82 处 !important 陪它打特权战争——
+   组件想给自己铺个底色，也得先带一枚 !important 才压得住 reset。
+   收口方式：reset 退回普通声明，改靠「特异性 + 源码序」赢宿主 app.css：
+   · 宿主最高的裸按钮规则是 button:not(.clickable-icon)（0,1,1），
+     与 reset 的 .momo-app button 平级；插件样式表在宿主之后加载，同特异性后者赢；
+   · 上面 box-shadow / 字体那条 reset（同段）本来就是这套打法，本条与它对齐；
+   · 组件规则 (0,2,0)+ 的正常声明即压过这条 reset，全表不再需要 !important。
+   反证在同文件上方：Modal 里的同款按钮（.modal.momo-confirm .momo-pop-btn）
+   不在 .momo-app 内、碰不到这条 reset，从头到尾没有 !important 也一直好使。 */
+.momo-app button,
+.momo-app .momo-btn,
+.momo-app .momo-chip {
+  background: transparent;
+  background-color: transparent;
+  box-shadow: none;
+  -webkit-appearance: none;
+}
+
+.momo-app .momo-btn {
+  border: 1px solid var(--momo-border);
+  background: var(--background-primary, #fff);
+  /* BUG-186：宿主 `button:not(.clickable-icon)`（(0,1,1)）压得住裸类的 color——
+     回顾页两颗按钮的字色必须在这条 (0,2,0) 上显式声明（--text-color 与
+     --text-normal 虽同值，「设计要什么」不能靠宿主恰好给对）。 */
+  color: var(--text-normal);
+}
+
+.momo-app .momo-btn:hover {
+  border-color: var(--momo-accent);
+  color: var(--momo-accent);
+}
+
+/* （BUG-188 收口：`.momo-app .momo-chip` 的未选中基态整条删除——`.momo-chip`
+   现唯一的产出点是侧栏置顶胶囊（BUG-187b 注记），它的底 / 描边 / 字色由
+   60-design `.momo-app .momo-pin-chip`（同特异性 (0,2,0)、源码序更后）逐项接管
+   （card 底 / line 描边 / ink-2 字），这条 surface / --momo-border / --text-muted
+   的三层皮从未有机会上脸；未选中胶囊的 hover 在 20-panel/050-chips.css
+   （(0,3,0) 宿主前缀排除款）。真要给未来的裸 chip 消费者兜底，届时连着
+   消费者一起写，别留一条永远赢不了的皮。） */
+
+/* chip 选中态：soft 底 + accent 字 + accent 描边（取消选中后自动回落） */
+.momo-app .momo-chip-on,
+.momo-app .momo-chip-on:hover {
+  background: var(--momo-accent-soft);
+  color: var(--momo-accent);
+  border-color: var(--momo-accent);
+}
+

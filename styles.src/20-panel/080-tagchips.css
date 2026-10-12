@@ -1,0 +1,49 @@
+/* ---- 卡片标签 chips（React chips，替代纯文本链接）----
+   v0.9.45 修「设置页预览和真卡不一致」（用户报「信息行的预览渲染样式，和实际卡片
+   不一致」）：这条规则原先写成**裸类** `.momo-card-tag`（特异性 (0,1,0)），而
+   v0.9.35 为了压宿主全局 `button { height: var(--input-height) }`（(0,0,1)，见
+   host-button-clash.test.mts）只补了 height 一个属性——漏掉的是 (0,1,1) 那一档：
+   宿主在设置弹窗里给 button 定的 background / font-family 正是 (0,1,1)，
+   (0,1,0) 压不过。于是**同一枚 .momo-card-tag** 在两个宿主里两张脸：
+   面板里是 accent-soft 底 + fs-1 + 500 字重 + 无边框（走 `60-design.css` 的
+   `.momo-app .momo-card-tag`），设置页预览里只剩 height，其余退回宿主按钮本色
+   （深色方案下是一排白发亮的钮、字号还大一级）。
+   现在与 `.momo-loc-pill` 同一形制：**一条声明块同时列两个宿主**（(0,2,0)，
+   压得过任何 (0,1,1) 的宿主 button 规则），两个宿主逐字一致；`60-design/130-sort-menu.css`
+   里那条同族副本已删（两条并存 = 将来必然分家，本 Bug 的来路）。
+   font-family 显式写给 var(--font-interface, inherit)：这正是 `.momo-app button`
+   复位给真卡的同一取值——不声明的话预览会走 `.momo-settings button` 的 --momo-sans，
+   预览与真卡在字体上又会差一档。
+   2026-10-12 起底色 / 字色从 accent 令牌换成 tag 专用令牌（check-contrast ②c 组：
+   tag × tag-soft / tag × card / page × tag 三条判定）；选中态 `.momo-card-tag-on`
+   仍是 accent 描边——「选中 = accent」的语言不变。 */
+.momo-app .momo-card-tag,
+.momo-settings .momo-card-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  border: none;
+  border-radius: var(--momo-r-pill);
+  background: var(--momo-tag-soft);
+  padding: 0 8px;
+  color: var(--momo-tag);
+  font-family: var(--font-interface, inherit);
+  font-size: var(--momo-fs-1);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+/* hover = 实底反色（与 .momo-loc-pill 的 hover 同一语言）。
+   本规则原先的底 / 字两支与上面的静止态逐字相同，等于没有反馈——
+   「地点标签有 hover、文字标签没有」这条报障的根因就在这。
+   反色取 tag / page：这对取值是 check-contrast ②c 组已判定的
+   （五套方案都 ≥4.5:1），不引入未守卫的新组合。
+   两个宿主都要列：预览卡里那颗也得是同一张脸。
+   （`.momo-card-tag.momo-card-tag-on` 的选中环在 30-pop / 60-design 两处，是另一件事。） */
+.momo-app .momo-card-tag:hover,
+.momo-settings .momo-card-tag:hover {
+  background: var(--momo-tag);
+  color: var(--momo-page);
+}
+

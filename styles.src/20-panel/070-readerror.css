@@ -1,0 +1,19 @@
+/* ---- 读盘失败提示条（M3）----
+   持续态不是弹窗：一行常驻在主区顶部，带一枚「重试」。刻意做得比告警轻——
+   读失败时数据没丢（显示的是上一次的），用户要的是「知道 + 能再试」，不是被拦下。
+   配色走 --text-muted 而不是错误红：整条是「状态说明」，不是「操作被拒绝」。 */
+.momo-read-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: var(--momo-fs-3);
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.momo-read-error-text {
+  flex: 1;
+  min-width: 0;
+}
+

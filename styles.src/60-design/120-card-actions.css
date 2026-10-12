@@ -1,0 +1,67 @@
+/* ---- 置顶笔记（v0.8.3）：卡片上的状态与入口 ---- */
+
+/* 置顶卡片的操作行**常显**（与只读态同等待遇）。
+   原因：图钉的高亮色落在操作行那 45% 不透明度上，几乎看不出「已置顶」，
+   整行常显才把状态传得出去。只作用于用户主动标记过的少数卡片。 */
+.momo-card-actions.momo-card-actions-on {
+  opacity: 1;
+}
+
+/* 元信息行开头的常显小图钉：非 hover 时操作行是隐藏的（45% 透明度），
+   光靠上面那颗按钮不足以让人看出哪条被置顶；网格 / 紧凑这类没有「置顶」组
+   可依附的密度，全靠它表示状态。 */
+.momo-card-pinmark {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  color: var(--momo-accent);
+}
+
+/* ---- 卡片右键菜单（置顶入口；菜单型浮层，0.9.0 起并入浮层骨架）----
+   菜单型浮层豁免头部，用最小容器（内缩 6px），规格与其他浮层共用。
+   它是全屏定位元素（层级 --momo-z-menu），**不能**和批量弹层共用遮罩类
+   .momo-pop-mask——旧的 .momo-menu-overlay 同时当遮罩（38）与它的全屏
+   容器（1200），两个 z-index 并存就是设计稿说的「错层」。关闭由
+   CardContextMenu 自己的 pointerdown 监听负责，不需要遮罩。
+   定位是 absolute + JS 换算的「相对 .momo-app」偏移（不是 fixed：leaf 的
+   contain:strict 会把 fixed 的包含块变成 leaf，菜单会整体偏出光标）。 */
+.momo-pop-menu {
+  position: absolute;
+  z-index: var(--momo-z-menu);
+  min-width: 160px;
+  padding: 6px;
+  border-radius: var(--momo-r-4);
+  border: 1px solid var(--momo-line);
+  background: var(--momo-card);
+  box-shadow: var(--momo-shadow-float);
+  font-family: var(--momo-sans);
+}
+
+.momo-app .momo-pop-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--momo-r-3);
+  background: transparent;
+  font: inherit;
+  font-size: var(--momo-fs-3);
+  color: var(--momo-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.momo-app .momo-pop-menu-item:hover {
+  background: var(--momo-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--momo-ink-6);
+  color: var(--momo-accent);
+}
+
+.momo-app .momo-pop-menu-item-on,
+.momo-app .momo-pop-menu-item-on:hover {
+  color: var(--momo-accent);
+}
+

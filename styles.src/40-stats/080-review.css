@@ -1,0 +1,372 @@
+/* ---- 回顾：开发中 · 24 小时趋势 / 活跃度 / 复盘 ---- */
+
+/* 月度分布条：活跃月份高一档、普通月份低一档，最近活跃的比普通高 4px；
+    滚动容器宽度上限 320px，容器再窄两档一起收。 */
+.momo-mbars {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  flex: 1;
+  min-height: 140px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--dp-border);
+}
+
+.momo-mbar-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 0;
+  min-width: 14px;
+  max-width: 40px;
+}
+
+/* 月度分布条的数字胶囊：放在活跃月份正上方，滚动时跟着一起走 */
+.momo-mbar-num {
+  min-height: 14px;
+  font-size: var(--momo-fs-1);
+  line-height: 14px;
+  color: var(--dp-text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.momo-mbar-track {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+.momo-mbar-fill {
+  width: 100%;
+  border-radius: 4px 4px 0 0;
+}
+
+.momo-mbar-peak {
+  background: var(--dp-accent-2);
+}
+
+.momo-mbar-normal {
+  background: var(--dp-accent-3);
+}
+
+.momo-mbar-zero {
+  background: var(--dp-line);
+}
+
+/* 周分布 · 星期柱状：7 根等高列，滚动容器里按天数平分；
+    口径 = 统计页自己的行距。 */
+.momo-hbars {
+  display: flex;
+  align-items: stretch;
+  gap: 3px;
+  height: 132px;
+  border-bottom: 1px solid var(--dp-border);
+}
+
+.momo-hbar-col {
+  display: flex;
+  align-items: flex-end;
+  flex: 1 1 0;
+  min-width: 3px;
+}
+
+.momo-hbar-fill {
+  width: 100%;
+  border-radius: 2.5px 2.5px 0 0;
+}
+
+.momo-hbar-high {
+  background: var(--dp-accent-2);
+}
+
+.momo-hbar-mid {
+  background: var(--dp-accent-3);
+}
+
+.momo-hbar-low {
+  background: var(--dp-accent-4);
+}
+
+.momo-hbar-zero {
+  background: var(--dp-line);
+}
+
+/* 星期柱状图的滚动容器：禁掉横向溢出 + 单列高 92px（含星期标签行），
+    容器内只放柱子，标签不挤出去。 */
+.momo-wbars {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  height: 92px;
+}
+
+.momo-wbar-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.momo-wbar-num {
+  min-height: 13px;
+  font-size: var(--momo-fs-1);
+  line-height: 13px;
+  color: var(--dp-text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.momo-wbar-track {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+.momo-wbar-fill {
+  width: 100%;
+  border-radius: 3px 3px 0 0;
+  background: var(--dp-accent-4);
+}
+
+.momo-wbar-label {
+  font-size: var(--momo-fs-1);
+  color: var(--dp-axis);
+}
+
+/* 度量轴：起点 / 终点两类文字，说明这一组图表的度量口径 */
+.momo-axis {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: var(--momo-fs-1);
+  color: var(--dp-axis);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- 习惯复盘（Habit）：连续天数 + 当前周，给复盘一个落点 ---- */
+.momo-habit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 28px;
+}
+
+.momo-habit-cell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 52px;
+  border-bottom: 1px solid var(--dp-line);
+}
+
+.momo-habit-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--momo-fs-3);
+  color: var(--dp-text-2);
+}
+
+.momo-habit-value {
+  display: flex;
+  align-items: baseline;
+  flex-shrink: 0;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 20px 是统计页的字号小档：习惯数字专用 */
+.momo-habit-num {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--dp-text);
+}
+
+.momo-habit-unit {
+  font-size: var(--momo-fs-2);
+  color: var(--dp-text-3);
+}
+
+/* 已完成连续记录（连续天数）：用主色 + 强调，标识「这一项正在坚持」 */
+.momo-habit-strong .momo-habit-num {
+  color: var(--dp-accent);
+}
+
+/* ---- 目标进度条：当前档 + 图钉 + 刻度（含历史达成 / 里程碑）----
+    统计页专用的目标可视化。 */
+.momo-ms-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.momo-ms {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.momo-ms-top,
+.momo-ms-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.momo-ms-name {
+  font-size: var(--momo-fs-3);
+  color: var(--dp-text);
+}
+
+.momo-ms-dist {
+  flex-shrink: 0;
+  font-size: var(--momo-fs-2);
+  color: var(--dp-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.momo-ms-track {
+  display: block;
+  height: 8px;
+  border-radius: var(--momo-r-2);
+  background: var(--dp-line);
+  overflow: hidden;
+}
+
+.momo-ms-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--momo-r-2);
+  background: linear-gradient(90deg, var(--dp-accent) 0%, var(--dp-accent-2) 100%);
+}
+
+.momo-ms-cur {
+  font-size: var(--momo-fs-1);
+  color: var(--dp-axis);
+  font-variant-numeric: tabular-nums;
+}
+
+.momo-ms-pct {
+  font-size: var(--momo-fs-1);
+  color: var(--dp-text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 「接下来」梯子（v0.6.5）：当前目标之后的几个档位。小胶囊 + 灰色，
+   刻意不做成进度条——那是「还没开始的目标」，抢不了当前这一档的视觉权重。 */
+.momo-ms-next {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: -2px;
+}
+
+.momo-ms-next-label {
+  font-size: var(--momo-fs-1);
+  color: var(--dp-text-3);
+}
+
+.momo-ms-next-item {
+  border: 1px solid var(--dp-line);
+  border-radius: var(--momo-r-pill);
+  padding: 1px 8px;
+  font-size: var(--momo-fs-1);
+  line-height: 1.5;
+  color: var(--dp-axis);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- 标签统计（Tag）：总数 + 本周新增 + 数字变化，给标签一个落点 ---- */
+.momo-statbars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.momo-statbar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  font-size: var(--momo-fs-3);
+  color: var(--dp-text);
+}
+
+.momo-statbar-label {
+  flex-shrink: 0;
+  max-width: 42%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 120ms ease;
+}
+
+.momo-statbar-track {
+  flex: 1;
+  height: 8px;
+  border-radius: var(--momo-r-2);
+  background: var(--dp-line);
+  overflow: hidden;
+}
+
+.momo-statbar-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--momo-r-2);
+  background: linear-gradient(90deg, var(--dp-accent) 0%, var(--dp-accent-2) 100%);
+}
+
+/* 数字变化右对齐 + 截断兜底：放不下就省略号，全量信息进 title */
+.momo-statbar-num {
+  flex-shrink: 0;
+  min-width: 22px;
+  text-align: right;
+  color: var(--dp-text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- 生命周期（Life）：使用中的标签 chips / 冷标签区 / 清空确认 ---- */
+.momo-life-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.momo-life-none {
+  font-size: var(--momo-fs-2);
+  color: var(--dp-axis);
+}
+
+/* 冷标签区的卡片列表：复用标签树的缩进与胶囊判定，卡片只做容器 */
+.momo-life-btn {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  font-size: var(--momo-fs-3);
+  letter-spacing: 0.01em;
+  color: var(--dp-text);
+}
+
+.momo-life-btn:hover .momo-insight-label {
+  color: var(--dp-accent);
+}
+

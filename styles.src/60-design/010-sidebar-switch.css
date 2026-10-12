@@ -1,0 +1,156 @@
+/* ---- 侧栏开关（v0.8.4 重做：状态可辨 / 命中区更大 / 描边归队）----
+   ① 状态：图标只有一支箭头，两态靠 scaleX(-1) 让它**原地掉头**（框对 x 轴对称，
+      翻转后逐像素不动）——「框不动、箭头翻面」本身就是开合信号。
+      旧版双箭头 + 整组 rotate(180deg)：两态近乎镜像、箭头方向自相矛盾。
+   ② 命中区：视觉 **40×40**（≤720 档那一行内容高正好 40px，顶满不出格；同族的
+      sort / globe 是 34，这颗 2026-09-30 起**刻意大一号**——用户连着
+      两次说它小，见 `Topbar.tsx` 该按钮的注释与 `icons.tsx` 第 ⑤ 条），再用 ::before
+      外扩到 46px：上下各探进那一行 8px 内距里的 3px，仍在顶栏边框盒内；本按钮是
+      顶栏第一项，向左 / 上下外扩不会盖到别的控件，右侧只扩 3px，与 10px 的 gap 无冲突。
+   ③ 描边与尺寸回到面板的统一语言：24 格 / 1.6 线条（原来 2.0 + 三笔，比旁边 14–15 的
+      图标重一号）；渲染 size 2026-09-28 由 18 收到 16、2026-09-30 又提到 20
+      （连翻两次都因为用户嫌小，记在 icons.tsx 第 ④⑤ 条）。
+   ④ 静止色跟开合：收起 = ink-3（与 .momo-seg 未选中同款），展开 = ink（同 .momo-seg-on）。 */
+.momo-app .momo-panel-toggle {
+  box-sizing: border-box;
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border: none;
+  color: var(--momo-ink-3);
+  transition: box-shadow 140ms ease, background 140ms ease, color 140ms ease, transform 120ms ease;
+}
+
+/* 命中区外扩：::before 不参与布局，视觉尺寸 / 圆角 / 背景都不受影响 */
+.momo-app .momo-panel-toggle::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+}
+
+.momo-app .momo-panel-toggle[aria-pressed='true'] {
+  color: var(--momo-ink);
+}
+
+/* 同 .momo-icon-btn：hover 底 surface → accent-soft + accent-line 细环。侧栏
+   （surface 底）上旧值底色差 0/255、顶栏白底上 4/255——雾蓝下「hover 变成浅色
+   看不清」（2026-10-11 用户报障）；横展五套实测再补细环：stepfun 的 accent-soft
+   与 surface 只差 1.023，淡底在青蓝主题上隐形，饱和色相边五套都看得见。
+   环色 accent-line → ink-6（2026-10-12 同 .momo-icon-btn）：accent-line 对白底
+   只有 1.30:1（advisory 级装饰描边，见 check-contrast ⑦ 组），在纯白的雾蓝上
+   几乎隐形；ink-6 是登记在册的「hover 描边」令牌，三底 3:1 五套全过。 */
+.momo-app .momo-panel-toggle:hover {
+  background: var(--momo-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--momo-ink-6);
+  color: var(--momo-ink);
+}
+
+.momo-app .momo-panel-toggle:active {
+  transform: scale(0.9);
+}
+
+/* ── 开合的两个自由度，各挂一个元素（2026-10-02 改「竖线分隔」形态后重写）────────
+     自由度            归谁管                                       触发类
+     分隔线在哪半边    .momo-panel-toggle-glyph（分隔线 + 箭头整层） .momo-side-right
+     箭头朝哪边        .momo-panel-toggle-arrow（只绕自身中心掉头）  .momo-sidebar-collapsed
+   两条规则落在**不同元素**上 ⇒ 天然独立，v0.8.4 那条「两者同时成立则相互抵消」的
+   特例规则已删除（它的存在本身就是「把两个自由度捆进同一次 scaleX(-1)」的后遗症）。
+   两条都少不得：漏 side-right ⇒ 侧栏停靠右侧时分隔线仍赖在左边；
+   漏 collapsed ⇒ 收起后箭头仍朝外，用户读不出「点下去会展开」。 */
+
+/* 换边：轴必须取「框心」= view-box 的 50% 50%（即 12,12）。**不能**沿用 fill-box——
+   分隔线偏左，这一层自己的 bbox 中心落在 14.6 附近，拿它当轴会把分隔线镜像到 19.25
+   （直接跑出框外）。 */
+.momo-panel-toggle-glyph {
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+  transition: transform 320ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* 侧栏停靠右侧 ⇒ 侧栏区从左边换到右边 ⇒ 分隔线与箭头整层镜像 */
+.momo-side-right .momo-panel-toggle-glyph {
+  transform: scaleX(-1);
+}
+
+/* 掉头：绕**箭头自己**的外接盒中心，与上面那层的换边互不干扰（位置归 glyph、方向归 arrow） */
+.momo-panel-toggle-arrow {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 320ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* 侧栏已折叠 ⇒ 点下去是「展开」⇒ 箭头掉头朝内（朝右） */
+.momo-sidebar-collapsed .momo-panel-toggle-arrow {
+  transform: scaleX(-1);
+}
+
+/* ---- 两份副本（v0.9.37）：开关搬进侧栏品牌行后，还要留一份「收起态」的 ----
+   展开时按钮在侧栏品牌行（.momo-panel-toggle-side），顶栏那份 display:none，把顶栏
+   最左那 40px 让给主区；侧栏一收起，.momo-sidebar 归零 + visibility:hidden，侧栏
+   那份跟着没了，顶栏那份（.momo-panel-toggle-top）翻上来 —— 任何状态都开得回来。
+   两条同源：base 藏（0,2,0），.momo-sidebar-collapsed 翻上来（0,3,0）。
+   ≤620px 那一档顶栏那份也要收（侧栏被 display:none 强制藏，见 95-responsive.css）。 */
+.momo-app .momo-panel-toggle-top {
+  display: none;
+}
+
+.momo-app.momo-sidebar-collapsed .momo-panel-toggle-top {
+  display: inline-flex;
+}
+
+/* 侧栏那份：34×34 与品牌行同高（顶栏那份 40×40 是它在顶栏那一排的专属尺寸）。
+   图标仍 render 20，命中区 ::before 外扩 3px → 外层 40px。 */
+.momo-app .momo-panel-toggle-side {
+  width: 34px;
+  height: 34px;
+}
+
+
+/* 速览统计条：56px 高——首行只放用得上的数。
+   2026-10-02 横展：底从 --momo-card 改 --momo-surface-2。它是侧栏里最大的一块浮起物，
+   吃 card 底时在浅色九套里压过下面整棵树（card×surface 1.15~1.29），
+   改轻嵌面后与大洲卡同属「轻」这一档，侧栏读起来是三段同份量的横条。 */
+.momo-quickstats {
+  height: 56px;
+  flex: none;
+  background: var(--momo-surface-2);
+  border: 1px solid var(--momo-line);
+  border-radius: var(--momo-r-4);
+  display: flex;
+  align-items: center;
+}
+
+.momo-qs {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.momo-qs-num {
+  font-family: var(--momo-num);
+  font-size: var(--momo-fs-6);
+  font-weight: 600;
+  color: var(--momo-ink);
+  line-height: 1.1;
+}
+
+.momo-qs-label {
+  font-size: var(--momo-fs-1);
+  color: var(--momo-ink-2);
+}
+
+/* 侧栏分区间距：不写死高度，交给分区自己与 flex gap */
+.momo-sidebar-section {
+  padding: 0;
+  flex: none;
+}
+
+.momo-sidebar-rule {
+  height: 1px;
+  flex: none;
+  background: var(--momo-line);
+}
+

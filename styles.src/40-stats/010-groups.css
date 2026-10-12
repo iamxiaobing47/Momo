@@ -1,0 +1,75 @@
+/* ---- 统计页分组（v0.6.2）：四组语义域的章节层。组标题 = 章节头（accent 竖条 +
+      标题）；组与组之间一条细线分章，让长页面
+      有明确的阅读节奏。顺序由 types.ts 的 STATS_GROUPS 驱动。v0.6.7 起组标题不再带副标题。 ---- */
+.momo-stats-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.momo-stats-group + .momo-stats-group {
+  border-top: 1px solid var(--dp-border);
+  padding-top: 16px;
+}
+
+.momo-stats-group-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  padding-bottom: 2px;
+}
+
+.momo-stats-group-title {
+  font-size: var(--momo-fs-3);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--dp-text-2);
+}
+
+/* 标题前的 accent 竖条：章节的视觉锚点，比再画一个盒子轻 */
+.momo-stats-group-title::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 11px;
+  margin-right: 7px;
+  border-radius: var(--momo-r-1);
+  background: var(--dp-accent);
+  vertical-align: -1px;
+}
+
+/* 卡片头：标题 + 右侧胶囊（峰值 / 高峰）。v0.6.7 起不再有口径副标题 */
+.momo-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 16px;
+}
+
+/* 卡片头的胶囊：复用卡片自己的胶囊规格，只做状态标识 */
+.momo-card-pill {  flex-shrink: 0;
+  border-radius: var(--momo-r-pill);
+  background: var(--dp-pill);
+  padding: 3px 11px;
+  font-size: var(--momo-fs-1);
+  line-height: 1.4;
+  color: var(--dp-accent);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 卡片内的小标题：把一张卡切成「数据口径」「对比」这类可读的小节 */
+.momo-sub-sec {
+  margin: 18px 0 10px;
+  font-size: var(--momo-fs-2);
+  color: var(--dp-text-3);
+}
+
+/* 分区小标题的额外上边距：标签生命周期卡里的「冷掉的标签」/ 新开标签两段之间。
+   （间隔分布的「间隔分布」小标题随 v0.6.5 移除，这个类名留着给标签卡用。） */
+.momo-sub-sec-gap {
+  margin-top: 18px;
+}
+

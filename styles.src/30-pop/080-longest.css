@@ -1,0 +1,14 @@
+/* ---- 最长笔记卡片：统计页直接复用主页面上那张 .momo-card（见 ContentCards 的
+       RecordsCard）---- 卡面 / 描边 / 投影 / 圆角 / 字阶不再照抄第二套：
+      `.momo-card` 自己的规则就是主面板那一套（80-settings.css）。这里只留**容器**——
+      三张预览卡竖排，间距走卡片间距偏好（与主页面卡片流的 gap 同源）。
+      曾经这里还有一整套 `.momo-record-card` / `-head` / `-title` / `-len` /
+      `-snippet`（v0.7.6 自拼的伪卡：白卡面 + 标题 + 前 100 字摘要）。两条渲染
+      路径各写一遍，统计页的卡于是和主页面越长越不像——2026-10-01 用户反馈后
+      伪卡整块删除，预览卡改由真卡片渲染。 */
+.momo-record-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--momo-ui-gap);
+}
+

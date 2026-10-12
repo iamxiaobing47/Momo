@@ -1,0 +1,118 @@
+/* ============================================================================
+   配色方案 · ink-night（墨夜）：**暗色**方案——深炭底 + 浅字 + 琥珀主题
+   ----------------------------------------------------------------------------
+   一个方案 = 一个文件。令牌清单必须与 mist-blue.css **逐项相同**（少一个，用到它的
+   地方会拿到空值变透明）——由 scripts/check-themes.mjs 在构建时校验。
+   新增方案：复制 mist-blue.css 改色值，再走 README.md 的另两步。
+   ★ 全部色值过 WCAG 2.1 AA（scripts/check-contrast.mjs，构建时必跑）。改色值后重跑。
+
+   本方案是六套里唯一的暗色：墨阶整体**反相**——ink 是近白的暖灰，ink-2…
+   ink-6 逐级压暗（RAMP 守卫的「逐级变浅」在暗底上读作「逐级加深」，方向由
+   对比度单调性保证，两边都过）。实底控件的明暗也随整套翻转：
+     · primary = 暖白按钮，primary-ink 用**深色字**；
+     · accent = 琥珀，on-accent / on-danger 是琥珀底上的深字。
+   热力图 4 阶从暗暖灰逐级提亮到亮琥珀（在深卡上对比度 3:1 起步）。
+   ============================================================================ */
+.momo-app:where(.momo-theme-ink-night),
+.momo-confirm:where(.momo-theme-ink-night),
+.momo-settings:where(.momo-theme-ink-night),
+.momo-set-scheme:where(.momo-theme-ink-night) {
+  /* ---- 中性色 · 深炭（page 最暗，surface 逐级提亮）---- */
+  --momo-page: #1e1f22;
+  --momo-surface: #24252a;
+  --momo-surface-2: #2b2c31;
+  --momo-card: #26272c;
+  --momo-line: #34363c;
+  --momo-line-soft: #2c2e33;
+  --momo-ink: #efede7;
+  --momo-ink-2: #c5c1b8;
+  --momo-ink-3: #b2ada3;
+  --momo-ink-4: #a29c91;
+  --momo-ink-5: #837d71;
+  --momo-ink-6: #7a756a;
+
+  --momo-primary: #e9e3d5;
+  --momo-primary-ink: #1b1a16;
+
+  /* ---- 签名色 / 琥珀：选中点 / 热力图 / 图表 / 进度 / 链接 ---- */
+  --momo-accent: #d9a441;
+  --momo-accent-hover: #e6b357;
+  --momo-accent-soft: #34301d; /* 选中胶囊底 / 筛选胶囊底（深底上的暖调暗黄） */
+  --momo-accent-soft-2: #3b3726; /* 选中卡片底，比 soft 提亮一档 */
+  --momo-accent-line: #5f5230; /* 胶囊描边 */
+  --momo-on-accent: #221d10; /* 琥珀实底上的文字：主行动副钮 / 选中勾 / 品牌标 */
+  --momo-on-danger: #231309; /* 危险实底上的文字（危险钮 / 危险项）*/
+
+  /* ---- 次要色：暗底上按 4.5:1 提亮后的暖色 ---- */
+  /* 2026-10-05「墨夜地点标签发绿」：sage 由冷灰绿（#9db6a4，色相 137°，四套里最冷）
+     改为暖橄榄（#a3a67e，色相 65°）。本方案签名色是琥珀、整板皆暖，唯 sage 是冷的。
+     那次改动的判据（字~琥珀 ΔE 54.8、字~正文次级色 27.7）原值仅 9.3，
+     check-contrast ②/⑥/⑥b 全过。连带 --code-string 一同变橄榄（⑥ 5.52:1）。
+     2026-10-12 地点 pill 解耦去 loc 令牌（值不变，见下），sage 只剩代码块字符串。 */
+  --momo-sage: #a3a67e;
+  --momo-clay: #c9987a;
+  --momo-warn: #d4b167;
+  --momo-danger: #e87a68;
+  --momo-danger-hover: #f08b7a;
+
+  /* ---- 地点 pill / 标签 chip 专用色（2026-10-12 解耦，**值一个没动**）----
+     墨夜的两族胶囊用户已验收（2026-10-05 专项定的暖橄榄地点 + 琥珀标签），
+     这次只把令牌从 sage / accent 换成 loc / tag，色值逐字照抄：
+     loc = sage 原值 #a3a67e × #303027、tag = accent 原值 #d9a441 × #34301d。 */
+  --momo-loc: #a3a67e;
+  --momo-loc-soft: #303027;
+  --momo-tag: #d9a441;
+  --momo-tag-soft: #34301d;
+
+  /* ---- 热力图 5 阶（0 空 → L4 最活跃）：从暗暖灰逐级提亮到亮琥珀 ----
+     2026-10-01「细节处要体现配色」专项：四阶数据级**本就不用动**——它们在 surface 上
+     3.98 ~ 9.64，是十套里唯一一开始就达标的。动的是 heat-0：它与 surface 只差 1.01，
+     空格子整片溶进侧栏（用户实拍「活跃度格子看不清」的另一半）。
+     压深一档后与 surface 差 1.06、与 card 差 1.09——空格子仍是全阶最暗的一格，
+     但不再是「没有这一格」。 */
+  --momo-heat-0: #1f2024;
+  --momo-heat-1: #8d8165;
+  --momo-heat-2: #b39a5e;
+  --momo-heat-3: #d8b56c;
+  --momo-heat-4: #eec884;
+
+  /* ---- 投影：暗底上用浓黑，浅色的投影在深底上等于没有 ---- */
+  --momo-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --momo-shadow-pop: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --momo-shadow-float: 0 8px 24px -8px rgba(0, 0, 0, 0.6);
+
+  /* ---- 两个 Obsidian 原生的带色变量：换肤要一起换，否则第三方样式会留在旧色 ---- */
+  --background-primary: #24252a;
+  --text-highlight-bg: rgba(217, 164, 65, 0.24);
+}
+
+/* ---- BUG-42 的历史与它现在的归宿（2026-10-02 全部作废，规则移到 60-design.css）----
+   原文照存，这是「为什么会有这条特例」的根据：
+
+   「60-design.css 的分段控件与侧栏菜单都靠『选中项换 card 底』标识选中，容器是
+     surface。亮色九套 card×surface 有 1.15~1.29 …… 但石墨的 page / surface / card
+     三阶挤在 1.03~1.10，选中项与未选项看不出选中了。这里只对石墨把选中底换成同色系的
+     accent-soft（#34301d）：与 surface 差 1.16，accent 字在它上面 5.89:1。
+     ★ 别照抄到别的主题：亮色方案的 accent-soft vs surface 只有 1.00~1.12（已删的
+     stone 1.00 完全同值），一起改会把『本来合格』的选中态改没——实测过，这是 BUG-42 review 时
+     从选项②里抓出来的回归。」
+
+   ★★ 第二例（2026-10-01，侧栏地点卡）：同一个坑。`.momo-locnode[data-card='1']`
+     只用 card 底做起大洲分组卡，浅色九套看得见、墨夜 1.026 等于隐形。修法是给卡加
+     1px --momo-line 描边。
+     ⚠️ **2026-10-03 这条描边连同卡底一起撤了**（用户裁定「全部地点不要有背景色」，
+     见 60-design.css 的 data-card 段）——所以本段现在只是**已作废的诊断记录**，
+     别再拿它当「大洲卡需要描边」的依据：那棵树里如今唯一带框的是地点芯片。
+
+   ⇒ 两条特例（.momo-menu-item.momo-menu-on 与 .momo-seg-on 的 accent-soft 覆盖）
+     **2026-10-02 撤除**。原因：当时只 diagnosed「墨夜坏了」，用主题级特例补。
+     横向扫完十套才发现真正的病根是**四种底色候选（card / surface-2 / accent-soft /
+     accent-soft-2）对 surface 的差值最低都到 1.00~1.03**——任何单一底色都横展不了，
+     主题级特例只是把「一套语言」变成「两套语言」（墨夜走 accent-soft、九套走 card 底）。
+
+     现在的定案是**三层承担者**（写在 60-design.css 的注释里，这里只作索引）：
+       · 层级（分隔）→ 1px `--momo-ink-6` 描边，对 surface 3.05~3.57，
+         **十套唯一全过 3:1 的低调选项**（accent 也全过但 4.71~6.80，十三处全上会成金框）
+       · 强调（选中 / 聚焦）→ accent 描边 + accent 字 + 字重
+       · 底色 → 一律 --momo-surface-2 轻嵌面，**不再承担层级**
+     撤掉这两条之后墨夜与九套走同一套语言。 */

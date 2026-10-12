@@ -1,0 +1,145 @@
+/* ---- 排序控件（v0.9.19）：一颗图标按钮 + 锚定在它下方的两段式菜单 ----
+   菜单本体复用上面那套 .momo-pop-menu（卡片右键菜单：160px 起 / 项高 32 / 选中用
+   签名色），这一节只补四件它没有的：① 锚定定位（右键菜单是 JS 换算鼠标坐标）；
+   ② 两组之间的细分隔线；③ 按钮的 34px 尺寸（基类 30 会矮同族一档，见下）；
+   ④ 菜单宽度收窄到内容宽（勾列删掉后 160px 白留 50+px，见下）。
+   **除宽度外没有第二套浮层骨架。** */
+.momo-sortwrap {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+
+/* 按钮尺寸跟顶栏同族的另外几颗对齐：`.momo-segmented` 高 34
+   （`.momo-panel-toggle` 2026-09-30 起是 40×40——用户连着
+   两次点名要大，见它自己那条注释）。`.momo-icon-btn` 基类的 30 会让这一格矮一档，
+   夹在几颗 34 中间就是「小一号」（2026-09-28 用户反馈「排序图标太 mini」的一半原因在此；
+   另一半是图形没撑满视图框，见 src/ui/shared/icons.tsx 里 sort-desc / sort-asc 的第 ③ 条）。 */
+.momo-app .momo-sortbtn {
+  width: 34px;
+  height: 34px;
+}
+
+/* 菜单挂在按钮正下方、**右对齐**：这一格在顶栏右半，右对齐让它向左展开——
+   既不会溢出面板右缘，也不会盖住左边的视图分段。
+   (0,2,0) 压得住 .momo-pop-menu 的 (0,1,0)：那条只声明 position / z-index。 */
+.momo-sortwrap .momo-pop-menu {
+  top: calc(100% + 8px);
+  right: 0;
+  /* 宽度不接骨架的 min-width:160px：勾列删掉后每行只剩「14px 图标 + 10px 间距 +
+     四个字」≈92px，加 6px 外垫 ≈104px —— 160px 里那 50+px 全是右侧空白
+     （2026-09-28 用户反馈「既然没有对号了，就不用这么宽了」）。
+     用 max-content 而不是 width:auto：abspos 的 auto 是 shrink-to-fit，会收到
+     min-content，CJK 一行四个字会被折断成两行。max-content = 首选宽，四种语言
+     的文案长短都自适应（en 更短、ja 同为四字，都不必为最长的语言留白。
+
+     这是本组件**唯一**偏离公共骨架的地方：项高 32 / 配色 / 圆角 / 阴影 / 内垫
+     全部照旧共用，不造第二套浮层。 */
+  min-width: 0;
+  width: max-content;
+}
+
+/* 菜单开着时按钮保持「按下」观感：与 .momo-seg-on / .momo-pop-menu-item-on 同一套
+   色语言（accent-soft 底 + accent 字）。不然菜单开着、按钮还是静止灰，看不出是谁开出来的。
+   两层宿主前缀（(0,2,0) / (0,3,0)）是为了压过 .momo-icon-btn:hover 那条 (0,1,1)。 */
+.momo-app .momo-sortbtn-on,
+.momo-app .momo-sortbtn-on:hover {
+  background: var(--momo-accent-soft);
+  color: var(--momo-accent);
+}
+
+/* 这里曾有一条 `.momo-sortmenu-check`（固定 14px 的勾列槽位）。v0.9.19 当天按用户裁决
+   删掉：选中态已经有签名色（`.momo-pop-menu-item-on`），再挂一枚勾是同一件事说两遍，
+   还白占每行左侧 14px。**别再补回来** —— 要更强的选中提示就加底色，不要加勾。
+
+   「选中」与「悬停」不会混（这是敢删勾的前提）：选中只有 accent 字色，悬停是
+   accent 字 + accent-soft 底（上面 `.momo-pop-menu-item:hover` 那条）。 */
+
+/* 「排序依据」与「排序方向」之间：两组语义不同，一条细线断开比只靠间距清楚 */
+.momo-sortmenu-sep {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--momo-line-soft);
+}
+
+.momo-card .momo-card-body {
+  cursor: text;
+  border-radius: var(--momo-r-3);
+  transition: background 120ms ease;
+}
+
+.momo-card .momo-card-body:hover {
+  background: var(--momo-surface);
+}
+
+/* 懒渲染占位：正文进视口前 600px 才跑 MarkdownRenderer（MarkdownBody 的就近
+   渲染），之前是空 div、没有高度。拖侧栏改宽会让整列回流，把下方从未渲染的卡
+   带进 600px 圈——它们中途异步渲染、从 0 高长出，下方内容整块被顶下去（「跳一下」
+   的另一半）。:empty 先占三行（正文行高 24px），渲染完成后选择器自动失效；
+   重新渲染前 el.empty() 的清空间隙也顺带占住，内容变化不再塌一下。 */
+.momo-card-body:empty {
+  min-height: 72px;
+}
+
+.momo-card-body .momo-indent {
+  display: inline-block;
+  width: 1.5em;
+  height: 1.2em;
+  vertical-align: text-bottom;
+  border-left: 1px solid var(--momo-line);
+}
+
+.momo-card-body > :first-child {
+    margin-top: 0;
+  }
+
+.momo-card-body > :last-child {
+    margin-bottom: 0;
+  }
+
+.momo-card-body blockquote {
+  background: var(--momo-surface-2);
+  border-left: none;
+  border-radius: var(--momo-r-4);
+  padding: 14px 16px;
+  margin: 10px 0;
+  color: var(--momo-ink-2);
+}
+
+.momo-card-body blockquote > :first-child {
+  margin-top: 0;
+}
+
+.momo-card-body blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+/* 标签挂卡片底部（prefs.tagPosition = 'bottom'）：原先这里给一条 margin-top: 10px
+   恢复 v0.7.3 前排布。tagPosition 与 locPosition **同时**拨到底部时，#标签 必须与
+   地点胶囊并排一行（用户反馈分成了两排）——排布改由外层 .momo-card-foot
+   （20-panel/020-card.css）统一给，这条 margin 因此撤掉；-bottom 类本身留在 DOM 里
+   作标记（测试与截图场景靠它定位，见 scripts/baselines/css-class-refs.json 的登记）。 */
+
+/* 标签 chip 的样式不在这里：.momo-app .momo-card-tag 与 .momo-settings .momo-card-tag
+   已合并成 20-panel/080-tagchips.css 的**一条双宿主规则**（v0.9.45）。原先这里放的是
+   面板版、20-panel 放的是预览版裸类，两条并存 → 同一枚 chip 两个宿主两张脸，
+   用户报「信息行的预览渲染样式，和实际卡片不一致」的根因就在这。别再往这儿加。 */
+
+.momo-card-tag.momo-card-tag-on {
+  box-shadow: inset 0 0 0 1px var(--momo-accent);
+}
+
+.momo-pill {
+  height: 22px;
+  border-radius: var(--momo-r-pill);
+  background: var(--momo-accent-soft);
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--momo-accent);
+  font-size: var(--momo-fs-1);
+  font-weight: 500;
+}
+
+/* 瀑布流列宽（设计稿 §2 .gcol / .gcard）：卡片 48px / 列间距 16，
+    断点靠 CSS 多列自动分发，不写死列数。 */

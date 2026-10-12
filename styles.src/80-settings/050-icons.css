@@ -1,0 +1,161 @@
+/* ---- 左上角图标格（v0.9.6）：40×40 的纯形状格 + 最后一格虚线上传格 ----
+   格子只有 40，名字放进去会挤掉形状，所以名字只留在 aria-label 里（读屏用）。
+   选中态 = 全局统一那一条：accent-soft 底 + 1px accent 描边 + 字形转 accent。
+   三个信号对 40px 的格子已经够，不再额外压一枚勾。
+   2026-10-09 按用户「图标的外层容器应该更大一点，现在图标都挤到一起了」放大：
+   36×36 / 3 列 → 40×40 / 5 列（5×40 + 4×8 = 232px，仍收在 260px 控件列内），
+   八枚形状 + 上传格从三层缩成一屏两行。 */
+.momo-settings .momo-set-icons {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  width: 100%;
+}
+.momo-settings .momo-set-icons-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 40px);
+  gap: 8px;
+}
+.momo-settings .momo-set-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--momo-set-r);
+  background: var(--momo-card);
+  color: var(--momo-ink-3);
+  cursor: pointer;
+  transition: background 120ms ease, box-shadow 120ms ease, color 120ms ease;
+}
+/* 形状格用 inset 环、上传格用虚线 border，两者不混在一枚格子上；
+   :where() 包住 :not() 把特异性压回 (0,2,0) 以内（stylelint 上限 0,3,0）。 */
+.momo-settings .momo-set-icon:where(:not(.is-upload)) {
+  box-shadow: inset 0 0 0 1px var(--momo-line);
+}
+.momo-settings .momo-set-icon:where(:not(.is-upload)):hover:not(.is-on) {
+  box-shadow: inset 0 0 0 1px var(--momo-ink-6);
+}
+.momo-settings .momo-set-icon:hover:not(.is-on) {
+  color: var(--momo-ink);
+}
+.momo-settings .momo-set-icon.is-on {
+  background: var(--momo-accent-soft);
+  color: var(--momo-accent);
+}
+.momo-settings .momo-set-icon-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+.momo-settings .momo-set-icon svg {
+  width: 20px;
+  height: 20px;
+}
+/* 上传格：虚线框说的是「这里可以放你自己的东西」，与实心形状格一眼可分 */
+.momo-settings .momo-set-icon.is-upload {
+  background: var(--momo-surface-2);
+  border: 1px dashed var(--momo-ink-5);
+}
+.momo-settings .momo-set-icon.is-upload:where(:hover:not(.is-on)) {
+  border-color: var(--momo-accent-line);
+}
+.momo-settings .momo-set-icon.is-upload.is-on {
+  border-style: solid;
+  border-color: var(--momo-accent);
+  box-shadow: none;
+}
+/* 上传格的缩略图：格子直接显示用户那张图（object-fit 保住比例） */
+.momo-settings .momo-set-icon-img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+/* ---- 上传的图片格（v0.9.12 多图）：一枚格子一张图，角上一枚 × ----
+   格子本身与形状格同规格（40×40 / inset 环 / is-on 换 accent-soft，见上），
+   外面只包一层 40×40 的单元格——× 是单元格里格子的**兄弟**按钮：嵌进格子会
+   按钮套按钮（无效 HTML，点 × 的点透还会冒泡成「选中这张」）。× 用负偏移探出
+   格子一角：只有把移除做成「每一张自带」，多图才好管理（不必先切成当前生效
+   那张、再回状态行点移除）。 */
+.momo-settings .momo-set-icon-cell {
+  position: relative;
+  width: 40px;
+  height: 40px;
+}
+.momo-settings .momo-set-icon-del {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--momo-line);
+  border-radius: 999px;
+  background: var(--momo-card);
+  color: var(--momo-ink-3);
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+/* 离开时半透明、悬停 / 键盘聚焦时满不透明并转危险色：删除是这枚小钮的全部
+   语义，不能靠「猜哪个是删除」认出来。 */
+.momo-settings .momo-set-icon-del:where(:hover, :focus-visible) {
+  border-color: var(--momo-danger);
+  color: var(--momo-danger);
+  opacity: 1;
+}
+.momo-settings .momo-set-icon-del svg {
+  width: 10px;
+  height: 10px;
+}
+/* 到顶的上传格：暗一档 + 默认光标（点它只给一句「最多 N 张」的人话，不弹
+   文件框）。特异性与 .momo-set-icon:hover:not(.is-on) 打平，靠**排在后**
+   压住 hover 的提亮——「不可用」的观感不能在悬停时被擦掉。 */
+.momo-settings .momo-set-icon.is-upload.is-full {
+  background: var(--momo-surface-2);
+  border-color: var(--momo-line);
+  color: var(--momo-ink-5);
+  cursor: default;
+}
+/* 文件不在盘上了的图片格：虚线圈 + 暗一档。pref 不动（移除要点 ×），
+   与侧栏 mark 的图片 error 回退同一口径。 */
+.momo-settings .momo-set-icon.is-broken {
+  background: var(--momo-surface-2);
+  border: 1px dashed var(--momo-ink-5);
+  color: var(--momo-ink-5);
+}
+/* 自定义生效时的状态行（当前那张图的盘上路径）与格区下方那条「上传的图是用户数据」
+   注记（.momo-set-note 复用）已于 2026-10-09 按用户要求「去掉这段文字」整块移除：
+   路径那行只在重复每张格子 title 里已有的全路径，注记那条的裁决没变（恢复默认仍不
+   动上传清单，BUG-88）只是不再占屏幕上的一行。两条规则一并退役：
+   .momo-set-icons-state / .momo-set-icons-path / .momo-set-icons .momo-set-note。 */
+.momo-settings .momo-set-icons-err {
+  font-size: var(--momo-fs-2);
+  line-height: 16px;
+  color: var(--momo-danger);
+}
+/* 上传用的隐藏 file input：**不能写 display:none**——它靠 uploadTile 的 click()
+   程序性打开文件选择框，1px + opacity:0 的「可见但看不见」才是在所有渲染器里
+   都响应 click() 的写法（display:none 在部分环境下连 change 都不派发）。 */
+.momo-settings .momo-set-icons-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+

@@ -1,0 +1,148 @@
+/* ---- 活跃度日历（v0.5.4）：整年热力图，列 = 周 / 行 = 星期 ---- */
+.momo-calendar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.momo-cal-nav {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.momo-cal-arrow {
+  border: 1px solid var(--dp-border);
+  border-radius: var(--momo-r-3);
+  background: transparent;
+  width: 22px;
+  height: 22px;
+  font-size: var(--momo-fs-4);
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* BUG-186：宿主 (0,1,1) 会压掉裸类的 color，宿主前缀单独声明 */
+.momo-app .momo-cal-arrow {
+  color: var(--dp-text-2);
+}
+
+.momo-cal-arrow:hover:not(:disabled) {
+  border-color: var(--dp-accent);
+  color: var(--dp-accent);
+}
+
+.momo-cal-arrow:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.momo-cal-body {
+  /* 月份行与格子区之间的行距：格子区（.momo-cal-main）与星期列（.momo-cal-dows）共用这一个数，
+     两列才能逐行对齐（BUG-125a：星期列曾从 body 顶开始排、整列偏上一行） */
+  --momo-cal-row-gap: 4px;
+  display: flex;
+  gap: 6px;
+  /* 格子已夹到 6px 下限仍放不下的极窄面板：兜底成卡内横向滚动，
+      不让格子溢出卡片右缘（常规宽度下整行压得进，不出现滚动条） */
+  overflow-x: auto;
+}
+
+/* 星期列 = 月份行占位（.momo-cal-dows-pad，与 .momo-cal-month 同一条规则）+ 行距 + 星期字列，
+   与 .momo-cal-main 的「月份行 + 行距 + 格子」逐层同构 */
+.momo-cal-dows {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: var(--momo-cal-row-gap);
+}
+
+.momo-cal-dows-col {
+  display: flex;
+  flex-direction: column;
+  /* 与 .momo-cal-week 的格间距同一个数（星期字 i 对格子第 i 行） */
+  gap: 2px;
+}
+
+.momo-cal-dow {
+  display: flex;
+  align-items: center;
+  font-size: var(--momo-fs-1);
+  line-height: 1;
+  color: var(--dp-axis);
+}
+
+.momo-cal-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: var(--momo-cal-row-gap);
+}
+
+.momo-cal-months {
+  display: flex;
+  /* 与 .momo-cal-grid 同一份列间 gap：月份标签按列铺，格子列距是 cellPx+2px，
+      标签行少了这 2px 会每列左漂 2px、年末累计错列约 104px（12月对到 11月头上） */
+  gap: 2px;
+}
+
+/* .momo-cal-dows-pad：星期列顶上的月份行占位（BUG-125a），与月份标签同一条规则 = 同一行高 */
+.momo-cal-month,
+.momo-cal-dows-pad {
+  flex-shrink: 0;
+  overflow: visible;
+  font-size: var(--momo-fs-1);
+  line-height: 1.2;
+  color: var(--dp-axis);
+  white-space: nowrap;
+}
+
+.momo-cal-grid {
+  display: flex;
+  gap: 2px;
+}
+
+.momo-cal-week {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 2px;
+}
+
+/* 今年未来的日子：不是「没有记录」，是「还没到」——描一圈线、不可点。
+   底色只在**没有条目**时透明（BUG-125b：预写 / 定时的未来条目照常按条数上色，旧实现把
+   「未来」与「有内容」一起抹掉，那几条在这一页凭空消失）；有条目时色阶类（l1–l4）照常生效 */
+.momo-cal-future {
+  box-shadow: inset 0 0 0 1px var(--dp-line);
+  cursor: default;
+}
+
+.momo-cal-future.momo-heat-l0 {
+  background: transparent;
+}
+
+.momo-cal-legend {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--momo-fs-1);
+  color: var(--dp-axis);
+}
+
+.momo-cal-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--momo-r-1);
+  cursor: default;
+}
+
+.momo-cal-legend .momo-heat-cell:hover {
+  outline: none;
+}
+
+.momo-cal-legend i:first-of-type {
+  margin-left: 4px;
+}
+

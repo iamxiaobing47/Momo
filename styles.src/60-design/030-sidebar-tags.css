@@ -1,0 +1,385 @@
+/* ---- 侧栏标签区（设计稿 §1 .tgh / .tlist / .tr）---- */
+.momo-taghead {
+  height: 22px;
+  display: flex;
+  align-items: center;
+  /* v0.9.18 前是 space-between（标题 / 计数各占一端）。加了工具行之后改成
+     flex-start + gap，右端的距离由 .momo-taghead-tools 的 margin-left: auto 提供。
+     v0.9.19 起标题旁的计数整个摘掉（2026-09-28 用户反馈「不用显示标签数量」）：
+     那个全库数字与列表对不上号，反而让人拿来跟行数较真。 */
+  gap: 6px;
+  flex: none;
+  margin-bottom: 4px;
+}
+
+/* 标题要**能让位**：侧栏宽度用户可拖（clampSidebarWidth 下限 150px），而这一行右侧
+   多了工具行（排序按钮 + 漏斗，估 ≈78px）。窄档下先牺牲标题（省略号），
+   右端的工具行是那块状态的显示器、不许被挤变形 —— 所以它 flex: none、标题 min-width: 0。
+   这条**不做断点**：容器查询的容器是 .momo-app（整块面板），侧栏多宽它区分不出来，
+   而这一行自己能算明白让给谁。 */
+.momo-taghead-title {
+  font-size: var(--momo-fs-2);
+  font-weight: 600;
+  color: var(--momo-ink-2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 工具行（v0.9.18）：排序按钮（当前键名 + chevron）+ 筛选漏斗。顶到标题行右端。 */
+.momo-taghead-tools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
+/* 工具行的两枚按钮：20px 的小胶囊，默认只有「小字 + 一枚图标」的墨色，hover 才给底。
+   高度 20 是刻意压着这一行的 22：工具行是「全部标签」的附属控件，不该比它标注的那行字
+   还抢眼。面板级 reset（.momo-app button，(0,1,1)）抢的是底色 / 边框 / 内边距，
+   所以这里必须带 .momo-app 前缀（(0,2,0)）才压得住（同 .momo-pop-row 那条注释）。
+   全表无 !important（2026-09-25 P3 起）。 */
+.momo-app .momo-tagbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 20px;
+  padding: 0 5px;
+  flex: none;
+  border: 1px solid transparent;
+  border-radius: var(--momo-r-3);
+  background: transparent;
+  font: inherit;
+  font-size: var(--momo-fs-1);
+  color: var(--momo-ink-3);
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+.momo-app .momo-tagbtn:hover {
+  color: var(--momo-accent);
+  background: var(--momo-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--momo-ink-6);
+}
+
+/* 筛选生效：按钮自己就是那盏指示灯（浮层关着的时候，除了列表上方的摘要条就只剩它）。
+   色 + 描边两个信号，不只靠一个 —— 与 .momo-tagchip-on 同一套。 */
+.momo-app .momo-tagbtn-on {
+  color: var(--momo-accent);
+  background: var(--momo-accent-soft);
+  border-color: var(--momo-accent-line);
+}
+
+/* 排序按钮上的键名（数量 / 附件数 / 名称）：三个字要完整，「附件数」不许被省略号吃掉 */
+.momo-tagbtn-text {
+  white-space: nowrap;
+}
+
+/* 纯图标那枚（漏斗）压成正方形：两枚按钮的视觉重量才相当 */
+.momo-app .momo-tagbtn-filter {
+  width: 20px;
+  padding: 0;
+}
+
+/* 摘要条（v0.9.18）：当前生效的筛选条件，挂在过滤输入框与列表之间。每枚点一下就
+   摘掉那一组（组内单选，所以「摘掉」= 回到「全部」）。两组全摘完这条自己消失。 */
+.momo-tagfbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  margin-bottom: 6px;
+}
+
+/* 条件 chip：筛选浮层里的选项与摘要条上的条件**共用**这一枚（同一语义 = 同一形状），
+   选中 / 生效都走 -on。浮层里那排是单选，所以 -on 同时是「当前选中」。 */
+.momo-app .momo-tagchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 24px;
+  padding: 0 9px;
+  flex: none;
+  border: 1px solid var(--momo-line);
+  border-radius: var(--momo-r-pill);
+  background: transparent;
+  font: inherit;
+  font-size: var(--momo-fs-2);
+  letter-spacing: 0.01em;
+  color: var(--momo-ink-3);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.momo-app .momo-tagchip:hover {
+  color: var(--momo-accent);
+  border-color: var(--momo-ink-6);
+}
+
+.momo-app .momo-tagchip-on,
+.momo-app .momo-tagchip-on:hover {
+  color: var(--momo-accent);
+  background: var(--momo-accent-soft);
+  border-color: var(--momo-accent-line);
+  font-weight: 600;
+}
+
+/* 筛选浮层里的一组：组名 + 一行说明 + 单选 chip 排。两组的边界靠行距断开（每组上下各 5px，
+   .momo-pop 是纵向 flex，间距由每组的 padding 提供），不加分隔线。
+   v0.9.26：组内 gap 6→4、上下内距 6→5（说明行换成短句后仍有呼吸，但不占地方）。 */
+.momo-tagfgroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px 14px;
+}
+
+/* 组头：组名 + 一行口径说明（2026-09-28 用户反馈「不太理解」）——说明贴着组名、
+   与 chip 排之间仍由 .momo-tagfgroup 的 6px gap 分开 */
+.momo-tagfgroup-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.momo-tagfgroup-label {
+  font-size: var(--momo-fs-1);
+  letter-spacing: 0.04em;
+  color: var(--momo-ink-3);
+}
+
+.momo-tagfgroup-hint {
+  font-size: var(--momo-fs-1);
+  /* 11px 是小字，AA 要 4.5:1——ink-6 全方案只有 ~3.1（见下方 .momo-loc-count 处
+     的结论注释），这里曾用 ink-6（BUG-17） */
+  color: var(--momo-ink-4);
+}
+
+.momo-tagfgroup-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* 列表空态：筛选 / 过滤词把列表清空时用（置顶区不受影响，仍在上面）。
+   一行说明 + 一颗文字按钮，竖排左对齐，不占满整块 —— 侧栏空态不该像主区那样铺开。 */
+.momo-tagempty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px;
+}
+
+.momo-tagempty-text {
+  font-size: var(--momo-fs-2);
+  color: var(--momo-ink-3);
+}
+
+.momo-app .momo-tagempty-btn {
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--momo-line);
+  border-radius: var(--momo-r-pill);
+  background: transparent;
+  font: inherit;
+  font-size: var(--momo-fs-2);
+  color: var(--momo-accent);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.momo-app .momo-tagempty-btn:hover {
+  background: var(--momo-accent-soft);
+  border-color: var(--momo-ink-6);
+}
+
+/* 侧栏「过滤标签」输入：只留布局（外观走 .momo-input） */
+.momo-tagfilter {
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+.momo-taglist {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: none;
+}
+
+.momo-tagrow {
+  height: 28px;
+  border-radius: var(--momo-r-3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+/* ---- 层级载体统一（2026-10-02 横展十套，B 路）----
+   侧栏里「浮起来的东西」一律改吃 --momo-surface-2（轻嵌面），层级交给 1px 描边。
+   为什么不用 --momo-card：card × surface 在十套里从 1.026（ink-night 等于隐形）到
+   1.295（dusk（收编前，已删） 浮成白板）——浅色下浮过头、墨夜下归零，两头都失效（见 MEMORY 的
+   「三层承担者」表）。而 --momo-ink-6 对 surface 是 3.05~3.57，**四套唯一全过 3:1
+   的低调选项**，用它描边在任何配色下都看得见。
+
+   hover **只换底不加描边**（必须比选中轻一档，否则两级一样重）。 */
+.momo-tagrow:hover {
+  background: var(--momo-accent-soft);
+}
+
+/* 行名跟着转 accent（2026-10-12 同 .momo-menu-item）：surface-2 底在四套浅色
+   主题 1.02~1.11 等于没有，蓝字是读得出的信号。选中态（.momo-tagrow-on）仍是
+   surface-2 + ink-6 环 + accent 600——底色与字重两方区分，且 -on 规则在后，
+   悬停选中行时选中外观不被盖掉。 */
+.momo-tagrow:hover .momo-tagrow-name {
+  color: var(--momo-accent);
+}
+
+.momo-tagrow-on {
+  background: var(--momo-surface-2);
+  box-shadow: inset 0 0 0 1px var(--momo-ink-6);
+}
+
+.momo-tagrow-on .momo-tagrow-name {
+  color: var(--momo-accent);
+  font-weight: 600;
+}
+
+.momo-tagrow-sub {
+  padding-left: 20px;
+}
+
+.momo-tagrow-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--momo-r-pill);
+  flex: none;
+}
+
+.momo-tagrow-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--momo-fs-3);
+  font-weight: 500;
+  color: var(--momo-ink-2);
+}
+
+.momo-tagrow-count {
+  font-family: var(--momo-num);
+  font-size: var(--momo-fs-1);
+  color: var(--momo-ink-3);
+  flex: none;
+}
+
+.momo-tagrow-virtual .momo-tagrow-name {
+  color: var(--momo-ink-3);
+}
+
+/* 子级标签的展开箭头：原生 <button> 的样式全部清掉（v0.5.2 重做）。
+    chevron 只在标签行内出现，hover 用面板语言的弱化档（opacity 0.45 + 墨色）——
+    既不像正文那样抢眼，也不像禁用态那样消失（用户 2026-09-19 截图反馈）。
+    默认朝向：收起态整体旋转 -90°，展开 / 侧栏折叠各自处理。
+    子级箭头的展开态由 .momo-tagrow-open 驱动（见下方标签树一节）。 */
+.momo-tag-caret {
+  font-size: var(--momo-fs-1);
+  line-height: 1;
+  width: 20px;
+  height: 20px;
+  margin: -2px -6px -2px -8px;
+  padding: 0;
+  border: none;
+  border-radius: var(--momo-r-pill);
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  cursor: pointer;
+  flex: none;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+/* BUG-186：宿主 (0,1,1) 会压掉裸类的 color，宿主前缀单独声明 */
+.momo-app .momo-tag-caret {
+  color: var(--momo-ink-3);
+}
+
+.momo-tag-caret svg {
+  transition: transform 160ms ease;
+}
+
+/* 展开 = 归位侧栏位：chevron-down 旋转 -90° */
+.momo-tag-caret:not(.momo-tag-caret-open) svg {
+  transform: rotate(-90deg);
+}
+
+.momo-tag-caret:hover {
+    opacity: 1;
+    color: var(--momo-accent);
+    background: var(--momo-accent-soft);
+    /* 与原生 button/chip 的底色打架：靠 .momo-tag-caret 自身的 (0,2,0)
+      压过 .momo-app button 那条 reset，见上方「Obsidian 原生控件底色」那一段。 */
+  }
+
+/* 置顶胶囊（2026-09-30 起排在「全部标签」标题行**之后**、过滤框正上方——
+   顺序的裁决与理由见 TagTree.tsx 头部「排版顺序」）。
+   上距 6 是接着标题行自己的 margin-bottom: 4 用的：6 + 4 = 10，正是它以前作为段首
+   与标题行之间的那道间距，隔着挪一次位置、视觉节奏不变。
+   底部分隔线与 10px 外边距照旧——线的语义没变（把置顶这排快捷入口与下面的全表分开）。 */
+.momo-pin-area {
+  margin-top: 6px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--momo-border);
+  margin-bottom: 10px;
+}
+
+.momo-sidebar-label {
+    font-size: var(--momo-fs-1);
+    font-weight: 600;
+    color: var(--momo-ink-3);
+    margin-bottom: 6px;
+  }
+
+.momo-pin-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+.momo-pin-hint {
+    font-size: var(--momo-fs-1);
+    color: var(--momo-ink-4);
+  }
+
+.momo-app .momo-pin-chip {
+  height: 22px;
+  border-radius: var(--momo-r-pill);
+  background: var(--momo-card);
+  border: 1px solid var(--momo-line);
+  color: var(--momo-ink-2);
+  padding: 0 8px;
+  font-size: var(--momo-fs-1);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.momo-pin-chip.momo-chip-on,
+.momo-pin-chip.momo-chip-on:hover {
+  background: var(--momo-accent-soft);
+  border-color: var(--momo-accent-line);
+  color: var(--momo-accent);
+}
+

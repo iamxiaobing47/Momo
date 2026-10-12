@@ -1,0 +1,28 @@
+/* ---- 热力图（设计稿 §1 .hb / .hbh）---- */
+.momo-heatmap {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+.momo-heat-head {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   gap: 8px;
+ }
+
+.momo-sidebar .momo-sidebar-title {
+  font-size: var(--momo-fs-2);
+  font-weight: 600;
+  color: var(--momo-ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.momo-heat-range {
+   font-size: var(--momo-fs-1);
+   color: var(--momo-ink-3);
+ }
+

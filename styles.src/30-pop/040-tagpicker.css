@@ -1,0 +1,53 @@
+/* ---- 批量标签弹层（0.3.8 / BUSINESS.md §6 多选工具栏「加标签 / 去标签」）----
+   外观用共享浮层骨架（.momo-pop*，见文件上部「浮层骨架」一节），这里只留
+   定位锚与两种锚定方向。旧的三套私有类（batchtag-menu / head / input / row /
+   foot / apply…）已全部并入骨架——styles.css 里 .momo-batchtag-menu 被定义过
+   2 次、.momo-menu-overlay 3 次，任何统一都会被后面的覆写段冲掉（工单
+   2026-09-23-dialog-visual-system）。 */
+
+/* 定位锚：底部批量条里这一格裹着「加标签 + 去标签」两颗按钮（弹层是它的绝对
+   定位子节点），间距与 .momo-fab 的 gap 对齐，视觉上仍是一排等距按钮。
+   不被压缩：窄面板下这一格要么整组放得下，要么整组换行（fab 是 wrap 容器），
+   不允许「加标签」被挤扁而对不齐其它按钮。
+   ⚠️ 只挂 below 变体（.momo-pop-below）：free 变体（.momo-pop-free）的 left/top
+   按 .momo-app 换算，挂在这颗 relative 锚点下会被接偏——要挂就从 React 树
+   portal 到 .momo-app 根（CardContextMenu / LocEditPop 的路数）。 */
+.momo-batchtag-wrap {
+  position: relative;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  flex: none;
+}
+
+/* 锚定弹层：默认在锚点下方开（顶栏「加标签」那一格） */
+.momo-pop-below {
+  top: calc(100% + 8px);
+  right: 0;
+  /* 锚点是 .momo-batchtag-wrap（本身很窄），max-width 的 100% 会解析成它的
+     宽度——这里要的上限是面板宽，所以用 cqw（最近的容器 = .momo-app） */
+  max-width: calc(100cqw - 16px);
+}
+
+/* 底部批量条（fab）里向上开。特意写在 560px 容器查询**之前**：两者特异性同为
+   (0,2,0)，窄面板下让源码在后的容器查询一次性覆盖两种锚点——旧代码为此在
+   文件末尾又抄了一遍 fab 专用覆写段，那正是「层叠失控」的样子。 */
+.momo-fab .momo-pop {
+  top: auto;
+  bottom: calc(100% + 10px);
+  right: 0;
+}
+
+/* ---- 分段控件 · 选中态 ----
+    交互语言全部来自 .momo-segmented / .momo-seg，这一段只把选中态换成项目 token。
+    原生 date input 会自带一列原生底色（连 !important）——2026-10-02 横展十套后
+    选中态改成「透明底 + accent 描边 + accent 字」，与 20-panel.css 的 .momo-seg-on
+    同一手法（accent-soft 作底对 surface 只有 1.00~1.16，作强信号不够）。
+    描边是压住原生底的那一道：accent 四套 4.71~6.80，全过 3:1。 */
+.momo-app .momo-seg-on,
+.momo-app .momo-seg-on:hover {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--momo-accent);
+  color: var(--momo-accent);
+}
+

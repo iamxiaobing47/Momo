@@ -1,0 +1,159 @@
+/* ============================================================================
+   配色方案 · moss-green（苔绿）：纯冷灰纸面 + 纯白卡片 + flomo 亮绿带（2026-10-07 重构二轮）
+   ----------------------------------------------------------------------------
+   本轮的设计源是**用户提供的 flomo 真机截图**（998×794，逐像素取色，不是凭印象）。
+   与上一轮（同样叫「参照 flomo」）的差别是那一轮取的是**印象值**（把 flomo 的绿
+   记成了 #3ebd5c、底记成了绿灰 #f6f7f4），实测与之相差极大：
+
+     令牌            上一轮假设        flomo 实测        差在哪
+     page/surface    #f6f7f4/#f1f3ee   #FAFAFA/#FAFAFA   底根本不是绿灰，是**纯冷灰**，
+                                                       而且**侧栏与主区完全同色**
+     card            #ffffff            #FFFFFF           一致
+     line/line-soft  #e3e5e0/#edf0ea   #EBEBEB/#EFEFEF   上一轮偏深偏绿
+     ink             #333731            #323232           flomo 墨阶是**纯中性**，不带绿灰
+     品牌绿           #3ebd5c(印象)     #30CF79           是**亮绿**，不是深苔绿
+     heat-0          #e4e7e1            #EFEFEF           空格是纯灰
+     heat-1          #3d9c5c            #C2E8D1          flomo 用**浅绿**表示有记录
+   ★ 「严格一致」为什么只能做到两层 —— 这是本文件最要紧的一段：
+     flomo 真机的品牌绿 **#30CF79**（选中导航块 / 发送键那个绿）实测：
+       · 当文字打在 #FAFAFA 上 = **1.95:1**（门禁 4.5）
+       · 配白字当实底       = **2.03:1**（门禁 4.5）
+       · #949494 当次级文字在白卡上 = 3.03:1（门禁 4.5）
+     flomo 是 Web 应用，不受本项目的 AA 契约约束；而 Momo 把同一个绿当**文字**用
+     （链接 / 选中名 / 焦点环 / 进度），必须落深。所以：
+       ① **底与中性色逐值照抄**（page / surface / card / line / line-soft / heat-0 /
+          heat-1 / ink 七项 = flomo 实测原值，零门禁冲突）；
+       ② **绿按 flomo 色相带重新落点**（色相 H=147.5° 取自 #30CF79，与上一轮
+          #157a3e 的 144.4° 几乎同带——所以观感上仍是「苔绿」这一族）。
+
+   ★ heat-1 是**例外中的例外**：它也是 flomo 原值（#C2E8D1），且 1.28:1 直接过不了
+     3:1 —— 之所以能照抄，是因为浅绿语言下「这天有记录」靠**色相**（灰→绿 ΔE 19.0）
+     而非明度承担。门禁为此按方案分档（`check-contrast.mjs` 的 `HEAT_MIN`），
+     详见下面热力图那段注释。**别拿「flomo 就这么画」去套别的令牌**——只有
+     heat-1 这一处是这样，accent / primary / ink-4 都不适用。
+
+   ★ accent 的天花板不是 page，是「accent 打在 accent-soft 上 ≥4.5」那条：
+     设 Ya = Y(accent)，soft 底要比白卡暗一档（soft vs card ≥1.10）→ Y(soft) ≤ 0.905；
+     同时 accent 在 soft 上要 ≥4.5 → Y(soft) ≥ 4.5(Ya+0.05)−0.05。两式同时成立
+     ⇒ **Ya ≤ 0.1621**。而 page 放宽的是 0.1735 —— 夹逼的其实是前者。
+     由此 accent-soft 的可行带只有 **Y ∈ [0.881, 0.900]，宽 0.019**（#eef4f0 /
+     #eff4f1 就是这窄带的两端）。想再把 accent 提亮，先看这条带还剩多少。
+
+   ★ primary 反而能比 accent 亮一档：它只挂白字与当文字两种判定，没有 soft 夹逼，
+     取 #01813c（白字 4.97:1）。accent / primary 两档的先后就是这个原因，不是随手分的。
+
+   ----------------------------------------------------------------------------
+   一个方案 = 一个文件。令牌清单必须与 mist-blue.css **逐项相同**（少一个，用到它的
+   地方会拿到空值变透明）——由 scripts/check-themes.mjs 在构建时校验。
+   新增方案：复制 mist-blue.css 改色值，再走 README.md 的另两步。
+   ★ 全部色值过 WCAG 2.1 AA（scripts/check-contrast.mjs，构建时必跑）。改色值后重跑。
+   ============================================================================ */
+.momo-app:where(.momo-theme-moss-green),
+.momo-confirm:where(.momo-theme-moss-green),
+.momo-settings:where(.momo-theme-moss-green),
+.momo-set-scheme:where(.momo-theme-moss-green) {
+  /* ---- 中性色 · 纯冷灰纸面：逐值等于 flomo 实测 ----
+     flomo 的侧栏与主区**完全同色**（都是 #FAFAFA），只靠纯白卡片浮起；这里照做，
+     surface 不再比 page 深一档。 */
+  --momo-page: #fafafa;
+  --momo-surface: #fafafa;
+  --momo-surface-2: #f5f5f5; /* 嵌面 / 回顾例句块 / 代码块底（flomo 无对应令牌，取近白灰） */
+  --momo-card: #ffffff;
+  --momo-line: #ebebeb;
+  --momo-line-soft: #efefef; /* 卡片分隔线，比 line 淡一档 */
+  --momo-ink: #323232; /* = flomo 实测。flomo 墨阶是纯中性灰，不带绿灰 */
+
+  /* ink-2..6 沿 flomo 的中性灰方向；但**不能照抄 flomo 的后三档**：
+     flomo ink-4 #949494 在白卡上只有 3.03:1，而本项目 ink-4 同时是 --momo-text-3
+     与图表轴标签（check-contrast ① 组按**正文 4.5** 判），必须更深 → #6c6c6c（4.71）。
+     ink-5 / ink-6 是图形灰（滚动条拇指 / 未选圈 / hover 描边 / 空态图标），按 3:1 判，
+     阶梯仍不许倒挂（ink-5 3.19 > ink-6 3.05 on card）。 */
+  --momo-ink-2: #383838;
+  --momo-ink-3: #464646;
+  --momo-ink-4: #6c6c6c;
+  --momo-ink-5: #8f8f8f;
+  --momo-ink-6: #909090;
+
+  /* ---- 主按钮 / 鲜绿：flomo 品牌绿落在 H 147.5° 色相带上 ----
+     flomo 原色 #30CF79 的白字只有 2.03:1，进不了令牌（③ 组硬拦）。这一档是同一
+     色相上能挂住白字的最亮值：#01813c，白字 4.97:1。 */
+  --momo-primary: #01813c;
+  --momo-primary-ink: #ffffff;
+
+  /* ---- 签名色 / 深苔绿：链接 / 选中名 / 焦点环 / 进度 / 复选 ----
+     #30CF79 当文字只有 1.95:1，落到本档压到 #017f3b（4.52 @ page）。
+     ★ 别试着把它往亮里提——顶住它的是「accent 打在 accent-soft 上 ≥4.5」，
+       上限 Y = 0.1621，page 放宽到 0.1735 也不管用。推导见文件头。 */
+  --momo-accent: #017f3b;
+  --momo-accent-hover: #016b32;
+  --momo-accent-soft: #eff4f1; /* 选中胶囊底 / 筛选胶囊底（窄带上沿，vs card = 1.11） */
+  --momo-accent-soft-2: #eef4f0; /* 选中卡片底，比 soft 深一档（vs card = 1.13） */
+  --momo-accent-line: #69c593;
+  --momo-on-accent: #ffffff; /* 签名色实底上的文字：主行动副钮 / 选中勾 / 品牌标 */
+  --momo-on-danger: #ffffff; /* 危险实底上的文字（危险钮 / 危险项）*/
+
+  /* ---- 次要色 ---- */
+  /* sage = 苔绿的灰绿亲戚（同一 147.5° 色相带、饱和度压到 0.34）：2026-10-12 起
+     只剩代码块字符串一个消费者（⑥ 组按 surface-2 判；地点 pill 解耦去 loc 令牌）。
+     与 accent 的 Lab ΔE 28.5，两者在代码块里分得开（⑥b 需 ≥15）。 */
+  --momo-sage: #397454;
+  /* clay / warn / danger 三档沿用 2026-10-04 收编时按 ΔE ≥15 调开的色相
+     （棕橙 / 金黄 / 砖红），与绿系 accent / sage 的最近对 ΔE 25+，不回头。 */
+  --momo-clay: #7b3805;
+  --momo-warn: #6e5a14;
+  --momo-danger: #993c31;
+  --momo-danger-hover: #8d3228;
+
+  /* ---- 地点 pill / 标签 chip 专用色（2026-10-12 从 sage / accent 解耦）----
+     苔绿的两族胶囊必须**分家**：解耦前 loc（sage #397454 × #f9f9f9）与 tag
+     （accent #017f3b × #eff4f1）同是绿系，一张卡上地点与#标签两排绿，
+     用户报「一味的绿色」。现在标签守住品牌绿（flomo 的辨识度所在），地点走
+     **雾绿**——绿家人（与主题协调）但饱和度压到灰调（同 H147 色相带的远房亲戚，
+     与标签 ΔE 38.7，靠「艳 / 灰」分开，不靠两个都喊的绿）。
+     ★ 定稿过程（用户五选一比稿，docs/design/flomo-locpill-options.html）：
+     第一版落在纯中性灰 #5f5f5f，用户反馈「有问题」——灰在绿主题里像借来的，
+     且比主题次级文字 #6c6c6c 还深、pill 显得重。五个候选（雾绿 / 纸灰浅档 /
+     青绿 / 墨绿浅底 / 换位）后用户选定雾绿。rest 4.69 是压线过，想要更稳的
+     余量可下探 #4c6854（5.21）——soft 同步换 #e7eee9。 */
+  --momo-loc: #55705e;
+  --momo-loc-soft: #e9f0ea;
+  --momo-tag: #017f3b;
+  --momo-tag-soft: #eff4f1;
+
+  /* ---- 热力图 5 阶（0 空 → L4 最活跃）----
+     ★ 本方案走**浅绿语言**（`HEAT_MIN` 里 `tint: true`，2026-10-07 用户裁定
+       「heat 绿阶也按 flomo 的浅绿观感调」）。heat-1 直接取 flomo 真机原值
+       `#C2E8D1` —— 它在 #FAFAFA 上只有 1.28:1，硬套 3:1 会被门禁拦，但那一档
+       承担的不是明度差，是**色相差**：
+         ΔE(heat-1 #C2E8D1, heat-0 #EFEFEF) = **19.0**（灰 → 绿，一眼分得开）
+         明度比只有 1.16:1 —— 也就是说 flomo 本来就没靠明度区分「这天有记录」。
+       SC 1.4.11 要求的是「识别状态**所必需**的对比」，色相差同样满足；
+       门禁因此改成按方案分档（`check-contrast.mjs` 的 `HEAT_MIN`）：
+         · heat-1..3 不再套 3:1  → 保住浅绿观感
+         · **heat-4 仍顶到 surface ≥3**（3.22）→「最活跃」那档仍从底色跳出来
+         · **ΔE(heat-1, heat-0) ≥ 15**（实测 19.0）替换明度判据当「有记录」的守卫
+         · 相邻级倍率 ≥1.15 照旧（对所有方案都拦）
+       ⚠️ 别把 tint 档当成「门槛松了」：另两条兜底（heat-4 顶阶 + ΔE ≥15）缺一条
+         这套浅绿就会退化成「有数据的格子看不出来」。别拿「它过了 check-contrast」
+         当证据——判据是 ΔE 那条。
+     级差**主动**拉大到 1.39 / 1.30 / 1.39（门禁只设下限 1.15，是因为起点浅到
+     1.28，按下限排四级顶阶仍不足 2.5，级读不出来）。 */
+  --momo-heat-0: #efefef; /* = flomo 实测；×surface 1.10 ≥1.05，空格仍不溶进侧栏 */
+  --momo-heat-1: #c2e8d1; /* = flomo 实测（浅绿） */
+  --momo-heat-2: #50d686;
+  --momo-heat-3: #2dbe67;
+  --momo-heat-4: #26a057;
+
+  /* ---- 投影：冷灰，不用纯黑（纯黑投在近白底上会显脏）----
+     card 是纯白、底是 #FAFAFA，两者只差 1.05:1，投影承担「卡浮起来」的一半职责
+     （另一半是 line）。比已删的 stone 那一档略实。 */
+  --momo-shadow-card: 0 1px 2px rgba(16, 24, 20, 0.05);
+  --momo-shadow-pop: 0 4px 12px rgba(16, 24, 20, 0.08);
+  --momo-shadow-float: 0 8px 24px -8px rgba(16, 24, 20, 0.34);
+
+  /* ---- 两个 Obsidian 原生的带色变量：换肤要一起换，否则第三方样式会留在旧色 ---- */
+  --background-primary: #ffffff;
+  /* 搜索命中底色：flomo 绿的低透明铺；合成到卡上后 ink 仍有 9.3:1
+     （check-contrast ④ 组）。 */
+  --text-highlight-bg: rgba(1, 163, 79, 0.18);
+}

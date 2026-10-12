@@ -1,0 +1,101 @@
+/* ---- 地点模式空态（F5a；组件 src/ui/shell/EmptyStates.tsx 的 LocationEmpty）----
+   外壳复用 .momo-empty（20-panel.css：90px 顶距 / flex 列 / 居中），这里只补
+   三段动作：主 CTA 描边 accent、次按钮幽灵文字钮、frontmatter 示例卡。
+   示例卡是「第三条路」——面板里建一个（CTA）、文件里写一行（这里），
+   两件事都要在不打断浏览的前提下说得清。 */
+.momo-loc-empty-acts {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.momo-app .momo-loc-empty-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  flex: none;
+  margin-top: 8px;
+  padding: 0 13px;
+  border: 1px solid var(--momo-accent);
+  border-radius: var(--momo-r-4);
+  background: transparent;
+  color: var(--momo-accent);
+  font-family: var(--momo-sans);
+  font-size: var(--momo-fs-3);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.momo-app .momo-loc-empty-cta:hover {
+  background: var(--momo-accent);
+  color: var(--momo-on-accent);
+}
+
+.momo-app .momo-loc-empty-cta:focus-visible {
+  outline: 2px solid var(--momo-accent);
+  outline-offset: 1px;
+}
+
+/* 次按钮 = 幽灵文字钮：与 .momo-textbtn 同语言（ink-3 → hover ink + surface 底），
+   矮一档（30 vs 顶栏 34）——空态里的动作阶梯比顶栏松。 */
+.momo-app .momo-loc-empty-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  flex: none;
+  padding: 4px 6px;
+  border: none;
+  border-radius: var(--momo-r-3);
+  background: transparent;
+  color: var(--momo-ink-3);
+  font-family: var(--momo-sans);
+  font-size: var(--momo-fs-2);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+/* hover 底 surface → accent-soft（2026-10-11 用户报「hover 还是看不清」同批）：
+   空态坐在 page 纯白上，surface 只差 4/255。accent-soft 与同批按钮的
+   hover 底统一（雾蓝 15/255）。 */
+.momo-app .momo-loc-empty-back:hover {
+  background: var(--momo-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--momo-ink-6);
+  color: var(--momo-ink);
+}
+
+.momo-loc-empty-fm {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--momo-line-soft);
+  border-radius: var(--momo-r-3);
+  background: var(--momo-surface);
+  text-align: left;
+}
+
+.momo-loc-empty-fmhint {
+  margin-bottom: 6px;
+  font-size: var(--momo-fs-2);
+  line-height: 1.5;
+  color: var(--momo-ink-4);
+}
+
+/* 等宽走宿主变量（与 75-host / 80-settings 的代码块同源）；white-space: pre 是
+   硬需求——JSX 渲染的前导空格会被 HTML 折行规则吃掉，示例就丢了 YAML 缩进。 */
+.momo-loc-empty-fmcode {
+  font-family: var(--font-monospace, monospace);
+  font-size: var(--momo-fs-2);
+  line-height: 20px;
+  color: var(--momo-ink-2);
+  white-space: pre;
+}
+
+/* YAML 列表项与 Obsidian 序列化同形：key 下两空格缩进 */
+.momo-loc-empty-fmitem {
+  padding-left: 2ch;
+}
+

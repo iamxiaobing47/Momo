@@ -1,0 +1,15 @@
+/* ---- 回收站（concept-momo-trash）：行式列表已退役 ----
+   v0.9.26 起回收站按正常卡片渲染（与列表页同一套 .momo-card / .momo-flow），
+   原 78px 行（.momo-trow*）与两颗文字钮（.momo-tok / .momo-tdel）整块删除；
+   卡片操作行在 trash 模式换成「恢复 / 彻底删除」，复用 .momo-card-act*。 */
+
+/* ---- 搜索命中高亮（卡片正文 + 回顾正文一起收口）---- */
+.momo-card-body mark.momo-hit,
+.momo-review-body mark.momo-hit {
+  background: var(--momo-accent-soft);
+  color: inherit;
+  border-radius: var(--momo-r-2);
+  padding: 0 1px;
+  box-shadow: inset 0 -1px 0 var(--momo-accent);
+}
+

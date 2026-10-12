@@ -1,0 +1,373 @@
+/* ============================================================================
+   星球视图（F7；组件 src/ui/globe/GlobeStage · src/ui/globe/GlobeView）
+   ----------------------------------------------------------------------------
+   设计稿 docs/design/mockups/location-hierarchy-preview.html 画面三（2026-10-01 版式
+   重裁定）：一张「夜空」卡，球独占卡内（右侧地点列表整块撤掉，星球只是过滤
+   条件——点光点设 locFilter，卡下照常渲染分组流）。
+   三处与地点分组流不同：
+   ① 卡是**主题无关的深底**：夜光地球是一整套夜空隐喻，换到石案（浅色）
+      也必须是深底——否则夜景地球像一块脏补丁。所以这一卡的
+      色值**不走 themes/*.css 令牌**，在 .momo-globe-card 上以 --globe-* 局部
+      自定义属性自持一套（取值即设计稿 F7a 逐字值）。
+   ② 布局容器是卡自己：.momo-globe-card 挂 container-name: globe，球在窄档
+      缩到列宽居中由 @container globe 决定（95-responsive.css）。JS 侧
+      （GlobeView 的 ResizeObserver）量的正是同一个 .momo-globe-body 的宽
+      （= 卡片内容宽，与容器查询同源），两边阈值同为 560——不会 CSS 折了
+      JS 还以为宽着。
+   ③ 入口是**视图分段的第五颗**（2026-10-01 起）：v0.9.31④～2026-09-30 之间它
+      是顶栏密度分段旁一颗独立的 34×34 按钮（.momo-globebtn，复用 .momo-icon-btn
+      基类 + .momo-sortbtn 同款尺寸打法），用户要求「星球视图图标要进到视图选择里」
+      后搬进 DensitySegmented（withGlobe），样式随分段走——那两颗类连同这里的
+      规则一起删了，别照旧文档再加回来。
+   ============================================================================ */
+
+.momo-globe-card {
+  /* 缩放系数：GlobeStage 写在舞台的 style 上（1 = 设计稿原尺寸），CSS 只消费。
+     写成变量而不是让组件去算像素，是为了让窄档那条 @container 规则也能跟着缩放
+     走（两档共用这一个数，改一处改两处，见 95-responsive.css）。 */
+  --globe-zoom: 1;
+
+  /* 局部色板（设计稿 F7a 逐字值，深底上的反向墨阶）：
+     space/line  卡底与描边——比十套里最暗的 page 再沉一档：夜空该比界面沉；
+     gold        「灯光」：地点光点 / 选中标签。刻意不随方案走（石墨案 accent
+                 恰是 #d9a441，但石案的棕色光点会读成污渍）；
+     label       球上地名标签；
+     star        背景碎星（2026-10-01 比稿 v5 定稿，globeStars.ts 生成、
+                 .momo-globe-stars 渲染）。与 2026-10-01 上午删掉的球面装饰星
+                 不是一回事：那批画在叠层里、落在球面上；这批在卡层球后面。
+     设计稿里还有 glow/rim 两个「大气」色（#3d6a94 / #7fb2dd），v0.9.26 连同那两颗
+     描边圆一起删了——见 GlobeStage.tsx 那处注释：环画在球内侧，小饼要它去掉。
+     行名 / 条数 / 选中行底那一批（--globe-name/count/row-on/…）随右侧列表
+     整块删除（2026-10-01），别照旧文档再加回来。 */
+  --globe-space: #16171b;   /* 比十套里最暗的 page 再沉一档（BUG-46） */
+  --globe-space-line: #34363c;
+  --globe-gold: #d9a441;
+  --globe-label: #b2ada3;
+  --globe-star: #b9c4d4;
+
+  container-type: inline-size;
+  container-name: globe;
+  /* 背景碎星 .momo-globe-stars 是 absolute 的锚（container-type 的 layout
+     contain 理论上也当包含块，但定位锚要显式写，不靠 containment 的暗知识） */
+  position: relative;
+  padding: 16px;
+  border: 1px solid var(--globe-space-line);
+  border-radius: var(--momo-r-4);
+  background: var(--globe-space);
+  /* 这一条现在只是兜底，不再承担「把出框的球裁掉」这件事。缩放已改成真尺寸
+     （舞台宽高随 --globe-zoom 一起长，卡片跟着长高），所以正常路径下球不会碰到
+     卡沿。留着它是为了窄到列宽那条档：那里宽度被 min() 夹住而高度由 aspect-ratio
+     跟放大的宽度走，两者一旦不同步就仍可能溢出——有它在，溢出的部分在卡沿裁掉，
+     而不是糊到卡外的分组流上。 */
+  overflow: hidden;
+}
+
+/* 星球档（2026-10-01 晚）：球与球下方那份常规列表是**同级两个块**（CardFlow 返回
+   fragment，见 GlobeView 文件头）。列表那几种根元素的 margin 已被上面的列宽规则
+   （`.momo-content > …`）归零，所以这里逐个点名补一条与组间距同量级的缝——
+   写 `.momo-globe + *` 特异性不够，会被那条盖掉。
+   球常驻（B 方案）：切走时球只是 hidden，不能让它的「相邻」规则继续生效——隐藏的球
+   不占位，它后面那块（其他模式的第一块）要补回顶距。 */
+.momo-globe[hidden] {
+  display: none;
+}
+
+.momo-content > .momo-globe[hidden] + * {
+  margin-top: var(--top-gap);
+}
+
+.momo-globe:not([hidden]) + .momo-group,
+.momo-globe:not([hidden]) + .momo-flow,
+.momo-globe:not([hidden]) + .momo-focus-wrap,
+.momo-globe:not([hidden]) + .momo-empty {
+  margin-top: 18px;
+}
+
+.momo-globe-body {
+  display: flex;
+  justify-content: center; /* 右表撤掉后球独占卡内：居中，别贴左 */
+  gap: 16px;
+}
+
+/* ---- 背景碎星（组件 GlobeView 的 .momo-globe-stars；纯装饰）----
+   2026-10-01 用户比稿（planet-view-mock v5）定稿：夜空卡要有一层素净碎星。
+   位置 / 半径 / 不透明度由 globeStars.ts 固定种子生成（确定性，测试逐颗可钉），
+   这里只给铺放方式与颜色：
+   ① 画在 .momo-globe-body **之前** = canvas 的球后面——球盘不透明，星只可能
+      露在球外，「星点落在地球上」（2026-10-01 上午那批球面装饰星被删的原因）
+      在结构上不可能复发；
+   ② pointer-events: none——拖拽 / 缩放手势全在舞台上，星层不许截事件；
+   ③ circle 的 cx/cy 用百分比、r 用 px（无 viewBox 的 SVG user unit = px），
+      卡面宽高比怎么变星都是正圆。 */
+.momo-globe-stars {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.momo-globe-stars circle {
+  fill: var(--globe-star);
+}
+
+/* ---- 星球舞台（canvas + SVG 叠层；组件 GlobeStage）---- */
+.momo-globe-stage {
+  /* BUG-212：canvas 对读屏不可见，stageAria 是它的旁白（role=img 的可及名）——
+     但鼠标在球上划动 / 拖拽 / 缩放是常态，Obsidian 会把这条长名弹成黑底气泡
+     （body 委托 pointerover[aria-label]，位置默认 bottom 顶在卡片下沿）。
+     旁白留给读屏，气泡整体跳过（--no-tooltip: true，Obsidian 源码判
+     getComputedStyle(...).trim() === "true"；守卫见 scripts/aria-tooltip-css.test.mts）。 */
+  --no-tooltip: true;
+  position: relative; /* SVG 叠层 absolute 的锚 */
+  /* 缩放走真尺寸：宽高都乘 --globe-zoom（GlobeStage 写在 style 上，默认 1）。
+     **不能用 transform: scale()**——布局盒子不跟着长，放大后的球会溢出卡片，
+     被 .momo-globe-card 的 overflow: hidden 沿卡沿切掉（2026-10-01 用户报
+     「地图扩大之后地球会被遮盖」）。真尺寸下卡片随之长高，球永远完整，
+     而且命中换算 / 拖拽灵敏度 / 画布缓冲利用率三处都自动跟着对。 */
+  width: calc(400px * var(--globe-zoom, 1));
+  height: calc(400px * var(--globe-zoom, 1));
+  aspect-ratio: 1 / 1; /* 堆叠档宽度收窄时高等自适应，球不变形 */
+  flex: none;
+  /* 拖拽是这个舞台的手势：别让浏览器把横拖读成页面滚动或文本选中 */
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+
+.momo-globe-stage:active {
+  cursor: grabbing;
+}
+
+.momo-globe-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* 正交投影的球外接正方形：四角无内容，正圆裁掉残点 */
+  border-radius: 50%;
+}
+
+.momo-globe-overlay {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* 锚点圈组：常态三圈（halo 虚 / mid 灰 / dot 实），选中五圈（halo 更大更虚
+   + halo2 + ring 描边 + mid + dot 略大）。半径是逐面写在组件里的
+   （设计稿逐字值），这里只给色与不透明度。背景碎星不在这一层——它住在
+   GlobeView 的卡层 .momo-globe-stars（球后面），见上面那段的注释。 */
+.momo-globe-halo {
+  fill: var(--globe-gold);
+  opacity: 0.12;
+}
+
+.momo-globe-halo2 {
+  fill: var(--globe-gold);
+  opacity: 0.16;
+}
+
+.momo-globe-ring {
+  fill: none;
+  stroke: var(--globe-gold);
+  stroke-opacity: 0.45;
+  stroke-width: 1.5;
+}
+
+.momo-globe-mid {
+  fill: var(--globe-gold);
+  opacity: 0.32;
+}
+
+.momo-globe-dot {
+  fill: var(--globe-gold);
+}
+
+/* 选中态：光晕再虚一档（15.5 半径配 0.1，与常态 8 半径的 0.12 同浓度），标签翻金
+   （金只在悬停那一刻看得见）。球上的「选中」主要靠圈组的形态差（五圈 vs 三圈），
+   不加勾也不加圈。 */
+.momo-globe-overlay .is-on .momo-globe-halo {
+  opacity: 0.1;
+}
+
+/* 地名标签（v0.9.26 按小饼要求）：球上不再常驻地名，**鼠标悬停到那颗光点才浮出来**。
+   「转动时一律没有字」那一半由组件保证（球在动时标签整个不渲染，见 GlobeOverlay），
+   这里只管「静止时怎么出现」：默认透明，悬停过渡到 1（120ms 够看出是浮出来的，
+   又不至于跟手慢半拍）。
+   两个容易踩的点：
+   ① opacity: 0 的元素**仍然可命中**——标签必须 pointer-events: none，否则每颗点
+      左右各多出一块看不见的悬停区，宽度还随地名长短变（悬停范围就不确定了）；
+   ② 悬停范围交给 .momo-globe-hit 那颗圈，不用光点自己（它只有 2.6~8 视盒单位，
+      鼠标压不准）。 */
+.momo-globe-label {
+  fill: var(--globe-label);
+  font-family: var(--momo-sans);
+  font-size: var(--momo-fs-1);
+  opacity: 0;
+  transition: opacity 120ms ease;
+  pointer-events: none;
+}
+
+/* 用 :where() 包住类名不是装饰：`.momo-globe-overlay g:hover .momo-globe-label` 是
+   (0,3,1)，会越过 stylelint 的 selector-max-specificity 预算（0,3,0）；:where() 不带
+   特异性，于是这条是 (0,2,1)——照样压过基类的 (0,1,0)，但不再往预算上记账。
+   （与 80-settings.css 的 `:where(.is-ghost)` 同一个手法。） */
+.momo-globe-overlay g:hover :where(.momo-globe-label) {
+  opacity: 1;
+}
+
+/* 悬停圈：不可见，只负责给「悬停」一个明确范围。半径 = 轻点选中的 HIT_RADIUS(12)，
+   于是「看得到名字」和「点得中」是同一个圈；它也压在最上层，圈里的事件照样冒泡到舞台。 */
+.momo-globe-hit {
+  fill: none;
+  pointer-events: all;
+}
+
+.momo-globe-overlay .is-on .momo-globe-label {
+  fill: var(--globe-gold);
+}
+
+/* 球下方的分组流（星球 = 过滤条件）：与卡片之间留一档组间距（卡外的交互
+   提示 .momo-globe-hint 已随 copy.location.globe.hint 一起删，2026-10-01） */
+.momo-globe > .momo-loc-flow {
+  margin-top: 18px;
+}
+
+/* 卡片流（设计稿 §1 .col / .card） */
+/* 卡片（设计稿 §1 .card：白底 / 1px 描边 / 16 圆角 / 14 内距 / pop 投影）。 */
+.momo-card:hover {
+  border-color: var(--momo-ink-6);
+  box-shadow: var(--momo-shadow-pop);
+}
+
+.momo-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    row-gap: 6px;
+    margin-bottom: 8px;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+.momo-card-stamp {
+  font-family: var(--momo-num);
+  font-size: var(--momo-fs-2);
+  font-weight: 500;
+  color: var(--momo-ink-4);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 补记标记（MomoEntry.backfilled）：日期戳前一枚小日历。
+   它回答「这条为什么在这儿」——补记的 createdAt 在过去、updatedAt 是落盘时刻，
+   「按更新时间」排序下它会排到列表最前（预期，见 momo/sort.ts 的说明）。
+   用 accent 色让它可被发现，但不加底色——元信息行的语言是「弱」，不是「警报」。
+   BUG-159 登记、BUG-212 执行：说明从原生 title 迁到 role=img + aria-label
+   （CardMeta.tsx），视觉层不再弹气泡（v0.9.0 用户裁决「面板不用原生气泡」，
+   app.drill 的 [title] 守卫因 fixture 无补记卡一直扫不到这两枚）；cursor 从
+   help 降回 default——没有悬停说明可弹了，别再承诺 help。 */
+.momo-card-backfill {
+  --no-tooltip: true;
+  display: inline-flex;
+  align-items: center;
+  color: var(--momo-accent);
+  flex: none;
+  cursor: default;
+}
+
+/* 预写标记（MomoEntry.scheduled）：与补记标记同一条理由的另一个方向——预写的
+   createdAt 在未来、updatedAt 是落盘时刻，「按更新时间」排序下它也排在最前，
+   需要一枚标记解释「这条为什么在这儿」。视觉上刻意与补记同规格（accent 色、
+   不加底色），只换图标（小时钟）让它俩在元信息行里分得清。同 BUG-212：
+   说明走 aria-label，气泡压制（见上）。 */
+.momo-card-scheduled {
+  --no-tooltip: true;
+  display: inline-flex;
+  align-items: center;
+  color: var(--momo-accent);
+  flex: none;
+  cursor: default;
+}
+
+.momo-card-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: var(--momo-r-pill);
+  background: var(--momo-ink-6);
+  flex: none;
+}
+
+.momo-card-actions {
+    display: flex;
+    gap: 2px;
+    margin-left: auto;
+    opacity: 0.45;
+    transition: opacity 120ms ease;
+    /* 卡片操作行平时半隐（不抢正文），hover 卡片时显实——弱化后操作仍随时可达 */
+  }
+
+.momo-card:hover .momo-card-actions,
+.momo-card:focus-within .momo-card-actions {
+  opacity: 1;
+}
+
+.momo-card-act {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--momo-r-3);
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+/* BUG-186：宿主 `button:not(.clickable-icon)`（(0,1,1)）会压掉裸类的 color——
+   面板里这一排图标的弱墨阶层级整体塌成 --momo-ink。宿主前缀单独声明（不动状态规则
+   的特异性），面板与设置页预览双宿主。ink-5 → ink-4 的换档理由见原注释（BUG-17）：
+   图标色虽按非文字 3:1 判，ink-5 贴着下限、浅底方案直接破。 */
+.momo-app .momo-card-act,
+.momo-settings .momo-card-act {
+  color: var(--momo-ink-4);
+}
+
+/* hover 底 surface → accent-soft（2026-10-11 用户报「hover 还是看不清」同批）：
+   卡片是 card 纯白，surface 只差 4/255，等于没浮。accent-soft 与顶栏 / 侧栏
+   同批按钮的 hover 底统一（雾蓝 15/255），五套主题下都成台阶。
+   宿主前缀双宿主声明（B 样：BUG-186/187 的手法）——本批九条 hover 里只有这条
+   停在 (0,2,0)：与两条基态（`.momo-app/-settings .momo-card-act`，(0,2,0)）同档，
+   谁更靠后就谁赢。真机上存在环境里压过它的可能（外部样式表 / 未来的第三条同
+   档规则），升到 (0,3,0) 后背景与字色都不再依赖源码序。
+   同批补 ink-6 细环（2026-10-12 用户报「雾蓝下 hover 到选项上，就很难看清楚」
+   ——截图里正是这些 22px 的卡片操作图标）：雾蓝 card 纯白，accent-soft 底对
+   白卡只有 1.14:1（且被 ink-4 × 4.5:1 门槛压着，不能再加深），环是唯一读得出
+   的边界；ink-6 是登记在册的「hover 描边」令牌，三底 3:1 五套全过。卡片操作行
+   有 danger / fail 两个变体，都只改 color，不碰这条环。 */
+.momo-app .momo-card-act:hover,
+.momo-settings .momo-card-act:hover {
+  background: var(--momo-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--momo-ink-6);
+  color: var(--momo-ink-2);
+}
+
+.momo-card-act.momo-card-act-danger:hover {
+  color: var(--momo-danger);
+}
+
+/* 复制失败态（B12 的可见反馈）：图标换 ✕ 并染危险色 1.4s——
+   原生 title 提示已全部移除（v0.9.0 用户裁决），状态只能靠图标自己说。
+   BUG-186：宿主 (0,1,1) 会压掉裸类的 color，宿主前缀双宿主声明（面板 + 设置页预览） */
+.momo-app .momo-card-act-fail,
+.momo-settings .momo-card-act-fail,
+.momo-app .momo-card-act-fail:hover,
+.momo-settings .momo-card-act-fail:hover {
+  color: var(--momo-danger);
+}
+
