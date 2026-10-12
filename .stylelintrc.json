@@ -1,0 +1,11 @@
+{
+  "//": "danpen styles.css 的质量门禁。刻意不 extends stylelint-config-standard——那套自带 30 条格式规则（空行 / 缩进 / 引号风格……），会把门禁变成格式辩论。这里只开治理方案 §7 钉死的五条，且全部 warn：先让新增被看见，两周后转 error 并进 pre-commit。规则宁少勿滥，多了会被整体跳过。",
+  "rules": {
+    "declaration-no-important": [true, { "severity": "warning" }],
+    "selector-max-specificity": ["0,3,0", { "severity": "warning" }],
+    "color-no-invalid-hex": true,
+    "declaration-block-no-duplicate-properties": [true, { "ignore": ["consecutive-duplicates-with-different-values"] }],
+    "comment-no-empty": true
+  },
+  "ignoreFiles": ["**/node_modules/**", "docs/**", "**/tmp-*"]
+}

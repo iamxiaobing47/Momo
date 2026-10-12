@@ -1,0 +1,40 @@
+# Release：push tag（v*，如 v0.9.32）时自动构建并上传发布包。
+#
+# 为什么在 CI 里构建而不是手动传包：上架 Obsidian 社区插件商店的硬性前提就是
+# 每个版本一份可下载的构建产物（见 docs/architecture/build.md §8 部署包清单）。
+# 手动传包错过、传错、传的半成品都没有任何机器能拦住。
+#
+# CI 里没有 MOMO_VAULTS，部署按设计被跳过、build 仍 exit 0——这是工单
+# 「部署目标只留 MOMO_VAULTS」的刻意产物（docs/architecture/build.md §3）：
+# 零目标 = 跳过部署 + 打印提示，不视为失败。对发布包来说这恰好是要的
+# 「纯净构建」：只产工程根产物，不往任何人的 vault 里写东西。
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      # production 构建（重建 CSS → bundle main.js → 部署[CI 里跳过] → 自校验）
+      - run: npm run build
+      # 按 scripts/vault-targets.mjs 的 releaseManifest() 铺平成 vault 插件目录布局
+      # （main/manifest/styles/globe3d + fonts/ + 两套贴图六面），缺任何一件即红。
+      # 清单只有那一份真源——别在这里手列文件（BUG-117b：手列漏了 globe3d.js 与 12 张贴图，
+      # 发出去的包星球档静默退化；守卫 scripts/release-assets-guard.test.mts）
+      - run: node scripts/stage-release.mjs "${{ runner.temp }}/momo-release"
+      - uses: actions/upload-artifact@v4
+        with:
+          # 名字带 tag（如 momo-v0.9.32），一个版本一个包，不会互相覆盖
+          name: momo-${{ github.ref_name }}
+          # 缺文件就让 release 红，别发一个「看起来成功」的坏包
+          if-no-files-found: error
+          path: ${{ runner.temp }}/momo-release/

@@ -1,0 +1,14 @@
+# danpen 项目约定。这次的注释乱码事故（UTF-8 被按 cp932 解读后又存回）就是没有这一条的代价。
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.md]
+# 笔记正文里的行尾 / 尾随空白由 Obsidian 管，不强改
+trim_trailing_whitespace = false

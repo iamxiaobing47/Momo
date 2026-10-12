@@ -1,0 +1,50 @@
+{
+  "name": "momo",
+  "version": "0.9.50",
+  "description": "Card-style lightweight note layer: one Momo = one Markdown file. Tags, filters, random review, heatmap, soft-delete trash. Purely local: no network, no external models.",
+  "main": "main.js",
+  "scripts": {
+    "clean": "node scripts/clean.mjs",
+    "dev": "node esbuild.config.mjs",
+    "build": "node esbuild.config.mjs production",
+    "typecheck": "tsc -noEmit",
+    "build:css": "node scripts/build-css.mjs",
+    "check:css": "node scripts/build-css.mjs --check",
+    "lint:css": "stylelint styles.css",
+    "lint:css:rules": "node scripts/lint-css.mjs",
+    "lint:copy": "node scripts/lint-copy.mjs",
+    "check:themes": "node scripts/check-themes.mjs",
+    "check:contrast": "node scripts/check-contrast.mjs",
+    "check:encoding": "node scripts/check-encoding.mjs",
+    "check:internals": "node scripts/check-internals.mjs",
+    "check:workspace": "node scripts/check-workspace.mjs",
+    "merge:css": "node scripts/merge-css.mjs",
+    "verify:deploy": "node scripts/verify-deploy.mjs",
+    "fetch": "node scripts/fetch-fonts.mjs"
+  },
+  "keywords": [
+    "obsidian",
+    "notes",
+    "momo"
+  ],
+  "license": "AGPL-3.0-only",
+  "author": "iamxiaobing47",
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@types/three": "0.186.0",
+    "esbuild": "^0.24.2",
+    "jsdom": "^29.1.1",
+    "obsidian": "latest",
+    "stylelint": "^16.26.1",
+    "stylelint-config-standard": "^36.0.1",
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "three": "0.186.1",
+    "zustand": "^5.0.2"
+  }
+}

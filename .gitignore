@@ -1,0 +1,30 @@
+# —— 依赖与日志 ——
+node_modules/
+*.log
+
+# —— 构建产物 ——
+# main.js / globe3d.js 由 esbuild 产出，不入库；styles.css 是部署件，要入库
+main.js
+globe3d.js
+
+# —— 临时产物 ——
+# 所有运行时临时文件统一进 tmp/（run-tests→tmp/test、run-bench→tmp/bench、
+# 真 Chromium 回归 tmp/repro、截图中间产物 tmp/shots、一次性杂物 tmp/scratch）。
+# 截图的**轮次产物**（png / round.json）不在 tmp/：落 docs/design/mockups/shots/<label>/，入库。
+# 清理走单一入口：npm run clean。旧命名（.tmp-* / tmp-*）规则保留，兜住历史残留。
+/tmp/
+.tmp-*
+tmp-*
+*.tmp.*
+
+# —— 内部产物：不随公开仓库分发（见 docs/internal/README.md）——
+docs/internal/
+.workbuddy/
+.playwright-cli/
+.zcode/
+/_build-log.txt
+/look-*.png
+
+# —— 操作系统杂物 ——
+.DS_Store
+Thumbs.db
