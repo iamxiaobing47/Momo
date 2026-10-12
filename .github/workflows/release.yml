@@ -1,40 +1,74 @@
-# Release：push tag（v*，如 v0.9.32）时自动构建并上传发布包。
+# Release：push tag 时自动构建并**创建 GitHub Release**（挂上发布包）。
 #
-# 为什么在 CI 里构建而不是手动传包：上架 Obsidian 社区插件商店的硬性前提就是
-# 每个版本一份可下载的构建产物（见 docs/architecture/build.md §8 部署包清单）。
-# 手动传包错过、传错、传的半成品都没有任何机器能拦住。
+# tag 命名：**必须等于 manifest.json 的 version，且不带 v 前缀**（如 `0.9.50`）。
+# Obsidian 社区插件商店（以及提交入口）按「release tag == manifest.version」匹配，
+# 带 v 前缀会被判成「没有匹配 manifest 版本的 release」而卡住。下面的
+# 「Verify tag matches manifest version」一步专门守这条：对不上号直接红，别发错包。
 #
-# CI 里没有 MOMO_VAULTS，部署按设计被跳过、build 仍 exit 0——这是工单
-# 「部署目标只留 MOMO_VAULTS」的刻意产物（docs/architecture/build.md §3）：
-# 零目标 = 跳过部署 + 打印提示，不视为失败。对发布包来说这恰好是要的
+# 为什么在 CI 里构建而不是手动传包：上架商店的硬性前提就是每个版本一份可下载的
+# 构建产物；手动传包错过 / 传错 / 传的半成品都没有任何机器能拦住。
+#
+# CI 里没有 MOMO_VAULTS，部署按设计被跳过、build 仍 exit 0——这正是发布包要的
 # 「纯净构建」：只产工程根产物，不往任何人的 vault 里写东西。
 name: Release
 
 on:
   push:
     tags:
-      - 'v*'
+      - '*'
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    # 创建 Release 需要写权限；仓库默认 token 权限不足时必须显式声明
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - run: npm ci
-      # production 构建（重建 CSS → bundle main.js → 部署[CI 里跳过] → 自校验）
+
+      # tag 必须等于 manifest.json 的 version（Obsidian 商店的匹配口径，不带 v）
+      - name: Verify tag matches manifest version
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          ver="$(node -p "require('./manifest.json').version")"
+          if [ "$tag" != "$ver" ]; then
+            echo "::error::tag '$tag' 与 manifest.json version '$ver' 不一致——Obsidian 要求 tag 等于版本号（不带 v 前缀）"
+            exit 1
+          fi
+          echo "tag '$tag' == manifest version '$ver' ✓"
+
+      # production 构建（重建 CSS → bundle main.js / globe3d.js → 部署[CI 里跳过] → 自校验）
       - run: npm run build
+
       # 按 scripts/vault-targets.mjs 的 releaseManifest() 铺平成 vault 插件目录布局
       # （main/manifest/styles/globe3d + fonts/ + 两套贴图六面），缺任何一件即红。
-      # 清单只有那一份真源——别在这里手列文件（BUG-117b：手列漏了 globe3d.js 与 12 张贴图，
-      # 发出去的包星球档静默退化；守卫 scripts/release-assets-guard.test.mts）
+      # 清单只有那一份真源——别在这里手列文件（BUG-117b：手列漏了 globe3d.js 与 12 张
+      # 贴图，发出去的包星球档静默退化；守卫 scripts/release-assets-guard.test.mts）
       - run: node scripts/stage-release.mjs "${{ runner.temp }}/momo-release"
+
+      # 先留一份 CI artifact（排障用），再创建正式 Release
       - uses: actions/upload-artifact@v4
         with:
-          # 名字带 tag（如 momo-v0.9.32），一个版本一个包，不会互相覆盖
           name: momo-${{ github.ref_name }}
-          # 缺文件就让 release 红，别发一个「看起来成功」的坏包
           if-no-files-found: error
           path: ${{ runner.temp }}/momo-release/
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd "${{ runner.temp }}/momo-release"
+          # 资产清单的唯一真源是 stage-release / vault-targets.releaseManifest()：
+          # 这里用 find 把铺平目录里的每个文件都交给 gh，不在 workflow 里手列文件名
+          # （手列会变成第二份真源，正是 BUG-117b 的教训）。
+          mapfile -t assets < <(find . -type f -printf '%P\n' | sort)
+          echo "release assets:"; printf '  %s\n' "${assets[@]}"
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            --verify-tag \
+            "${assets[@]}"
