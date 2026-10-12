@@ -3,7 +3,7 @@
  * stats group names…). Declared with `Record<enum, …>` so that adding an enum
  * member without copy fails to compile.
  */
-import type { BrandIcon, BundledFontId, ColorScheme, StatsGroupKey, TagSortKey } from '../../types'
+import type { BrandIcon, FontRole, ColorScheme, StatsGroupKey, TagSortKey } from '../../types'
 import type { TagAttachmentFilter, TagTimeFilter } from '../../tags'
 import { CHAR_BIN_UPPER } from '../../stats/constants'
 
@@ -69,14 +69,13 @@ export const meta = {
     chart: 'Bars',
   } satisfies Record<BrandIcon, string>,
 
-  /** Built-in open-source font names (v0.9.16; ids = BUNDLED_FONTS in types/prefs.ts).
-   *  Font names are proper nouns — the Source Han family keeps its English name. */
-  fontName: {
-    wenkai: 'LXGW WenKai',
-    notosans: 'Noto Sans SC',
-    notoserif: 'Noto Serif SC',
-    jetbrains: 'JetBrains Mono',
-  } satisfies Record<BundledFontId, string>,
+  /** Obsidian font-role names (v1.0.0; ids = FONT_ROLES in types/prefs.ts).
+   *  These map to the three font settings under Obsidian's Appearance settings. */
+  fontRole: {
+    interface: 'Interface',
+    text: 'Text',
+    monospace: 'Monospace',
+  } satisfies Record<FontRole, string>,
 
   /** The body-length bins (indices match charBins in stats.ts); numbers come from charBin above */
   charBin,

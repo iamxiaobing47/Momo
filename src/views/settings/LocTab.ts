@@ -5,6 +5,7 @@ import { BUILTIN_LOC_COORDS, formatLatLon, isValidLatLon, type LatLon } from '..
 import { BUILTIN_LOC_REGIONS, isValidLocRegion, type LocRegion } from '../../momo/locations'
 import { GLOBE_EARTHS, sanitizeGlobeEarth, sanitizeLocTreeExpand } from '../../momo/types'
 import type { GlobeEarth, LocTreeExpand } from '../../momo/types'
+import { globePackFileNames } from '../../momo/globe/pack'
 import { h } from './dom'
 import { actionButton as actBtn } from './fields'
 import type { SettingsCtx } from './context'
@@ -29,6 +30,42 @@ import type { SettingsCtx } from './context'
 // 这张卡**没有**卡头「恢复默认」：locCoords / locRegions 是用户数据（同
 // pinnedNotes 一类的 curation，裁决写在 types/entry.ts 的注释里），PREFS_DEFAULTS
 // 刻意不收它们；给一颗清它的按钮，与「恢复默认不清手填」自相矛盾。
+
+/**
+ * 星球资源包行（v1.0.0）：状态注记 + 一颗「下载」钮。
+ *
+ * 3D 星球渲染库（globe3d.js）与两套 cube 贴图是**可选下载**——Obsidian 商店安装器与
+ * BRAT 都只下发 main.js / manifest.json / styles.css，重资产到不了自动安装的用户手里。
+ * 这一行是下载入口，也是「插件唯一的联网动作」的说明。
+ *
+ * 状态三态：未安装 / 已安装 / 升级后旧版本（记账的是上次下载时的插件版本）。
+ * 资源包不是偏好（不落 data.json），所以本卡没有卡片级「恢复默认」。
+ */
+function buildGlobePackRow(ctx: SettingsCtx, card: HTMLElement): void {
+  const p = copy.settingsPage.loc.pack
+  const row = ctx.row(card, p.name, p.desc, { wide: true, note: p.notInstalled })
+  const note = row.querySelector<HTMLElement>('.momo-set-note')
+  const setNote = (text: string): void => {
+    if (note) note.textContent = text
+  }
+  const btn = actBtn(p.download, 'is-primary', () => void run())
+  const run = async (): Promise<void> => {
+    btn.disabled = true
+    const total = globePackFileNames().length
+    setNote(p.downloading(0, total))
+    const res = await ctx.service.downloadGlobePack(ctx.service.pluginVersion, (done) => {
+      setNote(p.downloading(done, total))
+    })
+    btn.disabled = false
+    setNote(res.ok ? p.installed : p.failed(res.failed.length))
+  }
+  const refresh = async (): Promise<void> => {
+    const s = await ctx.service.globePackStatus()
+    setNote(!s.installed ? p.notInstalled : s.version !== ctx.service.pluginVersion ? p.stale : p.installed)
+  }
+  row.append(btn)
+  void refresh()
+}
 
 export function buildLocTab(ctx: SettingsCtx): void {
   const lc = copy.settingsPage.loc
@@ -76,6 +113,13 @@ export function buildLocTab(ctx: SettingsCtx): void {
       (v) => ctx.setPref({ globeEarth: sanitizeGlobeEarth(v) }),
     ),
   )
+
+  // ---- 块零三：星球资源包（v1.0.0）----
+  // 3D 星球渲染库与两套贴图是**可选下载**（Obsidian 商店安装器与 BRAT 都只下发
+  // main.js / manifest.json / styles.css，重资产到不了自动安装的用户手里）。这一行
+  // 是下载入口 + 「插件唯一联网动作」的说明。资源包不是偏好（不落 data.json），
+  // 所以本卡仍不带卡片级「恢复默认」。
+  buildGlobePackRow(ctx, c)
 
   /** 现读盘上手填坐标（**不取 display() 时的 prefs 快照**：同屏连点两个行内动作时，
    *  快照会让后一次把前一次整份回写、吃掉前者——v0.7.6 修过的同一个坑）。 */

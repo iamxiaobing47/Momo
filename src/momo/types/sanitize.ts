@@ -8,7 +8,6 @@ import {
   BRAND_ICON_EXTS,
   BRAND_ICONS_MAX,
   BRAND_NAME_MAX,
-  BUNDLED_FONTS,
   CARD_FONT_SIZE,
   CARD_RADIUS,
   CARD_TITLE_SIZE,
@@ -24,6 +23,8 @@ import {
   DEFAULT_STATS_SECTIONS,
   DEFAULT_TAG_SORT,
   DENSITIES,
+  FONT_ROLE_PREFIX,
+  FONT_ROLES,
   FONT_VALUE_MAX,
   GLOBE_EARTHS,
   HEATMAP_MONTHS,
@@ -454,24 +455,27 @@ export function sanitizeCustomCss(value: unknown): string {
 }
 
 /**
- * 字体偏好（v0.9.16）的取值兜底。取值空间三段：
+ * 字体偏好（v1.0.0）的取值兜底。取值空间三段：
  *   · `''` —— 跟随默认（不注入字体变量，CSS 令牌走原栈）；
- *   · `bundled:<id>` —— 插件内置的开源字体（id 必须在 BUNDLED_FONTS 里）；
- *   · 其余 —— 用户手输的**系统已装字体名**。
+ *   · `obsidian:<role>` —— Obsidian 自己的三种字体角色（interface / text /
+ *     monospace，见 prefs.ts 的 FONT_ROLES）；
+ *   · 其余 —— 历史遗留的**系统已装字体名**（手输入口早已移除，盘上旧值继续读）。
  *
- * 第三段要当 CSS 值注入 head 的 <style>（`--momo-font-ui / --momo-font-card`），
+ * 第三段要当 CSS 值注入 head 的 <style>（`--momo-sans / --momo-font-card`），
  * 所以这里按「字体名能出现的字符」收白名单（拉丁 / CJK / 空格 / 连字符），
  * 引号、分号、花括号这类能改写 CSS 语法的字符一律拒绝——宁可回退默认，
  * 也不让 data.json 里的一个脏值变成样式注入。收完再折叠空格、截断到上限。
+ * `bundled:<id>` 是 v0.9.50 及以前的内置字体取值，随内置字体一起退役 → 回默认。
  */
 export function sanitizeFontPref(value: unknown): string {
   if (typeof value !== 'string') return ''
   const s = value.trim()
   if (s === '') return ''
-  if (s.startsWith('bundled:')) {
-    const id = s.slice('bundled:'.length)
-    return BUNDLED_FONTS.some((f) => f.id === id) ? s : ''
+  if (s.startsWith(FONT_ROLE_PREFIX)) {
+    const role = s.slice(FONT_ROLE_PREFIX.length)
+    return (FONT_ROLES as readonly string[]).includes(role) ? s : ''
   }
+  if (s.startsWith('bundled:')) return ''
   const safe = s.replace(/\s+/g, ' ')
   if (!/^[A-Za-z0-9\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af \-]+$/.test(safe)) return ''
   return truncateChars(safe, FONT_VALUE_MAX)

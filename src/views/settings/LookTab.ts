@@ -4,7 +4,8 @@ import {
   BRAND_ICON_MAX,
   BRAND_ICONS_MAX,
   BRAND_NAME_MAX,
-  BUNDLED_FONTS,
+  FONT_ROLES,
+  fontRoleValue,
   CARD_FONT_SIZE,
   CARD_RADIUS,
   CARD_TITLE_SIZE,
@@ -36,7 +37,7 @@ import {
 } from '../../momo/types'
 import { copy, LANG_NAMES, getLocale, resolveLocale, setLocale } from '../../momo/i18n'
 import { getLanguage } from 'obsidian'
-import { syncFontStyle } from '../../ui/shared/fontStyle'
+import { syncFontStyle, fontRoleCss } from '../../ui/shared/fontStyle'
 import { arrowNav, iconSvg, h } from './dom'
 import { actionsMock, metaMock, sizeMock, titleMock } from './mock'
 import type { SettingsCtx } from './context'
@@ -131,19 +132,20 @@ function buildScaleRow(
 }
 
 /**
- * 字体选择行（v0.9.16）：**字体格子**，面板字体与卡片字体各一行。
+ * 字体选择行（v0.9.16；v1.0.0 起改用 Obsidian 字体角色）：**字体格子**，面板字体与
+ * 卡片字体各一行。
  *
- * 格子即预览——每个格子里的样字用**那套字体**画（内置字体经 @font-face 可直接用，
- * 见 views/fontFaces.ts），选字靠眼睛不靠名字；「默认」格子用继承的字体，代表
- * 「不注入变量」。这与配色方案卡、图标格子同一形制：下拉会把字体压成一行名字，
- * 而「这套字体长什么样」本来就该用字说。
+ * 格子即预览——每个格子里的样字用**那套字体**画（角色格用宿主变量 --font-interface /
+ * --font-text / --font-monospace，直接反映 Obsidian 当前的字体设置），选字靠眼睛不靠
+ * 名字；「默认」格子用继承的字体，代表「不注入变量」。这与配色方案卡、图标格子同一形制。
  *
- * 自定义系统字体名输入框已于 2026-10-06 移除（用户要求「移除自定义字体」）：
- * 四套内置字体已覆盖楷 / 黑 / 宋 / 等宽，手输名字只是给「装了什么冷门字体」留的
- * 口子，用的人少还多一处要 sanitize 的注入面。**盘上旧值继续被读取**——
- * sanitizeFontPref 仍放行系统字体名（老 data.json 不被打回默认），只是界面上
- * 不再有输入入口：旧值不等于任何格子，表现为一行里没有格子亮，roving tabindex
- * 落回「默认」格（BUG-82c 的兜底），点任一格即换成新选择。
+ * v1.0.0：四套内置开源字体（随插件分发 ~70MB）退役，改为直接引用 **Obsidian 自己
+ * 提供的字体**（用户在 Obsidian「外观」里配的界面 / 正文 / 等宽三档）。
+ *
+ * 自定义系统字体名输入框已于 2026-10-06 移除（用户要求「移除自定义字体」）。**盘上
+ * 旧值继续被读取**——sanitizeFontPref 仍放行系统字体名（老 data.json 不被打回默认），
+ * 只是界面上不再有输入入口：旧值不等于任何格子，表现为一行里没有格子亮，roving
+ * tabindex 落回「默认」格（BUG-82c 的兜底），点任一格即换成新选择。
  */
 /**
  * 字体槽位落库的**唯一出口**：落盘 + 重注 head 里的 `#momo-fonts` 变量（BUG-119b）。
@@ -173,24 +175,25 @@ function buildFontRow(ctx: SettingsCtx, card: HTMLElement, slot: 'uiFont' | 'car
   grid.setAttribute('role', 'radiogroup')
   grid.setAttribute('aria-label', field.name)
 
-  /** 一格：样字用那格自己的字体画（默认格继承当前字体），名字放样字下面 */
+  /** 一格：样字用那格自己的字体画（默认格继承当前字体），名字放样字下面。
+   *  `css` 是一段**现成的 font-family 值**（角色格给宿主变量，默认格给 null）。 */
   interface Tile { el: HTMLButtonElement; value: string }
   const tiles: Tile[] = []
-  const buildTile = (value: string, label: string, family: string | null): void => {
+  const buildTile = (value: string, label: string, css: string | null): void => {
     const tile = h('button', 'momo-set-font-tile')
     tile.type = 'button'
     tile.setAttribute('role', 'radio')
     tile.setAttribute('aria-label', label)
     const sample = h('span', 'momo-set-font-sample', f.sample)
-    if (family) sample.style.fontFamily = `"${family}"`
+    if (css) sample.style.fontFamily = css
     tile.append(sample, h('span', 'momo-set-font-name', label))
     tile.addEventListener('click', () => apply(value))
     tiles.push({ el: tile, value })
     grid.append(tile)
   }
   buildTile('', f.defaultTile, null)
-  for (const font of BUNDLED_FONTS) {
-    buildTile(`bundled:${font.id}`, copy.meta.fontName[font.id], font.family)
+  for (const role of FONT_ROLES) {
+    buildTile(fontRoleValue(role), copy.meta.fontRole[role], fontRoleCss(role))
   }
 
 
@@ -546,10 +549,11 @@ export function buildLookTab(ctx: SettingsCtx): void {
   )
 
   // ======================= ③ 字体 =======================
-  // 系统字体（面板界面文字）与卡片字体分开配（v0.9.16 用户要求「用户可以分别
-  // 配置系统字体和卡片字体」）。四套开源字体随插件分发（fonts/ 目录 + views/
-  // fontFaces.ts 的 @font-face），离线可用；选值即改即生效（head 变量同步），
-  // 恢复 = 两格都回空串（面板走 --momo-sans 原栈，卡片从面板继承）。
+  // 面板字体与卡片字体分开配（v0.9.16 用户要求「用户可以分别配置系统字体和卡片
+  // 字体」）。v1.0.0 起直接用 **Obsidian 自己提供的字体**（界面 / 正文 / 等宽三个
+  // 角色，见 ui/shared/fontStyle.ts 的 ROLE_CSS），不再自带字体文件；选值即改即
+  // 生效（head 变量同步），恢复 = 两格都回空串（面板走 --momo-sans 原栈，卡片从
+  // 面板继承）。
   // 卡头说明整句移除（2026-10-11 用户要求「去掉这段文字」）：原先那句讲「面板与
   // 卡片各用哪套字、内置四套开源字体」，而下面两行的字面标题（面板字体 / 卡片
   // 字体）加各自的预览格子就是它的图解，desc 只是复述。card() 对空 desc 不建 <p>。

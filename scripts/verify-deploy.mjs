@@ -11,19 +11,15 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
-import { ARTIFACTS, FONT_DIR, fontFiles, fontProblems, GLOBE_TEXTURES, GLOBE_EARTH_IDS, GLOBE_CUBE_FACES, GLOBE3D, globeTextureProblems, globeAssetRevOf, readGlobeAssetRev, pluginProjectDir, vaultPluginDirs } from './vault-targets.mjs'
+import { ARTIFACTS, GLOBE_TEXTURES, GLOBE_EARTH_IDS, GLOBE_CUBE_FACES, globeTextureProblems, globeAssetRevOf, readGlobeAssetRev, pluginProjectDir, vaultPluginDirs } from './vault-targets.mjs'
 
 const sha256 = (p) => crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex')
 const projectDir = pluginProjectDir()
 
-// 本地fonts/ 里的 .ttf 先过「真字体」校验（半截下载 / 错误页不进 vault）
-const badFonts = fontProblems()
-for (const b of badFonts) console.error(`verify-deploy: ${b}`)
-let bad = badFonts.length
 // 星球贴图（v0.9.32，独立部署产物）：源不在 / 不是 PNG 都先说，别只报 vault 侧
 const badTexture = globeTextureProblems()
 for (const b of badTexture) console.error(`verify-deploy: ${b}`)
-bad += badTexture.length
+let bad = badTexture.length
 // 两个计数各管各的（BUG-117a）：`checked` 只数**vault 侧**比对过的产物——零目标哨兵与结论行
 // 都只认它；工程根的指纹自检不算「部署到位」的证据，计进去会让零目标恒 ≥1、哨兵永不触发
 // （实测：MOMO_VAULTS 没设 / 指向不存在的 vault 时曾报「1 个产物全部一致，可以重载」）。
@@ -92,28 +88,6 @@ for (const dest of vaultPluginDirs()) {
       continue
     }
     console.log(`      ✓ ${file} ${fs.statSync(dst).size} B`)
-  }
-  // 内置字体（v0.9.16）：与三件套同一口径逐字节校验；字体缺失只会在运行时
-  // 静默回退默认字体，最容易「以为装好了」，所以必须在这里说出口
-  const fonts = fontFiles()
-  if (fonts.length === 0) {
-    console.log(`      ! fonts/ 为空：本地产物没有内置字体（跳过字体校验）`)
-  }
-  for (const name of fonts) {
-    const src = path.join(projectDir, FONT_DIR, name)
-    const dst = path.join(dest, FONT_DIR, name)
-    checked++
-    if (!fs.existsSync(dst)) {
-      console.log(`      ✗ fonts/${name}：vault 里没有（未部署）`)
-      bad++
-      continue
-    }
-    if (sha256(src) !== sha256(dst)) {
-      console.log(`      ✗ fonts/${name}：与源不一致（vault 里是旧的）`)
-      bad++
-      continue
-    }
-    console.log(`      ✓ fonts/${name} ${fs.statSync(dst).size} B`)
   }
   // 星球贴图（v0.9.32 / 2026-10-04 起 cube 六面 / 2026-10-05 起两套）：与三件套同一
   // 口径逐套逐面校验。缺失只会在运行时表现为「球不见了」或「切到那一档球没了」——

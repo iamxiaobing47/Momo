@@ -1,4 +1,4 @@
-import { FileView, MarkdownView, Notice, Plugin, TAbstractFile, TFile, TFolder, WorkspaceLeaf, normalizePath } from 'obsidian'
+import { FileView, MarkdownView, Notice, Plugin, TAbstractFile, TFile, TFolder, WorkspaceLeaf, normalizePath, requestUrl } from 'obsidian'
 import { buildFrontmatter, canonicalTagPath, isValidTag, normalizeTags, remapFmTags, remapTagPath, rewriteInlineTags, splitFrontmatter, tagKey } from '../tags'
 import { compareTimeKey, dayKey, localDay } from '../dates'
 import {
@@ -38,6 +38,12 @@ import {
   serializeCloudIndex,
   type MomoCloudIndex,
 } from './serviceCloud'
+import {
+  GLOBE_PACK_MANIFEST_FILE,
+  globePackFileNames,
+  globePackUrl,
+  isGlobePackFileValid,
+} from '../globe/pack'
 
 // Momo 服务（contract-momo-storage / concept-momo-trash）：
 // 索引随 vault 事件重建，不缓存正文；插件私有状态只有 data.json。
@@ -195,6 +201,16 @@ export class MomoService {
    *  app:// URL、caps 组装）都用它——路径拼在 caps.ts，id 的真源在这里。 */
   get pluginId(): string {
     return this.plugin.manifest.id
+  }
+
+  /** 插件版本（manifest.version）：星球资源包的记账与下载 tag（release 的 tag = 版本号） */
+  get pluginVersion(): string {
+    return this.plugin.manifest.version
+  }
+
+  /** 插件目录（`<configDir>/plugins/<id>/`）：星球资源包与账号 sidecar 都落这里 */
+  private pluginDir(): string {
+    return normalizePath(`${this.vault.configDir}/plugins/${this.pluginId}`)
   }
 
   /** 卸载收尾（N07）：撤掉还没跑的空白草稿清扫。
@@ -1794,6 +1810,73 @@ export class MomoService {
     const path = normalizePath(`${dir}/${name}`)
     await this.vault.adapter.writeBinary(path, data)
     return path
+  }
+
+  /**
+   * 星球资源包的状态（v1.0.0）：装没装、记账的是哪个版本、缺哪些文件。
+   * `installed` 只由「13 件文件齐不齐」判定（本地构建也会把它们直接铺进插件目录，
+   * 那条路不经过下载）；`version` 是记账版本，'' = 没有记账（手动拷进来的完整包）。
+   * `version` ≠ 当前插件版本时调用方提示重下——新 main.js 配旧 globe3d.js 是错配。
+   */
+  async globePackStatus(): Promise<{ installed: boolean; version: string; missing: string[] }> {
+    const dir = this.pluginDir()
+    const missing: string[] = []
+    for (const name of globePackFileNames()) {
+      if (!(await this.vault.adapter.exists(normalizePath(`${dir}/${name}`)))) missing.push(name)
+    }
+    let version = ''
+    try {
+      const raw = await this.vault.adapter.read(normalizePath(`${dir}/${GLOBE_PACK_MANIFEST_FILE}`))
+      const j = JSON.parse(raw) as { version?: unknown }
+      if (typeof j.version === 'string') version = j.version
+    } catch {
+      version = ''
+    }
+    return { installed: missing.length === 0, version, missing }
+  }
+
+  /**
+   * 下载星球资源包（v1.0.0）。这是插件**唯一的联网动作**，且只在用户显式点击时发生。
+   *
+   * 逐件下 + 逐件校验（贴图查 PNG 魔数、三维库查工厂标记，见 globe/pack.ts）；任何
+   * 一件不过关都记进 `failed`，**不写半包**——全部过关后才写记账文件 globe-pack.json。
+   * 部分失败时已成功的件留在盘上（下次重下会覆盖），但这不算「装好」（记账文件不写）。
+   */
+  async downloadGlobePack(
+    version: string,
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<{ ok: boolean; failed: string[] }> {
+    const dir = this.pluginDir()
+    const names = globePackFileNames()
+    const failed: string[] = []
+    if (!(await this.vault.adapter.exists(dir))) {
+      try {
+        await this.vault.adapter.mkdir(dir)
+      } catch {
+        // ignore：目录已存在 / 并发创建都算成功，下面的 writeBinary 才是判据
+      }
+    }
+    for (let i = 0; i < names.length; i++) {
+      const name = names[i]!
+      try {
+        const res = await requestUrl({ url: globePackUrl(version, name), method: 'GET' })
+        if (res.status !== 200) throw new Error(`HTTP ${res.status}`)
+        const buf = res.arrayBuffer
+        if (!isGlobePackFileValid(name, buf)) throw new Error('globe pack: content check failed')
+        await this.vault.adapter.writeBinary(normalizePath(`${dir}/${name}`), buf)
+      } catch (e) {
+        console.error('[Momo] 星球资源包下载失败', name, e)
+        failed.push(name)
+      }
+      onProgress?.(i + 1, names.length)
+    }
+    if (failed.length === 0) {
+      await this.vault.adapter.write(
+        normalizePath(`${dir}/${GLOBE_PACK_MANIFEST_FILE}`),
+        JSON.stringify({ version }),
+      )
+    }
+    return { ok: failed.length === 0, failed }
   }
 
   /**

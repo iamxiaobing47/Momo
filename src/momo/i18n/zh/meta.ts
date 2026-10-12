@@ -9,7 +9,7 @@
  * `import type` 指回 domain：**只取类型、运行时被擦除**，不构成 i18n ↔ types 的运行时循环
  * （types.ts 需要 copy 才能填这些表，两边只能靠 type-only 引用解开）。
  */
-import type { BrandIcon, BundledFontId, ColorScheme, StatsGroupKey, TagSortKey } from '../../types'
+import type { BrandIcon, FontRole, ColorScheme, StatsGroupKey, TagSortKey } from '../../types'
 import type { TagAttachmentFilter, TagTimeFilter } from '../../tags'
 import { CHAR_BIN_UPPER } from '../../stats/constants'
 
@@ -88,16 +88,14 @@ export const meta = {
     chart: '柱状图',
   } satisfies Record<BrandIcon, string>,
 
-  /** 内置开源字体的名字（v0.9.16，设置页字体格子的主文字；id = types/prefs.ts
-   *  BUNDLED_FONTS 的键，Record 全键覆盖，漏一个编译不过）。字体名是专有名词：
-   *  中文环境用通称「霞鹜文楷 / 思源黑体 / 思源宋体」，JetBrains Mono 本就是
-   *  拉丁名不另译。 */
-  fontName: {
-    wenkai: '霞鹜文楷',
-    notosans: '思源黑体',
-    notoserif: '思源宋体',
-    jetbrains: 'JetBrains Mono',
-  } satisfies Record<BundledFontId, string>,
+  /** Obsidian 字体角色的名字（v1.0.0，设置页字体格子的主文字；id = types/prefs.ts
+   *  FONT_ROLES，Record 全键覆盖，漏一个编译不过）。指的就是 Obsidian「外观」里的
+   *  三档字体设置（界面 / 正文 / 等宽）。 */
+  fontRole: {
+    interface: '界面字体',
+    text: '正文字体',
+    monospace: '等宽字体',
+  } satisfies Record<FontRole, string>,
 
   /** 字数分布的五个档（下标与 stats.ts 的 charBins 一一对应）；数字由上方 charBin 派生 */
   charBin,

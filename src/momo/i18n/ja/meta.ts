@@ -4,7 +4,7 @@
  * `Record<列挙, …>` で宣言するので、「列挙にメンバーを足したのに文言を書き忘れる」
  * とコンパイルで弾かれる。
  */
-import type { BrandIcon, BundledFontId, ColorScheme, StatsGroupKey, TagSortKey } from '../../types'
+import type { BrandIcon, FontRole, ColorScheme, StatsGroupKey, TagSortKey } from '../../types'
 import type { TagAttachmentFilter, TagTimeFilter } from '../../tags'
 import { CHAR_BIN_UPPER } from '../../stats/constants'
 
@@ -70,19 +70,14 @@ export const meta = {
     chart: '棒グラフ',
   } satisfies Record<BrandIcon, string>,
 
-  /** 内蔵オープンソースフォントの名前（v0.9.16、id = types/prefs.ts の
-   *  BUNDLED_FONTS。Record 全キー保証——1 つでも欠けたらコンパイルエラー）。
-   *  フォント名は固有名詞：日本語環境でも各フォントの通称をそのまま使う。
-   *  v0.9.42：タイルは幅 116px・名前行 11px、**硬線 ~90px**。以前は括弧書きで
-   *  日本語通称まで足していたが、「Noto Sans SC（源ノ角ゴシック）」は実測 170px で
-   *  名前ごと省略記号に切れていた（ユーザーには見えない ja 側の同じ不具合）。
-   *  通称は名前に混ぜない——zh/meta.ts と同じ割り切り（向こうの注釈に理由がある）。 */
-  fontName: {
-    wenkai: '霞鶩文楷',
-    notosans: 'Noto Sans SC',
-    notoserif: 'Noto Serif SC',
-    jetbrains: 'JetBrains Mono',
-  } satisfies Record<BundledFontId, string>,
+  /** Obsidian のフォント役割名（v1.0.0、id = types/prefs.ts の FONT_ROLES。
+   *  Record 全キー保証——1 つでも欠けたらコンパイルエラー）。Obsidian の
+   *  「外観」にある三つのフォント設定に対応する。 */
+  fontRole: {
+    interface: 'インターフェース',
+    text: '本文',
+    monospace: '等幅',
+  } satisfies Record<FontRole, string>,
 
   /** 文字数分布の5段（添字は stats.ts の charBins と対応）；数字は上の charBin から派生 */
   charBin,

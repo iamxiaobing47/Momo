@@ -6,9 +6,9 @@ import { copy, getLocale, resolveLocale, setLocale } from './momo/i18n'
 import { MomoView, VIEW_MOMO } from './views/views'
 import { MomoSettingTab } from './views/settings'
 import { COMMANDS, type CommandHost } from './views/commands'
-import { injectFontFaces, removeFontStyles } from './views/fontFaces'
 import { attachmentPasteExtension } from './views/attachmentPaste'
 import { useUi } from './ui/store'
+import { removeFontVars } from './ui/shared/fontStyle'
 
 // Momo插件入口：注册视图 / 命令 / Ribbon / 设置页 / vault 事件。
 // 纯本地（ADR-001/002/003）：无网络、无 localStorage、无 AI；
@@ -112,9 +112,8 @@ export default class MomoPlugin extends Plugin {
       this.addCommand({ id: def.id, name: def.name(brand), callback: () => void def.run(commandHost) })
     }
 
-    // 内置开源字体的 @font-face（v0.9.16）：onload 一次注入，面板 / 设置页 / 弹窗
-    // 共用。「选了哪套」的变量注入在 ui/shared/fontStyle.ts，随偏好（App / 设置页）同步。
-    injectFontFaces(this.app, this.manifest.id)
+    // v1.0.0：内置开源字体退役（改用 Obsidian 自己的字体角色），不再注入 @font-face；
+    // 「选了哪个角色」的变量注入在 ui/shared/fontStyle.ts，随偏好（App / 设置页）同步。
 
     // N10：留住设置页实例——卸载时要结算它手里还排着的输入（目录输入只 cancel，
     // 理由见 onunload——它们的落盘要先过人肉确认）
@@ -126,9 +125,9 @@ export default class MomoPlugin extends Plugin {
     this.unsubscribe?.()
     // N07：撤掉还没跑的空白草稿清扫，卸载后 3s 内不再动 vault
     this.service.dispose()
-    // 运行时注入的字体 <style>（@font-face + 字体变量）随手撤掉：styles.css 是
-    // Obsidian 撤的，这两份是我们自己 append 的（禁用插件后不应再占着字体）
-    removeFontStyles()
+    // 运行期注入的字体变量 <style>（id=momo-fonts）随手撤掉：styles.css 那份由
+    // Obsidian 撤，这份是我们自己 append 的（禁用插件后不应再占着字体）。
+    removeFontVars()
     // N10：setPrefLive 的 400ms 防抖窗口内重载，最后改动只活在内存里——卸载时补一次
     // persist。prefs 已经并进 service.data（persist 就够）；设置页还排着的普通输入
     //（品牌名一类）也要 flush，否则同样只活在内存。目录输入例外（BUG-111a 起用

@@ -57,13 +57,15 @@
   --momo-r-4: 10px; /* 小组件 / 品牌标 / 浮层菜单 */
   --momo-r-5: 16px; /* 大卡 / 浮层（卡片本体走 --momo-ui-r-card 偏好档）*/
   --momo-r-pill: 999px; /* 全胶囊 */
-  /* ---- 字体：中文思源黑体 / 西文与数字 Inter ----
+  /* ---- 字体：西文与数字走 Inter，其余落宿主界面字体 ----
       首选能生效就生效，落不回用户主题的界面字体（不硬顶用户的字体选择）。
-      v0.9.16 起面板字体可配（设置 → 界面外观 → 字体）：运行时注入
-      （ui/shared/fontStyle.ts）在四类宿主上**整条覆盖 --momo-sans 本体**
-      （选中族 + 下面这段尾栈）；没选时本行的字面量照旧生效，行为与升级前
-      逐字节一致。卡片字体不走这条：80-settings 的消费端段在 .momo-card 等
-      卡面上单独接 --momo-font-card（卡片栈 = 卡片族 + 面板当前有效栈）。
+      v0.9.16 起面板字体可配（设置 → 界面外观 → 字体）；v1.0.0 起可选项改为
+      **Obsidian 自己的三个字体角色**（界面 / 正文 / 等宽，见 types/prefs.ts 的
+      FONT_ROLES）——运行时注入（ui/shared/fontStyle.ts）在四类宿主上**整条覆盖
+      --momo-sans 本体**（选中的角色变量 + 下面这段尾栈）；没选时本行的字面量
+      照旧生效，行为与升级前逐字节一致。卡片字体不走这条：80-settings 的消费端
+      段在 .momo-card 等卡面上单独接 --momo-font-card（卡片栈 = 卡片族 + 面板
+      当前有效栈）。
       ⚠️ 本行**不许**再引用任何 momo 自有自定义属性（var(--momo-font-ui) 之类）：
       2026-10-06 修掉的「变量环」正是「--momo-sans 读 --momo-font-ui、运行时
       注入的 --momo-font-ui 栈尾又读 var(--momo-sans)」——两个属性挂在同一批
@@ -71,8 +73,8 @@
       time，面板与卡片的字体选择一起哑掉（卡片走 fallback inherit 跟着面板跑，
       即用户报障「修改系统字体影响卡片字体」）。守卫：
       scripts/font-vars-cycle.test.mts。 */
-  --momo-sans: "Noto Sans SC", var(--font-interface, sans-serif);
-  --momo-num: Inter, "Noto Sans SC", var(--font-interface, sans-serif);
+  --momo-sans: var(--font-interface, sans-serif);
+  --momo-num: Inter, var(--font-interface, sans-serif);
 
   /* ---- 兼容别名 ----
       旧代码里大量使用 --momo-border / --momo-text 系列（约 60+ 处），

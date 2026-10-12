@@ -167,7 +167,13 @@ export const location = {
     /** BUG-81a: notes carry locations but none resolves to a coordinate */
     noCoordsHint: 'Your notes have locations, but none of them has coordinates yet — add latitudes and longitudes under Settings → Locations to light up the globe.',
     /** BUG-122b: the earth texture failed to decode (missing or damaged in the plugin folder) and no globe is on screen */
-    textureFailed: 'The earth texture couldn’t load, so the globe surface can’t be drawn right now — the dots still work. Reinstalling or updating the plugin usually restores the texture files.',
+    // v1.0.0: missing textures usually mean the globe asset pack isn't installed (the
+    // store / BRAT only ship the three core files) — the notice carries the download
+    // button so it can be fixed right on this page.
+    textureFailed: 'The earth texture couldn’t load, so the globe surface can’t be drawn right now — the dots still work. Download the globe asset pack to restore the texture files (~7MB; the plugin’s only network access).',
+    packDownload: 'Download globe asset pack',
+    packDownloading: (done: number, total: number): string => `Downloading ${done}/${total}…`,
+    packFailed: (n: number): string => `Download failed (${n} files) — check your network and retry`,
   },
   /** Aria name of the "grouped by location" view tier (group flow: one stream, scrolled down) */
   groupViewAria: 'Group by location',

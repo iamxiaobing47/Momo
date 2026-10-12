@@ -400,78 +400,46 @@ export const COLOR_SCHEMES: ReadonlyArray<{
 /** 自定义 CSS 片段的长度上限：data.json 是配置文件，不该被当成编辑器存超大文本 */
 export const CUSTOM_CSS_MAX = 200_000
 
-// ---- 内置开源字体（v0.9.16）----
+// ---- 字体角色（v1.0.0，取代内置开源字体）----
 //
-// 插件自带四套开源字体（SIL OFL 1.1），随构建部署进插件目录 fonts/，运行时经
-// app:// 资源 URL 注入 @font-face——用户不装任何系统字体也能选用。选择刻意收敛：
-// 覆盖中文排版的四种主要风格（楷 / 黑 / 宋）加一款等宽，再多就是给 data.json
-// 和 vault 同步压 70MB 的秤砣。授权与来源记录在 fonts/OFL-1.1.txt。
+// v0.9.16–v0.9.50 插件自带四套开源字体（SIL OFL 1.1，随构建部署进插件目录 fonts/，
+// 运行时 @font-face 注入）。代价：发布包背 ~70MB，而 Obsidian 社区商店安装器（以及
+// BRAT）只下发 main.js / manifest.json / styles.css 三件——重字体到不了自动安装的
+// 用户手里，只剩「手动装完整包」一条路。
 //
-// 加一套字体的三处：
-//   ① fonts/ 放入字体文件（ttf），在 fonts/OFL-1.1.txt 补授权行；
-//   ② 本表 BUNDLED_FONTS 加一条；
-//   ③ i18n 三语言的 copy.meta.fontName 补名字（Record 全键覆盖，漏一个编译不过）。
-//   文件与字重轴对不上时 Chromium 会静默忽略 @font-face，落到栈里的下一族——
-//   不会白屏，但设置页的预览格会悄悄变回默认，所以新增时先在设置页肉眼过一遍。
+// 现在改为**直接用 Obsidian 自己提供的字体**：Obsidian「外观」里配的界面字体 /
+// 正文字体 / 等宽字体本身就是挂在 body 上的 CSS 变量（--font-interface /
+// --font-text / --font-monospace），插件引用它们即可——用户在 Obsidian 里改一次，
+// 面板与卡片自动跟着变，且发布包不再背 70MB。
+//
+// 取值空间三段（兜底见 sanitizeFontPref）：
+//   · `''`                —— 跟随默认（不注入字体变量，CSS 令牌走原栈）；
+//   · `obsidian:<role>`   —— Obsidian 的三种字体角色（FontRole）；
+//   · 其余                —— 历史遗留的手输系统字体名（界面入口早已移除，
+//                            盘上旧值继续读，不把人打回默认）。
+//
+// 加一个新角色的三处：
+//   ① 本表 FONT_ROLES 加一条；
+//   ② fontStyle.ts 的 ROLE_CSS 补一条映射；
+//   ③ i18n 三语言的 copy.meta.fontRole 补名字（Record 全键覆盖，漏一个编译不过）。
 
-/** 内置字体的 id：同时是字体偏好取值（`bundled:<id>`）与文案表 copy.meta.fontName 的键 */
-export type BundledFontId = 'wenkai' | 'notosans' | 'notoserif' | 'jetbrains'
+/** Obsidian 提供的字体角色：界面 / 正文 / 等宽（对应 --font-interface 等三个宿主变量） */
+export type FontRole = 'interface' | 'text' | 'monospace'
 
-/** 一条 @font-face：字体文件（相对插件 fonts/ 目录）+ 它覆盖的字重轴 */
-export interface BundledFontFace {
-  file: string
-  /** 静态字体给单值（'400'）；可变字体给范围（'100 900'） */
-  weight: string
-}
+/** 字体角色偏好值的前缀：偏好值 = `${FONT_ROLE_PREFIX}${role}` */
+export const FONT_ROLE_PREFIX = 'obsidian:'
 
-/** 一套内置开源字体：@font-face 家族名 + 它的全部字重文件 */
-export interface BundledFont {
-  id: BundledFontId
-  family: string
-  faces: ReadonlyArray<BundledFontFace>
+/** 全部字体角色（顺序即设置页格子顺序） */
+export const FONT_ROLES: readonly FontRole[] = ['interface', 'text', 'monospace']
+
+/** 角色 → 偏好取值（写入 data.json 的字面值） */
+export function fontRoleValue(role: FontRole): string {
+  return `${FONT_ROLE_PREFIX}${role}`
 }
 
 /**
- * 内置开源字体目录。`family` 是 @font-face 的家族名，**刻意带 Momo 前缀**：
- * 避免与用户系统里同名的字体打架（同名时 Chromium 优先 @font-face，系统的
- * 那套反而永远用不上，版本还不受控制）。
- */
-export const BUNDLED_FONTS: ReadonlyArray<BundledFont> = [
-  {
-    id: 'wenkai',
-    family: 'Momo WenKai',
-    // 霞鹜文楷（Lite）：楷体，日记正文的招牌字。没有 Bold 字重，Medium 顶 700
-    // （标题的粗由它接，避免 Chromium 合成加粗糊掉笔画）。
-    faces: [
-      { file: 'LXGWWenKaiLite-Regular.ttf', weight: '400' },
-      { file: 'LXGWWenKaiLite-Medium.ttf', weight: '700' },
-    ],
-  },
-  {
-    id: 'notosans',
-    family: 'Momo Noto Sans SC',
-    // 思源黑体：界面默认栈的首选（见 00-tokens.css 的 --momo-sans），可变字体
-    // 一份文件覆盖全部字重。
-    faces: [{ file: 'NotoSansSC[wght].ttf', weight: '100 900' }],
-  },
-  {
-    id: 'notoserif',
-    family: 'Momo Noto Serif SC',
-    // 思源宋体：阅读感强的衬线，长文卡片用它最舒服。
-    faces: [{ file: 'NotoSerifSC[wght].ttf', weight: '200 900' }],
-  },
-  {
-    id: 'jetbrains',
-    family: 'Momo JetBrains Mono',
-    // JetBrains Mono：等宽。只覆盖拉丁与数字，CJK 字符由栈里后面的族接住
-    // （fontStackForPref 已把界面字体栈接在它后面）。
-    faces: [{ file: 'JetBrainsMono[wght].ttf', weight: '100 800' }],
-  },
-]
-
-/**
- * 字体偏好值的长度上限（uiFont / cardFont）：`bundled:<id>` 最长十余字符，
- * 手输的字体名也没有超过 60 字符的——超了必是脏数据。
+ * 字体偏好值的长度上限（uiFont / cardFont）：`obsidian:<role>` 十余字符，
+ * 历史手输的字体名也没有超过 60 字符的——超了必是脏数据。
  */
 export const FONT_VALUE_MAX = 60
 

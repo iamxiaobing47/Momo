@@ -434,6 +434,12 @@ export function buildCaps(service: MomoService): MomoCaps {
       service.app.vault.adapter.getResourcePath(
         `${service.vault.configDir}/plugins/${service.pluginId}/globe3d.js`,
       ),
+    // 星球资源包（v1.0.0）：globe3d.js 与两套贴图是**可选下载**——商店 / BRAT 只下发
+    // main.js / manifest.json / styles.css，重资产到不了自动安装的用户手里。这两条是
+    // 下载入口的能力面；网络与写盘在 service.downloadGlobePack，这里只把「当前插件
+    // 版本」顶进去当记账口径（release 的 tag = 版本号）。
+    globePackStatus: async () => ({ ...(await service.globePackStatus()), current: service.pluginVersion }),
+    downloadGlobePack: (onProgress) => service.downloadGlobePack(service.pluginVersion, onProgress),
     // N08：签名 Promise<void>——data.json 写失败（只读分区/磁盘满）时调用方能接住，
     // 不再「UI 显示已改、重载后回退」地静默丢偏好。分工与其它写操作一致：
     // caps 层 Notice + rethrow，调用方 catch 后决定是否回退。

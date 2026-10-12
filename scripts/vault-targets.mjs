@@ -23,63 +23,10 @@ const projectDir = projectRoot(import.meta.url)
  *  src/ 下单独映射（见 deployPlugin / verify-deploy）。别把 src/ 加进来。 */
 export const ARTIFACTS = ['main.js', 'manifest.json', 'styles.css', 'globe3d.js']
 
-/** 内置开源字体的目录（v0.9.16，工程根下）。整目录同步进各 vault 的插件目录。 */
-export const FONT_DIR = 'fonts'
-
-/** fonts/ 里允许同步进 vault 的文件名口径：字体（.ttf）+ 授权文本（.txt）。
- *  单独导出成纯函数：守卫测试不用往真 fonts/ 里塞临时文件。 */
-export function isFontFileSync(name) {
-  return /\.(ttf|txt)$/i.test(name)
-}
-
-/**
- * fonts/ 里的**文件名**（字体 + 授权文本）。目录不存在 / 为空返回 []——
- * 构建照常进行，只是 vault 里没有字体可同步（运行时按字体栈回退，不报错）。
- * 只收登记口径内的扩展名（BUG-05）：整目录同步曾把下载中断的半截 `XXX.ttf.part`
- * 逐字节拷进每个 vault，verify 同口径比对还判一致。
- */
-export function fontFiles(dir = path.join(projectDir, FONT_DIR)) {
-  if (!fs.existsSync(dir)) return []
-  return fs
-    .readdirSync(dir)
-    .filter((f) => fs.statSync(path.join(dir, f)).isFile())
-    .filter(isFontFileSync)
-    .sort()
-}
-
-/** TTF/OTF 的魔数：校验「这真是字体文件」而不是 HTML 错误页 / 半截下载 */
-const MAGIC = [
-  [0x00, 0x01, 0x00, 0x00], // 真 TTF
-  [0x74, 0x72, 0x75, 0x65], // 'true'
-  [0x4f, 0x54, 0x54, 0x4f], // 'OTTO'
-]
-
-/**
- * 内置字体的部署前置校验（v0.9.16）：fonts/ 下的 .ttf 必须读得动、且至少有一处
- * 魔数——下载中断留下的半截 ttf、GitHub 404 的 HTML 错误页都不能进 vault。
- * 返回问题列表（空 = 通过）。
- */
-export function fontProblems(dir = path.join(projectDir, FONT_DIR)) {
-  const bad = []
-  for (const name of fontFiles(dir)) {
-    if (!/\.ttf$/i.test(name)) continue
-    const file = path.join(dir, name)
-    let head
-    try {
-      const fd = fs.openSync(file, 'r')
-      head = Buffer.alloc(4)
-      fs.readSync(fd, head, 0, 4, 0)
-      fs.closeSync(fd)
-    } catch (e) {
-      bad.push(`fonts/${name} 读不出来（${String(e)}）`)
-      continue
-    }
-    const ok = MAGIC.some((m) => m.every((b, i) => head[i] === b))
-    if (!ok) bad.push(`fonts/${name} 不是字体文件（首 4 字节 ${head.toString('hex')}）——下载中断或拿到错误页`)
-    if (fs.statSync(file).size < 1024) bad.push(`fonts/${name} 只有 ${fs.statSync(file).size} 字节，不像完整字体`)
-  }
-  return bad
-}
+// v1.0.0：内置开源字体（`fonts/` 目录 + FONT_DIR / isFontFileSync / fontFiles /
+// fontProblems 这一整套 下载 → 部署 → 校验 链）退役——改用 Obsidian 自带的字体
+// 角色（见 types/prefs.ts 的 FONT_ROLES），发布包不再背 fonts/，也不再需要字体侧
+// 的魔数校验。
 
 /**
  * 所有 vault 的插件目录（绝对路径）——**唯一来源：环境变量 MOMO_VAULTS**
@@ -158,19 +105,20 @@ export const GLOBE_EARTH_IDS = Object.keys(GLOBE_TEXTURES)
 
 /**
  * 发布包清单（BUG-117b）：`{ src, dest }` 对，src 相对工程根、dest 相对包根（= vault 插件目录
- * 的平铺布局）。与 vault 部署**同一份**产物口径：ARTIFACTS + fonts/ 全部文件 + 每套贴图六面。
+ * 的平铺布局）。与 vault 部署**同一份**产物口径：ARTIFACTS + 每套贴图六面。
  *
  * 为什么不在 release.yml 的 `path:` 里手列：那是第二份真源（v0.9.36 的 globe3d.js 与两套贴图
  * 加进 ARTIFACTS / GLOBE_TEXTURES 后没人回头补 workflow，发出去的包缺 13 件，恒绿）；而且贴图
  * 的源在 `src/ui/globe/` 下，upload-artifact 按最近公共祖先保留目录结构，手列也拼不出平铺布局。
  * 所以 workflow 只跑 `node scripts/stage-release.mjs <目录>` 按本清单铺平再整目录上传，
  * 守卫 `scripts/release-assets-guard.test.mts` 钉住两头。
+ *
+ * v1.0.0：fonts/ 退出清单（内置字体退役，改用 Obsidian 自己的字体角色）。
+ * v1.0.0+：globe3d.js 与两套贴图仍是发布资产——社区商店安装器不会下发它们，
+ * 由插件在设置页按需从本仓 release 下载（可选资源包）。
  */
 export function releaseManifest(dir = projectDir) {
   const out = ARTIFACTS.map((f) => ({ src: f, dest: f }))
-  for (const name of fontFiles(path.join(dir, FONT_DIR))) {
-    out.push({ src: path.join(FONT_DIR, name), dest: `${FONT_DIR}/${name}` })
-  }
   for (const id of GLOBE_EARTH_IDS) {
     const set = GLOBE_TEXTURES[id]
     for (const face of GLOBE_CUBE_FACES) out.push({ src: set.srcOf(face), dest: set.nameOf(face) })

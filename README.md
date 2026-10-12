@@ -64,7 +64,7 @@
 - **People keeping diaries or journals**: relive your days as a stream of dates; the heatmap is the trace of your persistence.
 - **Travelers and life recorders**: tag notes with places, then revisit old days by city or country — with a globe to look back on.
 - **Readers, filmgoers and parents**: sort things with tags, and use "review" to make sure what you wrote actually gets read again.
-- **People who care about data ownership**: no network, no account, no telemetry — your notes are only ever your own files.
+- **People who care about data ownership**: no account, no telemetry — your notes are only ever your own files. The only network access is an optional, user-triggered download of the 3D globe assets.
 
 ## Get started
 

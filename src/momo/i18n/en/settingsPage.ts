@@ -589,6 +589,19 @@ export const settingsPage = {
         day: 'Day earth',
       } satisfies Record<GlobeEarth, string>,
     },
+    /** Globe asset pack (v1.0.0): the 3D globe renderer and two sets of Earth textures
+     *  are an optional download — the store installer and BRAT only ship the three core
+     *  files. This is the plugin's only network access, and only on an explicit click. */
+    pack: {
+      name: 'Globe asset pack',
+      desc: 'The 3D globe renderer and two sets of Earth textures (~7MB) are not shipped with the plugin — “Download” fetches them from this repo’s release. It is the plugin’s only network access.',
+      download: 'Download',
+      downloading: (done: number, total: number): string => `Downloading ${done}/${total}…`,
+      notInstalled: 'Not installed — the globe view falls back to a simpler rendering (dots still work).',
+      stale: 'The plugin was updated and the pack is from an older version — please re-download.',
+      installed: 'Installed.',
+      failed: (n: number): string => `Download failed (${n} files) — check your network and retry.`,
+    },
     /** Block one: add a coordinate by hand (name is free — need not be in use) */
     /** Block one: locations & coordinates (live from listEntries + manual-only, by
      *  note count desc). The “add coordinates by hand” block above it was removed on

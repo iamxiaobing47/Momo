@@ -1,13 +1,10 @@
 // vault-targets.mjs 的类型声明（scripts 层 typecheck 用，见 tsconfig.scripts.json；
 // 先例 scripts/project-root.d.mts）。部署侧（esbuild.config.mjs / verify-deploy.mjs）
-// 与测试（font-deploy / globe-texture-deploy）都 import 这个 .mjs，esbuild 剥类型跑、
+// 与测试（globe-texture-deploy）都 import 这个 .mjs，esbuild 剥类型跑、
 // 类型只在 tsc 那层用——这里照抄导出形状，改了 .mjs 的导出记得同步。
 
 /** 要同步进 vault 的工程根产物（顺序即校验顺序） */
 export declare const ARTIFACTS: string[]
-
-/** 内置字体目录名（工程根下） */
-export declare const FONT_DIR: string
 
 /** cube 六面的面名（顺序 = three.js CubeTexture 的构造顺序） */
 export declare const GLOBE_CUBE_FACES: string[]
@@ -38,15 +35,6 @@ export declare function releaseManifest(dir?: string): { src: string; dest: stri
 
 /** 旧单套口径的落点 = 默认套（night）；只为「只关心默认套」的读法保留 */
 export declare const GLOBE_TEXTURE: GlobeTextureSet
-
-/** fonts/ 里允许同步的文件名口径（字体 + 授权文本） */
-export declare function isFontFileSync(name: string): boolean
-
-/** fonts/ 下登记口径内的文件名（排序后） */
-export declare function fontFiles(dir?: string): string[]
-
-/** fonts/ 的部署前置校验（半截下载 / 错误页 → 问题列表） */
-export declare function fontProblems(dir?: string): string[]
 
 /** 星球贴图的部署前置校验（逐套：缺失 / 非 PNG / 套内尺寸不齐 → 问题列表） */
 export declare function globeTextureProblems(): string[]

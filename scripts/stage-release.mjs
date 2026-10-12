@@ -1,5 +1,5 @@
 // 发布包铺平（BUG-117b）：按 vault-targets.mjs 的 releaseManifest() 把产物拷进一个目录，
-// 布局与 vault 插件目录一致（main.js / manifest.json / styles.css / globe3d.js / fonts/ / 两套贴图六面）。
+// 布局与 vault 插件目录一致（main.js / manifest.json / styles.css / globe3d.js / 两套贴图六面）。
 //
 //   node scripts/stage-release.mjs <输出目录>
 //
@@ -31,11 +31,6 @@ if (missing.length > 0) {
   for (const m of missing) console.error(`stage-release: 缺 ${m.src}（先 npm run build / npm run fetch）`)
   process.exit(1)
 }
-if (!manifest.some((m) => m.dest.startsWith('fonts/'))) {
-  console.error('stage-release: fonts/ 为空——发布包不许没有内置字体（运行时只会静默回退）')
-  process.exit(1)
-}
-
 fs.rmSync(outDir, { recursive: true, force: true })
 for (const m of manifest) {
   const dst = path.join(outDir, m.dest)

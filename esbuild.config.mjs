@@ -5,13 +5,16 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { buildCss } from './scripts/build-css.mjs'
-import { ARTIFACTS, FONT_DIR, fontFiles, fontProblems, GLOBE_TEXTURES, GLOBE_EARTH_IDS, GLOBE_CUBE_FACES, globeTextureProblems, GLOBE3D, globe3dProblems, globeAssetRevOf, vaultPluginDirs } from './scripts/vault-targets.mjs'
+import { ARTIFACTS, GLOBE_TEXTURES, GLOBE_EARTH_IDS, GLOBE_CUBE_FACES, globeTextureProblems, GLOBE3D, globe3dProblems, globeAssetRevOf, vaultPluginDirs } from './scripts/vault-targets.mjs'
 
 const production = process.argv[2] === 'production'
 
 // 本文件所在目录 = 插件工程根。所有相对路径都以它为基准，不取决于 CWD
 // （此前用 '../.obsidian/...' 相对 CWD 解析，实际指向 .code/.obsidian，部署被静默跳过）
 const projectDir = path.dirname(fileURLToPath(import.meta.url))
+
+/** 插件版本（manifest.json）：部署时写进星球资源包的记账文件（见下方 deployPlugin） */
+const pluginVersion = JSON.parse(fs.readFileSync(path.join(projectDir, 'manifest.json'), 'utf8')).version
 
 // bundle 不 import 任何 CSS：
 // 样式全部手写（styles.css 由 build-css 那条链产出），插件侧只有 React + Zustand。
@@ -28,19 +31,6 @@ const projectDir = path.dirname(fileURLToPath(import.meta.url))
 // Obsidian 只认一个 styles.css，用户眼里就是「改了没生效」。放在这里，两条链自动同源，
 // 不需要谁记得先跑 build:css；门禁不过会直接 exit，不会带着坏 CSS 往下部署。
 buildCss()
-
-// 内置开源字体（v0.9.16）：部署前置校验——fonts/ 下的 .ttf 必须是真字体文件。
-// 下载中断的半截 ttf 或 GitHub 404 的 HTML 错误页进了 vault，运行时只表现为
-// 「字体选择没效果」（Chromium 忽略坏 @font-face 静默回退），现场看不出原因，
-// 所以在构建时就拦住。
-// 只打印不拦人等于没有闸（BUG-06）：坏字体照旧被下面的部署插件拷进每个 vault，
-// npm run build 还是 exit 0。与 build-css 的五道门禁同款——有问题就 exit 1，
-// 不带着坏字体往下走。
-const fontIssues = fontProblems()
-if (fontIssues.length > 0) {
-  for (const p of fontIssues) console.error(`[deploy] 字体校验失败 ${p}`)
-  process.exit(1)
-}
 
 // 星球贴图（v0.9.32）：它是独立部署产物（不再内联进 main.js——那 1.95MB
 // base64 把 bundle 抬到 2.7MB，插件 onload 的 parse+eval 实测 ~50ms 里它占
@@ -136,14 +126,6 @@ const deployPlugin = {
           // 逐个字节校验，把「以为部署了」变成看得见的失败（v0.7.6 就是这么白屏一轮的）。
           if (!sameFile(src, path.join(dest, file))) problems.push(`${dest}\\${file} 与源不一致`)
         }
-        // 内置开源字体（v0.9.16）：整目录同步（fonts/<file> → <dest>/fonts/<file>），
-        // 同样逐字节校验——字体缺了运行时只回退默认字体，不报错，最容易被「以为装好了」骗过。
-        fs.mkdirSync(path.join(dest, FONT_DIR), { recursive: true })
-        for (const name of fontFiles()) {
-          const src = path.join(projectDir, FONT_DIR, name)
-          fs.copyFileSync(src, path.join(dest, FONT_DIR, name))
-          if (!sameFile(src, path.join(dest, FONT_DIR, name))) problems.push(`${dest}\\fonts\\${name} 与源不一致`)
-        }
         // 清理历史产物：CodeMirror 迁移后不再产出 Inter 字体文件（旧 CSS 也只引用它们）
         for (const name of fs.readdirSync(dest)) {
           if (/^inter-v12-.*\.woff2?$/.test(name)) fs.rmSync(path.join(dest, name))
@@ -170,6 +152,12 @@ const deployPlugin = {
             }
           }
         }
+        // 星球资源包的**记账文件**（v1.0.0）：本地构建把 13 件直接铺进插件目录，
+        // 等价于「已下载」——补上同一份记账，设置页才显示「已安装」而不是催用户去下载
+        // （商店用户那条路才是真的联网下载，见 service.downloadGlobePack）。
+        // 文件名与 src/momo/globe/pack.ts 的 GLOBE_PACK_MANIFEST_FILE 是同一个字面量
+        // （那是 .ts，本文件是构建期跑的 .mjs，import 不了）；globe-pack.test.mts 钉住两处一致。
+        fs.writeFileSync(path.join(dest, 'globe-pack.json'), JSON.stringify({ version: pluginVersion }))
         deployed.push(dest)
       }
       const note = skipped.length > 0 ? `（未找到 vault：${skipped.length} 个，已跳过）` : ''

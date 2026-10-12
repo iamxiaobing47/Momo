@@ -210,6 +210,19 @@ export interface MomoCaps {
    * 没有 caps 的环境返回空串 = 直接软渲染。
    */
   globe3dUrl?(): string
+  /**
+   * 星球资源包的状态（v1.0.0）：`installed` = 13 件文件齐全（本地构建也会把它们直接
+   * 铺进插件目录，那条路不经过下载）；`version` = 记账版本（'' = 没有记账，例如手动
+   * 拷进来的完整包）；`current` = 当前插件版本；`missing` = 缺的文件名。
+   * `version !== current` = 升级插件后需重下（新 main.js 配旧 globe3d.js 会错配）。
+   */
+  globePackStatus?(): Promise<{ installed: boolean; version: string; current: string; missing: string[] }>
+  /**
+   * 下载星球资源包（v1.0.0）：globe3d.js + 两套 cube 贴图 12 张。这是插件**唯一**的
+   * 联网动作，用户显式点击才触发。逐件校验后写盘，全部成功才写记账文件；返回失败件名
+   * 清单（空 = 成功）。`onProgress(done, total)` 供 UI 报进度。
+   */
+  downloadGlobePack?(onProgress?: (done: number, total: number) => void): Promise<{ ok: boolean; failed: string[] }>
   savePrefs(prefs: PrefsPatch): Promise<void>
   listEntries(): Promise<MomoEntry[]>
   /** 回收站行（文件名 + 软删登记 + 完整索引投影，见 `TrashItem`） */

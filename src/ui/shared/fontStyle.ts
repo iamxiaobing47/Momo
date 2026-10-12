@@ -1,21 +1,23 @@
-import { BUNDLED_FONTS } from '../../momo/types'
+import { FONT_ROLE_PREFIX, type FontRole } from '../../momo/types'
 
 // 字体偏好的运行时注入（v0.9.16）：一份 <style> 挂 document.head，内容只有
-// 四类宿主上的两个 CSS 变量（--momo-sans / --momo-font-card）。谁挂类谁生效，
-// 与此前自建配色的注入同一套手法（那个已随功能移除，机制说明还在
-// docs/howto/styling.md）。
+// 两个 CSS 变量（--momo-sans / --momo-font-card）。谁挂类谁生效，与此前自建配色的
+// 注入同一套手法（那个已随功能移除，机制说明还在 docs/howto/styling.md）。
 //
 // 为什么挂 head 而不是面板根节点的内联 var：确认弹窗（.momo-confirm）与设置页
 // （.momo-settings）都在面板 DOM 之外，够不着 .momo-app 上的内联变量；四类宿主
 // 的规则写在同一段 CSS 里，跟 styles.src/00-tokens.css 的令牌块同一张宿主表。
 // 层叠：本元素是运行期 append 的，排在插件 styles.css 之后，同特异性后来者胜。
 //
-// @font-face 本体（内置字体的 src/url）不在这一层——资源 URL 要经 Obsidian 的
-// adapter，归 views/fontFaces.ts（ui/ 不 import obsidian）。这里只管「选了哪套」。
+// v1.0.0：内置开源字体（四套、随插件分发 ~70MB）退役，改用 **Obsidian 自己提供的
+// 字体**——界面 / 正文 / 等宽三个角色，对应宿主变量 --font-interface /
+// --font-text / --font-monospace（Obsidian「外观」里的三档字体设置写的就是它们）。
+// 用户在 Obsidian 里改一次，面板与卡片跟着变。静态 @font-face 注入（旧
+// views/fontFaces.ts）随之删除：插件不再自带字体文件。
 //
 // 🔑 2026-10-06 修（用户报障「修改系统字体影响卡片字体」）：旧形状注入的是
 // **--momo-font-ui**，其栈尾挂着 var(--momo-sans)；而 00-tokens.css 的
-// --momo-sans 第一族又是 var(--momo-font-ui, "Noto Sans SC")——两个自定义属性
+// --momo-sans 第一族又是 var(--momo-font-ui, …)——两个自定义属性
 // 挂在**同一批四类宿主**上、互为首尾 = CSS 变量环。Chromium 实测（探针
 // tmp/font-probe.mjs，真浏览器读 getComputedStyle）：环内属性 invalid at
 // computed-value time，三个变量的计算值全空，后果比报障更宽——
@@ -25,7 +27,7 @@ import { BUNDLED_FONTS } from '../../momo/types'
 // 只有「一个都没选」时才不发作，所以 v0.9.16 以来只要动过系统字体，卡片字体
 // 选择就是哑的。现在的形状：面板字体**整条覆盖 --momo-sans 本体**（选中族 +
 // 默认尾栈），卡片栈 = 卡片族 + 面板当前有效栈；两条注入互不引用、也都不引用
-// 任何 momo 自定义属性（唯一的外部引用是宿主主题的 --font-interface），
+// 任何 momo 自定义属性（唯一的外部引用是宿主主题的 --font-* 三个变量），
 // 结构上不可能再成环。守卫：scripts/font-vars-cycle.test.mts。
 let styleEl: HTMLStyleElement | null = null
 
@@ -35,18 +37,33 @@ let styleEl: HTMLStyleElement | null = null
 export const FONT_HOSTS = '.momo-app, .momo-confirm, .momo-settings, .momo-set-scheme'
 
 /** 默认面板字体栈的尾段：与 00-tokens.css 的 --momo-sans 字面量**逐字一致**
- *  （改这里两边一起改；脚本守卫钉住两边都不含 var(--momo-*) 引用）。选中的族缺字
- *  （等宽字体没有 CJK）时由这段接住，不会漏出宋体衬线兜底。 */
-const FALLBACK_TAIL = '"Noto Sans SC", var(--font-interface, sans-serif)'
+ *  （改这里两边一起改；脚本守卫钉住两边都不含 var(--momo-*) 引用）。选中族缺字
+ *  （比如等宽字体没有 CJK）时由这段接住，不会漏出衬线兜底。 */
+const FALLBACK_TAIL = 'var(--font-interface, sans-serif)'
 
-/** 偏好值 → 选中族（一个带引号的族名）；null = 这个槽位没选（跟随默认）。
- *  系统字体名在 sanitizeFontPref 里收过白名单（无引号 / 分号），这里套引号当
- *  **一个族名**用，防止拼进 CSS。 */
+/** Obsidian 的字体角色 → 实际 CSS 值。三个都是宿主主题提供的变量（不引用
+ *  任何 momo 自定义属性，避免再现 2026-10-06 那个变量环）。 */
+const ROLE_CSS: Record<FontRole, string> = {
+  interface: 'var(--font-interface, sans-serif)',
+  text: 'var(--font-text, sans-serif)',
+  monospace: 'var(--font-monospace, monospace)',
+}
+
+/** Obsidian 字体角色 → 实际 CSS 值。给设置页预览格用（与运行期 fontVarsBlock
+ *  同一份映射），也让截图脚手架能按同一张表给格子设字体。 */
+export function fontRoleCss(role: FontRole): string {
+  return ROLE_CSS[role]
+}
+
+/** 偏好值 → 选中的 CSS 值（角色变量 / 一个带引号的族名）；null = 这个槽位没选（跟随默认）。
+ *  · `obsidian:<role>` → Obsidian 字体角色对应的宿主变量；
+ *  · 其余非空值 → 历史遗留的手输系统字体名（sanitizeFontPref 已收白名单：无引号 /
+ *    分号），这里套引号当**一个族名**用，防止拼进 CSS。 */
 export function fontFamilyForPref(value: string): string | null {
   if (value === '') return null
-  if (value.startsWith('bundled:')) {
-    const font = BUNDLED_FONTS.find((f) => `bundled:${f.id}` === value)
-    return font ? `"${font.family}"` : null
+  if (value.startsWith(FONT_ROLE_PREFIX)) {
+    const role = value.slice(FONT_ROLE_PREFIX.length) as FontRole
+    return ROLE_CSS[role] ?? null
   }
   return `"${value}"`
 }
@@ -56,7 +73,7 @@ export function fontFamilyForPref(value: string): string | null {
  * 真源函数：运行期 syncFontStyle 与截图脚手架（scripts/shots/harness.ts）
  * 都调它，别在两处各拼一遍——v0.9.35 起脚手架的字体注入必须与运行期逐字一致。
  *
- * 卡片栈把面板的有效栈整条接在后面（卡片族打头）：卡片选了等宽、面板选了楷体时，
+ * 卡片栈把面板的有效栈整条接在后面（卡片族打头）：卡片选了等宽、面板选了界面字体时，
  * 卡片里的汉字由面板那套接住——与 80-settings/040-fonts.css 头注同一意图。
  */
 export function fontVarsBlock(prefs: { uiFont: string; cardFont: string }): string {
@@ -86,4 +103,10 @@ export function syncFontStyle(prefs: { uiFont: string; cardFont: string }): void
     document.head.appendChild(styleEl)
   }
   styleEl.textContent = fontVarsBlock(prefs)
+}
+
+/** 卸载时撤掉运行期注入的字体变量 <style>（`#momo-fonts`）；styles.css 那份由 Obsidian 撤。 */
+export function removeFontVars(): void {
+  styleEl?.remove()
+  styleEl = null
 }

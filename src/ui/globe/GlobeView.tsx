@@ -5,6 +5,7 @@ import { coordOfLocation } from '../../momo/locations'
 import { locGroupOf, type LocCount } from '../../momo/locations'
 import { GlobeStage } from './GlobeStage'
 import { globeStars } from './globeStars'
+import { TextButton } from '../kit'
 import type { GlobeAnchorItem } from './globeGesture'
 
 // 星球视图（F7；2026-10-01 晚起是「全部笔记」视图分段里的一档，不再是地点模式的
@@ -73,6 +74,13 @@ export function GlobeView({
   const [wide, setWide] = useState(true)
   /** 星球贴图解码失败（GlobeStage 报上来，见下方说明条） */
   const [texFailed, setTexFailed] = useState(false)
+  /** 说明条里的下载入口（v1.0.0）：贴图缺失多半就是没装「星球资源包」 */
+  const caps = useUi((s) => s.caps)
+  /** 下载成功后 +1：重挂 GlobeStage，贴图与三维后端重新装载（见 runPackDownload） */
+  const [stageKey, setStageKey] = useState(0)
+  const [pack, setPack] = useState<{ phase: 'idle' | 'busy' | 'failed'; done: number; total: number; failed: number }>(
+    { phase: 'idle', done: 0, total: 0, failed: 0 },
+  )
   useEffect(() => {
     const el = rootRef.current
     if (!el || typeof ResizeObserver === 'undefined') return
@@ -117,6 +125,30 @@ export function GlobeView({
     return out
   }, [tallies, locCoords, locLevel, locRegions, lang])
 
+  /**
+   * 下载星球资源包（v1.0.0）：插件唯一的联网动作，**只在用户点这颗钮时**发生。
+   * 成功 → 重挂 GlobeStage（`stageKey` +1）让贴图与三维后端重新装载；失败 → 把原因
+   * （件数）直接写在按钮上——不跳页、不弹窗。
+   */
+  const runPackDownload = async (): Promise<void> => {
+    const fn = caps?.downloadGlobePack
+    if (!fn) return
+    setPack({ phase: 'busy', done: 0, total: 0, failed: 0 })
+    try {
+      const res = await fn((done, total) => setPack({ phase: 'busy', done, total, failed: 0 }))
+      if (!res.ok) {
+        setPack({ phase: 'failed', done: 0, total: 0, failed: res.failed.length })
+        return
+      }
+      setPack({ phase: 'idle', done: 0, total: 0, failed: 0 })
+      setTexFailed(false)
+      setStageKey((k) => k + 1)
+    } catch (e) {
+      console.error('[Momo] 星球资源包下载失败', e)
+      setPack({ phase: 'failed', done: 0, total: 0, failed: 1 })
+    }
+  }
+
   return (
     <div className="momo-globe" hidden={!active}>
       <div className="momo-globe-card">
@@ -129,14 +161,24 @@ export function GlobeView({
           ))}
         </svg>
         <div className="momo-globe-body" ref={rootRef}>
-          <GlobeStage anchors={anchors} zoomable={wide} active={active} onTextureFailed={setTexFailed} />
+          <GlobeStage key={stageKey} anchors={anchors} zoomable={wide} active={active} onTextureFailed={setTexFailed} />
         </div>
       </div>
       {/* BUG-122b：贴图解码失败、手上一颗球都没有——黑卡 + 一圈光点与「功能坏了」分不开。
-          同 noCoordsHint 的持续态说明条，只说原因与出路，不给按钮。 */}
+          v1.0.0 起**就地给按钮**（用户要求）：贴图缺失多半就是没装「星球资源包」（商店 /
+          BRAT 只下发三件套），这一页点一下就能补上，不必再去设置里找。 */}
       {texFailed && (
         <div className="momo-notice">
           <span className="momo-notice-text">{copy.location.globe.textureFailed}</span>
+          {caps?.downloadGlobePack !== undefined && (
+            <TextButton type="button" disabled={pack.phase === 'busy'} onClick={() => void runPackDownload()}>
+              {pack.phase === 'busy'
+                ? copy.location.globe.packDownloading(pack.done, pack.total)
+                : pack.phase === 'failed'
+                  ? copy.location.globe.packFailed(pack.failed)
+                  : copy.location.globe.packDownload}
+            </TextButton>
+          )}
         </div>
       )}
       {/* BUG-81a：地点在、坐标全缺（手填地名不在字典也没填经纬度）→ 黑球零光点
