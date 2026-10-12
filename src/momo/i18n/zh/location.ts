@@ -43,8 +43,6 @@ export const location = {
   treeFilterAria: '按层级查看地点',
   /** 浮层里那一组的组名 */
   treeFilterGroup: '层级',
-  /** 浮层里的一行口径说明：可多选；只管侧栏这棵树，各级多粗是设置里的事 */
-  treeFilterHint: '可多选：勾哪几级就显示哪几级；每一级的显示粗细是设置里「地点分组与显示」的事',
   /** 四档展示名（与 LocTreeLevel 枚举绑定：加了成员忘了写名字 → 编译不过） */
   treeLevel: {
     all: '全部',

@@ -39,6 +39,34 @@
   color: var(--momo-ink-2);
 }
 
+/* ---- 页头右侧：联系方式（2026-10-12 用户要求「配置页面右上角添加我的联系方式」）----
+   两枚邮箱挤在一行 12px / ink-3（次级信息档）里，不抢左边品牌名与页名的 15px。
+   与左侧那一组之间由 margin-inline-start:auto 推开：head 是 flex 行，这是行内
+   唯一的右对齐件，于是落在内容列右边缘——与卡片的右边缘同一条线（gutter 由
+   001-page.css 的 .momo-set-head padding-inline 给）。中间那枚分隔点与页头
+   「品牌 · 页名」那一枚同款同色（ink-4），只换类名——它服务的是另一对文本。
+   邮箱是语言中立的数据，刻意不做链接（Obsidian 对 mailto: 的点击处理不可靠），
+   flex:none + nowrap 保证窄窗里也是「整枚邮箱不出现在第二行」。 */
+.momo-settings .momo-set-contact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  margin-inline-start: auto;
+  font-size: var(--momo-fs-2);
+  color: var(--momo-ink-3);
+}
+.momo-settings .momo-set-contact-mail {
+  white-space: nowrap;
+}
+.momo-settings .momo-set-contact-dot {
+  flex: none;
+  width: 3px;
+  height: 3px;
+  border-radius: var(--momo-r-pill);
+  background: var(--momo-ink-4);
+}
+
 /* ---- 分页导航：分段轨道（与页内 .momo-set-seg 同一套选中语言）----
    旧版是通栏白带上的下划线 tab：在设置弹窗这个白底环境里，可点区域和选中态
    都只靠一根 72px 的短线 + 换色，五个 tab 读起来像五个文本链接。改成页内

@@ -4,7 +4,7 @@
  * `Record<列挙, …>` で宣言するので、「列挙にメンバーを足したのに文言を書き忘れる」
  * とコンパイルで弾かれる。
  */
-import type { BrandIcon, FontRole, ColorScheme, StatsGroupKey, TagSortKey } from '../../types'
+import type { BrandIcon, ColorScheme, FontRole, StatsGroupKey, TagMatchMode, TagSortKey } from '../../types'
 import type { TagAttachmentFilter, TagTimeFilter } from '../../tags'
 import { CHAR_BIN_UPPER } from '../../stats/constants'
 
@@ -112,4 +112,13 @@ export const meta = {
     with: '画像あり',
     without: 'テキストのみ',
   } satisfies Record<TagAttachmentFilter, string>,
+
+  /** 複数選択タグの組み合わせ（2026-10-12）：絞り込み入力欄の右のポップアップにある
+   *  2つの選択肢名。`union` = 和集合（既定値、ADR-004 §5）、`intersection` = 積集合（新規）。
+   *  各行の説明は copy.tags.matchUnionHint / matchIntersectionHint——名前は一行に収まる長さで。 */
+  tagMatch: {
+    union: '和集合',
+    intersection: '積集合',
+  } satisfies Record<TagMatchMode, string>,
+
 }

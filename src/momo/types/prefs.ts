@@ -162,6 +162,31 @@ export const TAG_SORT_KEYS: readonly TagSortKey[] = ['count', 'attachments', 'na
 /** 默认排序键：数量（= v0.9.18 之前写死的行为） */
 export const DEFAULT_TAG_SORT: TagSortKey = 'count'
 
+// ---- 侧栏标签筛选的组合方式（2026-10-12）----
+
+/**
+ * 多选标签时主区卡片的匹配口径（过滤框右侧那枚「两圆交叠」按钮里切）：
+ *
+ * - `union`（默认）= **并集**：含任一已选标签（各含其子树，ADR-004）即显示。
+ *   这是 2026-09-18 起的既定口径（ADR-004 §5），本类型只是把它从「写死」
+ *   变成「默认值」——没这个字段之前的老盘行为逐字节不变；
+ * - `intersection` = **交集**：必须同时含全部已选标签才显示。
+ *
+ * 与 `TagSortKey` 一样是**视图偏好**（ADR-003，落盘）：它是「怎么读我的选中」
+ * 的口径，不是「我现在想找什么」的临时意图（后者是会话态，见 store 的
+ * `tagFilter` / `filterTags`）。换面板、重开 Obsidian 都保持。
+ *
+ * 只影响标签这一维：与搜索 / 日期 / 地点等其余维度仍取交集（matched.ts）。
+ * 只选一个标签时两个值等价（单元素的 some ≡ every），切换无可察差异。
+ */
+export type TagMatchMode = 'union' | 'intersection'
+
+/** 全部合法值（sanitize 白名单；浮层两行的顺序照它） */
+export const TAG_MATCH_MODES: readonly TagMatchMode[] = ['union', 'intersection']
+
+/** 默认组合方式：并集（= 本字段存在之前的行为） */
+export const DEFAULT_TAG_MATCH: TagMatchMode = 'union'
+
 // ---- 侧栏功能显隐与可配数量（v0.4.6 配置项扩展，prefs 的结构化偏好）----
 
 /**

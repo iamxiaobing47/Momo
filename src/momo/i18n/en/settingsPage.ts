@@ -20,6 +20,13 @@ export const settingsPage = {
   /** Page header */
   header: {
     title: 'Settings',
+    /** Contact details at the right end of the page header (2026-10-12 user request
+     *  "add my contact details to the top-right of the settings page"): two email
+     *  addresses, language-neutral — identical in all three locales. Deliberately
+     *  plain text, not mailto links: Obsidian's handling of mailto: clicks is
+     *  unreliable (it can be resolved as a vault link), and the address text is
+     *  selectable as-is. */
+    contact: ['iamxiaobing47@gmail.com', '3075866853@qq.com'],
   },
 
   /** Per-card "reset to defaults" on complex config cards */

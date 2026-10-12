@@ -3,7 +3,7 @@
  * stats group names…). Declared with `Record<enum, …>` so that adding an enum
  * member without copy fails to compile.
  */
-import type { BrandIcon, FontRole, ColorScheme, StatsGroupKey, TagSortKey } from '../../types'
+import type { BrandIcon, ColorScheme, FontRole, StatsGroupKey, TagMatchMode, TagSortKey } from '../../types'
 import type { TagAttachmentFilter, TagTimeFilter } from '../../tags'
 import { CHAR_BIN_UPPER } from '../../stats/constants'
 
@@ -108,5 +108,14 @@ export const meta = {
     with: 'With images',
     without: 'Text only',
   } satisfies Record<TagAttachmentFilter, string>,
+
+  /** Combining multiple selected tags (2026-10-12): the two option names in the
+   *  popover right of the filter input. `union` = the default (ADR-004 §5),
+   *  `intersection` = the new opt-in. Each row's rule lives in
+   *  copy.tags.matchUnionHint / matchIntersectionHint — names stay one line long. */
+  tagMatch: {
+    union: 'Union',
+    intersection: 'Intersection',
+  } satisfies Record<TagMatchMode, string>,
 
 }

@@ -19,6 +19,7 @@ import type {
   StatsRange,
   StatsSections,
   TagPosition,
+  TagMatchMode,
   TagSortKey,
   TrashItem,
   TrashRecord,
@@ -58,6 +59,8 @@ export type PrefsPatch = {
   sortMode?: SortMode
   /** 侧栏标签区排序键（v0.9.18，持久化偏好；默认「数量」= 升级前写死的行为） */
   tagSort?: TagSortKey
+  /** 多选标签组合方式（2026-10-12，持久化偏好；默认「并集」= 升级前写死的行为） */
+  tagMatchMode?: TagMatchMode
   sidebarWidth?: number
   sidebarSide?: 'left' | 'right'
   sections?: SidebarSections
@@ -323,6 +326,15 @@ export interface UiState {
    * 别与上面的 `sortMode` 混：那个管主区卡片流。
    */
   tagSort: TagSortKey
+  /**
+   * 多选标签时主区卡片的匹配口径（2026-10-12，**持久化偏好**，同 tagSort 的路子）：
+   * `union` = 并集（含任一已选标签即显示，默认）、`intersection` = 交集（同时含全部才显示）。
+   * 在侧栏「过滤标签」输入框右侧那枚按钮的浮层里切，动作是 `setTagMatchMode`。
+   *
+   * 与 `tagFilter`（会话内 transient）的分工：那个定「侧栏显示哪些标签行」，
+   * 这个定「主区怎么组合用户点中的那些行」——一个是挑选候选，一个是读命中口径。
+   */
+  tagMatchMode: TagMatchMode
   /**
    * 侧栏标签区的两组筛选（v0.9.18，**会话内 transient，不入 data.json**）：
    * 时间 / 附件，组内单选互斥、跨组取交集（管道见 momo/tags/tagFilter.ts）。
@@ -628,6 +640,11 @@ export interface UiState {
   setSortMode(mode: SortMode): void
   /** 设置侧栏标签区排序键（排序浮层用；写偏好，关面板后不丢） */
   setTagSort(key: TagSortKey): void
+  /**
+   * 设置多选标签的组合方式（过滤框右侧浮层用；写偏好，关面板后不丢）。
+   * `union` = 并集（任一已选标签命中即显示）、`intersection` = 交集（全部命中才显示）。
+   */
+  setTagMatchMode(mode: TagMatchMode): void
   /** 改一组 / 几组标签区筛选（筛选浮层的 chip 用；会话内，不落盘） */
   setTagFilter(patch: Partial<TagFilterState>): void
   /** 清空两组标签区筛选（筛选浮层「清除全部」与空态按钮用；一次 set 改完） */

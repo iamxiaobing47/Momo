@@ -19,9 +19,6 @@ export const tags = {
   /** 两组的组名（各自的选项名在 copy.meta.tagTimeFilter / tagAttachmentFilter） */
   filterGroupTime: '最近使用',
   filterGroupAttachment: '附件',
-  /** 每组组名下的一行说明：两组都被人问过「这是啥意思」，一句话说清口径 */
-  filterHintTime: '按最新一篇的时间',
-  filterHintAttachment: '按有没有带图的笔记',
   /** 筛选浮层底部：一次清空两组（不碰上面的名称输入框） */
   filterClear: '清除全部',
   /** 筛选把标签列表清空时的空态（置顶区不受影响，仍在上面） */
@@ -32,6 +29,20 @@ export const tags = {
   sortButton: (name: string): string => `按${name}排序`,
   /** 摘要条上那枚条件 chip 的无障碍名：`移除筛选：7 天` */
   filterChipRemove: (name: string): string => `移除筛选：${name}`,
+
+  // ---- 多选标签的组合方式（2026-10-12，并集 / 交集）----
+  /** 过滤框右侧那颗按钮的无障碍名。与工具行漏斗的 `filterAria`（筛选标签）分清：
+      那一个定「侧栏显示哪些标签行」，这一个定「主区怎么组合已选中的标签」——两件事
+      在侧栏上下相邻，名字必须分得开，否则用户以为点重了。 */
+  matchAria: '标签组合方式',
+  /** 浮层组名（无标题弹层里它就是标题，BUG-160） */
+  matchGroup: '多个标签怎么组合',
+  /** 组名下一行口径说明（同 filterHintTime 的规矩：两组都被人问过「这是啥意思」，
+      一句话说清；准话在 matched.ts 的标签分支） */
+  matchHint: '同时选中几个标签时，主区显示哪些笔记',
+  /** 两行选项各带一句口径（选项名在 `copy.meta.tagMatch`，枚举绑定防漏） */
+  matchUnionHint: '含任一选中标签即显示',
+  matchIntersectionHint: '必须同时含全部选中标签',
 
   // ---- 管理标签弹层（右键标签 chip 唤起）----
   manageAria: '标签管理',

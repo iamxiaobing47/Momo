@@ -9,7 +9,7 @@
  * `import type` 指回 domain：**只取类型、运行时被擦除**，不构成 i18n ↔ types 的运行时循环
  * （types.ts 需要 copy 才能填这些表，两边只能靠 type-only 引用解开）。
  */
-import type { BrandIcon, FontRole, ColorScheme, StatsGroupKey, TagSortKey } from '../../types'
+import type { BrandIcon, ColorScheme, FontRole, StatsGroupKey, TagMatchMode, TagSortKey } from '../../types'
 import type { TagAttachmentFilter, TagTimeFilter } from '../../tags'
 import { CHAR_BIN_UPPER } from '../../stats/constants'
 
@@ -130,5 +130,14 @@ export const meta = {
     with: '有配图',
     without: '纯文字',
   } satisfies Record<TagAttachmentFilter, string>,
+
+  /** 多选标签的组合方式（2026-10-12）：过滤框右侧浮层里的两行选项名。
+   *  `union` = 并集（默认，ADR-004 §5 的既定口径）、`intersection` = 交集。
+   *  每行的口径说明在 copy.tags.matchUnionHint / matchIntersectionHint——名字短到
+   *  一行放得下，句子不进这张表（它是 Record<枚举, string>，不是散文的地方）。 */
+  tagMatch: {
+    union: '并集',
+    intersection: '交集',
+  } satisfies Record<TagMatchMode, string>,
 
 }

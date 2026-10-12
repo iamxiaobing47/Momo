@@ -48,10 +48,6 @@ export const location = {
   treeFilterAria: 'Filter locations by level',
   /** Group label inside the popover */
   treeFilterGroup: 'Level',
-  /** One-line scope note in the popover: several levels can be picked at once;
-   *  only this sidebar tree; the display granularity is the separate
-   *  "Grouping & display" preference */
-  treeFilterHint: 'Pick several levels at once; how coarse each level reads is the "Grouping & display" setting',
   /** The four tier names (bound to the LocTreeLevel enum: a missing name fails the build) */
   treeLevel: {
     all: 'All',

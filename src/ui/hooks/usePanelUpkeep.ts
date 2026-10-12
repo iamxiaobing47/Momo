@@ -20,7 +20,8 @@ export function usePanelUpkeep(input: PanelUpkeepInput): void {
   // 字体偏好（v0.9.16）：把「选了哪套」同步进 head 的 <style>（变量注入的机制见
   // fontStyle.ts）。挂在 App 里是因为面板是插件的常驻宿主——设置页改完字体回到
   // 面板，规则必须已经在那儿；确认弹窗与设置页也靠这份全局规则。
-  // @font-face 本体在插件 onload 时注入（views/fontFaces.ts），不随偏好重写。
+  // v1.0.0 起字体本体由 Obsidian 提供（角色格引用宿主 --font-* 变量），
+  // 插件侧只剩这份变量 <style>，不再有静态 @font-face。
   useEffect(() => {
     syncFontStyle({ uiFont, cardFont })
   }, [uiFont, cardFont])

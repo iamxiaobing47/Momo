@@ -76,6 +76,19 @@
   transition: color 120ms ease;
 }
 
+/* 小一档的文字钮：给「整座浮层都是小字」的那几个 free 弹层用（筛选浮层的「清除全部」）。
+   那里最大的字是 12px 的 chip，13px 的底栏按钮会整块跳出层（2026-10-12 用户反馈）。
+   ⚠️ 只调字号与高度：底栏 min-height 44 没变，弹层高度一寸不长。 */
+.momo-app .momo-pop-textbtn-sm {
+  height: 28px;
+  font-size: var(--momo-fs-2);
+  color: var(--momo-ink-4);
+}
+
+.momo-app .momo-pop-textbtn-sm:hover {
+  color: var(--momo-ink-2);
+}
+
 .momo-app .momo-pop-textbtn:hover {
   color: var(--momo-ink);
   box-shadow: inset 0 0 0 1px var(--momo-ink-6);

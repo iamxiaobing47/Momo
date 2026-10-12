@@ -19,9 +19,6 @@ export const tags = {
   /** Group names (option names live in copy.meta.tagTimeFilter / tagAttachmentFilter) */
   filterGroupTime: 'Recently used',
   filterGroupAttachment: 'Attachments',
-  /** One-line hint under each group label: both groups have been asked "what does this mean" */
-  filterHintTime: 'By the newest note in the tag',
-  filterHintAttachment: 'By whether the tag has notes with images',
   /** Filter popover, bottom: clears both groups (leaves the name input alone) */
   filterClear: 'Clear all',
   /** Empty state when filtering leaves nothing (the pinned area above is unaffected) */
@@ -32,6 +29,20 @@ export const tags = {
   sortButton: (name: string): string => `Sort by ${name}`,
   /** Accessible name of a summary chip: `Remove filter: 7 days` */
   filterChipRemove: (name: string): string => `Remove filter: ${name}`,
+
+  // ---- Combining multiple selected tags (2026-10-12, union / intersection) ----
+  /** Accessible name of the button right of the filter input. Distinct from the
+      toolbar funnel (filterAria): that one decides which tag ROWS the sidebar shows,
+      this one decides how the main area combines the tags you picked — the two sit
+      a few pixels apart, so the names must not read as the same job. */
+  matchAria: 'Tag combination',
+  /** Group name in the popover (the dialog has no title, so this is it — BUG-160) */
+  matchGroup: 'How to combine multiple tags',
+  /** One line under the group name (same rule as filterHintTime: one plain sentence) */
+  matchHint: 'Which notes to show when several tags are selected',
+  /** One line of rule per option (names live in copy.meta.tagMatch, enum-bound) */
+  matchUnionHint: 'Show notes with any selected tag',
+  matchIntersectionHint: 'Show only notes with all selected tags',
 
   // ---- Tag manager (opened from a tag chip context menu) ----
   manageAria: 'Tag management',

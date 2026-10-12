@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { CARD_FONT_SIZE, CARD_RADIUS, CARD_TITLE_SIZE, DEFAULT_BRAND_NAME, DEFAULT_DENSITY_VIEWS, DEFAULT_GLOBE_EARTH, DEFAULT_LOC_LEVEL, DEFAULT_LOC_TREE_EXPAND, DEFAULT_SECTIONS, DEFAULT_STATS_SECTIONS, DEFAULT_TAG_SORT, HEATMAP_MONTHS, REVIEW_COUNT, SIDEBAR_WIDTH, TITLE_MAX } from '../../momo/types'
+import { CARD_FONT_SIZE, CARD_RADIUS, CARD_TITLE_SIZE, DEFAULT_BRAND_NAME, DEFAULT_DENSITY_VIEWS, DEFAULT_GLOBE_EARTH, DEFAULT_LOC_LEVEL, DEFAULT_LOC_TREE_EXPAND, DEFAULT_SECTIONS, DEFAULT_STATS_SECTIONS, DEFAULT_TAG_MATCH, DEFAULT_TAG_SORT, HEATMAP_MONTHS, REVIEW_COUNT, SIDEBAR_WIDTH, TITLE_MAX } from '../../momo/types'
 import { DEFAULT_TAG_FILTER } from '../../momo/tags'
 import { DEFAULT_LOC_TREE_LEVELS } from '../../momo/locations'
 import { GLOBE_DEFAULT_POSE } from '../globe/globeMath'
@@ -77,6 +77,8 @@ export const useUi = create<UiState>((set, get) => ({
   sortMode: 'createdDesc',
   // 侧栏标签区排序（v0.9.18，落盘偏好）：默认「数量」= v0.9.18 之前写死的那个顺序
   tagSort: DEFAULT_TAG_SORT,
+  // 多选标签组合方式（2026-10-12，落盘偏好）：默认并集 = 本字段存在之前的行为
+  tagMatchMode: DEFAULT_TAG_MATCH,
   // 侧栏标签区两组筛选（v0.9.18，会话态，不落盘）：默认两组全「全部」
   tagFilter: { ...DEFAULT_TAG_FILTER },
   search: '',

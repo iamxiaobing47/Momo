@@ -129,9 +129,9 @@
   font-weight: 600;
 }
 
-/* 筛选浮层里的一组：组名 + 一行说明 + 单选 chip 排。两组的边界靠行距断开（每组上下各 5px，
+/* 筛选浮层里的一组：组名 + 单选 chip 排。两组的边界靠行距断开（每组上下各 5px，
    .momo-pop 是纵向 flex，间距由每组的 padding 提供），不加分隔线。
-   v0.9.26：组内 gap 6→4、上下内距 6→5（说明行换成短句后仍有呼吸，但不占地方）。 */
+   v0.9.26：组内 gap 6→4、上下内距 6→5。 */
 .momo-tagfgroup {
   display: flex;
   flex-direction: column;
@@ -139,25 +139,22 @@
   padding: 5px 14px;
 }
 
-/* 组头：组名 + 一行口径说明（2026-09-28 用户反馈「不太理解」）——说明贴着组名、
-   与 chip 排之间仍由 .momo-tagfgroup 的 6px gap 分开 */
+/* 组头：组名（+ 曾经在它下面的一行口径说明，2026-10-12 删）。
+   两棵树的筛选浮层（标签 / 地点）共用这一件，LocFilterMenu 也在用——wrapper 留着，
+   哪天要加副标题不用再动 DOM。 */
 .momo-tagfgroup-head {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
+/* 组名。v0.9.26 之前它下面还有一行口径说明（.momo-tagfgroup-hint，11px 小字：
+   「按最新一篇的时间」/「按有没有带图的笔记」），两组都被用户问过「这是啥意思」后
+   反被裁决删掉——只剩这一行组名。 */
 .momo-tagfgroup-label {
   font-size: var(--momo-fs-1);
   letter-spacing: 0.04em;
   color: var(--momo-ink-3);
-}
-
-.momo-tagfgroup-hint {
-  font-size: var(--momo-fs-1);
-  /* 11px 是小字，AA 要 4.5:1——ink-6 全方案只有 ~3.1（见下方 .momo-loc-count 处
-     的结论注释），这里曾用 ink-6（BUG-17） */
-  color: var(--momo-ink-4);
 }
 
 .momo-tagfgroup-chips {
@@ -199,10 +196,30 @@
   border-color: var(--momo-ink-6);
 }
 
-/* 侧栏「过滤标签」输入：只留布局（外观走 .momo-input） */
-.momo-tagfilter {
-  width: 100%;
+/* 「过滤标签」输入 + 右侧组合方式按钮（2026-10-12 起是一行两件）：输入框 flex: 1
+   吃掉剩余宽，按钮定尺不参与争抢。下边距 6 原是输入框自己的，提到行上——按钮与
+   下方标签列表的距离和以前逐像素一致。 */
+.momo-tagfilter-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   margin-bottom: 6px;
+}
+
+/* 侧栏「过滤标签」输入：只留布局（外观走 .momo-input）。
+   进 flex 行之后 width: 100% 换成 flex: 1 + min-width: 0：前者在 flex 容器里按
+   basis 算，窄侧栏下会把右侧那枚按钮顶出行外。 */
+.momo-tagfilter {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 组合方式按钮（2026-10-12）：与工具行那枚漏斗（.momo-tagbtn-filter）逐字同款压成
+   正方形，两枚的视觉重量才相当。交集态亮灯走共享的 .momo-app .momo-tagbtn-on，
+   不在这里另立规则——同一个语义（这枚按钮现在是「交集」）只许有一种长相。 */
+.momo-app .momo-tagbtn-match {
+  width: 20px;
+  padding: 0;
 }
 
 .momo-taglist {

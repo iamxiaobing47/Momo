@@ -21,6 +21,7 @@ import {
   DEFAULT_NEW_NOTE_LOCATIONS,
   DEFAULT_SECTIONS,
   DEFAULT_STATS_SECTIONS,
+  DEFAULT_TAG_MATCH,
   DEFAULT_TAG_SORT,
   DENSITIES,
   FONT_ROLE_PREFIX,
@@ -36,6 +37,7 @@ import {
   SORT_MODES,
   STATS_RANGES,
   TAG_SORT_KEYS,
+  TAG_MATCH_MODES,
   CARD_STAMPS,
   TITLE_MAX,
   UI_SCALES,
@@ -57,6 +59,7 @@ import {
   type StatsRange,
   type StatsSections,
   type TagPosition,
+  type TagMatchMode,
   type TagSortKey,
   type UiScale,
   type ViewId,
@@ -144,6 +147,12 @@ export function sanitizeSortMode(value: unknown, legacyAsc: unknown): SortMode {
  * 手改坏 / 将来删掉的键）一律回「数量」—— 那是升级前写死的顺序，对老盘逐行不变。
  */
 export const sanitizeTagSort: (value: unknown) => TagSortKey = enumOr(TAG_SORT_KEYS, DEFAULT_TAG_SORT)
+
+/**
+ * 多选标签组合方式兜底（2026-10-12）：只认白名单里的两个值，其余（旧 data.json
+ * 没这个键 / 手改坏）一律回「并集」—— 那是本字段存在之前的行为，对老盘零变化。
+ */
+export const sanitizeTagMatch: (value: unknown) => TagMatchMode = enumOr(TAG_MATCH_MODES, DEFAULT_TAG_MATCH)
 
 /**
  * 新建笔记带不带空 `locations` 字段的兜底（v0.9.28）：只认布尔，其余（旧

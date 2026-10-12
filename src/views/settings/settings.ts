@@ -403,11 +403,23 @@ export class MomoSettingTab extends PluginSettingTab {
       // 图标格换形状：path 在创建时写死，订阅里整枚重建
       mark.replaceChildren(iconSvg(service.data.prefs.brandIcon, 16))
     }
+    // 页头右侧：联系方式（2026-10-12 用户要求「配置页面右上角添加我的联系方式」）。
+    // 两枚邮箱是语言中立的数据，三门字典同一份（header.contact 数组；在 display()
+    // 里现读，不犯 BUG-04 那种模块求值期快照）。刻意**不做成** mailto 链接——
+    // Obsidian 对 mailto: 的点击处理不可靠（可能被当成库内链接去解析），而邮箱
+    // 文本本身就能选中复制。与左边那一组之间由 CSS 的 margin-inline-start:auto
+    // 推开，落在内容列右边缘——和卡片的右边缘是同一条线。
+    const contact = h('div', 'momo-set-contact')
+    copy.settingsPage.header.contact.forEach((mail, i) => {
+      if (i > 0) contact.append(h('span', 'momo-set-contact-dot'))
+      contact.append(h('span', 'momo-set-contact-mail', mail))
+    })
     head.append(
       mark,
       brand,
       h('span', 'momo-set-dot'),
       h('span', 'momo-set-page', copy.settingsPage.header.title),
+      contact,
     )
     containerEl.append(head)
 

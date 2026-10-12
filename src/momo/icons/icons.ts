@@ -24,6 +24,7 @@ export type IconName =
   | 'sort-desc'
   | 'sort-asc'
   | 'filter'
+  | 'venn'
   | 'select'
   | 'upload'
   | 'trash'
@@ -101,6 +102,14 @@ export const PATHS: Record<IconName, string[]> = {
   // 单条闭合 path（与 tag / pin 同一写法）：只描边不填色，颜色由 currentColor 给，
   // 激活态（筛选生效）靠 CSS 换色，不靠第二枚图标。
   filter: ['M4 5h16l-6.8 7.4v7.1l-2.4-1.4V12.4Z'],
+  // 多选标签的组合方式（2026-10-12）：两圆交叠（韦恩图）——「并集 / 交集」这套集合关系
+  // 的通用图形。放在侧栏「过滤标签」输入框右侧，与段首那枚漏斗（filter）**刻意不同形**：
+  // 两枚图标在侧栏里上下相距几十像素，长一样会被读成同一个入口（那一个筛「侧栏显示哪些
+  // 标签行」，这一个定「主区怎么组合已选中的标签」）。
+  // 两圆 r=6、圆心 (9,12) 与 (15,12)：交叠宽 3（x 12→15 那段重叠），两端各探出 3，
+  // 24 格下不碰边（左 3 / 右 21）。单条闭合 path 一枚（与 filter / tag 同一写法），
+  // 只描边不填色，激活态靠 CSS 换色。
+  venn: ['M9 6a6 6 0 1 0 0 12a6 6 0 1 0 0-12Z', 'M15 6a6 6 0 1 0 0 12a6 6 0 1 0 0-12Z'],
   // 多选笔记：打勾的方框
   select: ['M9 11.5l2.2 2.2L15.5 9.5', 'M20 12v7.5A1.5 1.5 0 0 1 18.5 21h-13A1.5 1.5 0 0 1 4 19.5v-13A1.5 1.5 0 0 1 5.5 5H15'],
   // 上传（设置页「上传图片…」用；向上的箭头 + 托盘，导出按钮移除后归上传）
@@ -204,7 +213,7 @@ export const PATHS: Record<IconName, string[]> = {
  * 两头都不丢。反向实证见 scripts/icons-guard.test.mts（植入一个漏登记成员 → typecheck 必红）。
  */
 export const ICON_NAMES = [
-  'leaf', 'stack', 'shuffle', 'chart', 'sort-desc', 'sort-asc', 'filter', 'select',
+  'leaf', 'stack', 'shuffle', 'chart', 'sort-desc', 'sort-asc', 'filter', 'venn', 'select',
   'upload', 'trash', 'search', 'rows', 'grid', 'focus',
   'more', 'plus', 'tag', 'tag-off', 'pin', 'close', 'arrow-down',
   'arrow-up', 'chevron-up', 'chevron-down', 'chevron-left', 'chevron-right',
@@ -235,7 +244,7 @@ export const LUCIDE_ID_SET: ReadonlySet<string> = new Set(LUCIDE_IDS)
  * 早有自己的配置系统——`brandIcon` 8 预设 + `brandIconImages` 上传图片（v0.9.12）。
  * 让 `leaf` 再进新系统等于给同一个位子开第二个配置入口，两套规则打架
  * （点预设还是传图？覆写和上传谁盖谁？）。品牌位维持原状，不进本系统。
- * 其余 36 枚都只经 `<Icon>` 渲染，各是一个语义位，各配各的。
+ * 其余 37 枚都只经 `<Icon>` 渲染，各是一个语义位，各配各的。
  */
 export type ConfigurableIconName = Exclude<IconName, 'leaf'>
 

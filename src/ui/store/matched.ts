@@ -1,4 +1,5 @@
 import type { MomoEntry } from '../../momo/types'
+import type { TagMatchMode } from '../../momo/types'
 import { entryMatchesTagKey } from '../../momo/tags'
 import { entryAtLocNode } from '../../momo/locations'
 import type { LocRegion } from '../../momo/locations'
@@ -11,7 +12,8 @@ import { dayOfCached } from './dates'
 import type { StoreActions } from './slice'
 import type { ReviewedFilter, UiState } from './types'
 
-// 组合筛选的唯一实现：标签 / 地点之间为并集、与搜索 / 日期 / 下钻维度取交集。
+// 组合筛选的唯一实现：标签（口径可切，默认并集）/ 地点之间为并集、
+// 与搜索 / 日期 / 下钻维度取交集。
 // 拆成三层，让「读取面」成为可编译检查的契约（BUG-67，根治 BUG-48/49 那类漏依赖）：
 //   MatchedInputs  —— 筛选规则**恰好**读取的 store 字段清单；
 //   pickMatchedInputs(state) —— 从 store 快照取出这份输入（少给字段 = 编译错）；
@@ -28,6 +30,8 @@ import type { ReviewedFilter, UiState } from './types'
 /** `matchEntries` 的输入面：恰好是筛选规则读取的 store 字段（新增维度先加这里）。 */
 export interface MatchedInputs {
   filterTags: string[]
+  /** 多选标签的组合口径（2026-10-12）：并集（任一命中）/ 交集（全部命中）。单标签时两者等价 */
+  tagMatchMode: TagMatchMode
   filterLocations: string[]
   filterDates: string[]
   search: string
@@ -47,6 +51,7 @@ export interface MatchedInputs {
 export function pickMatchedInputs(s: UiState): MatchedInputs {
   return {
     filterTags: s.filterTags,
+    tagMatchMode: s.tagMatchMode,
     filterLocations: s.filterLocations,
     filterDates: s.filterDates,
     search: s.search,
@@ -66,6 +71,7 @@ export function pickMatchedInputs(s: UiState): MatchedInputs {
 export function matchEntries(m: MatchedInputs, list: readonly MomoEntry[]): MomoEntry[] {
   const {
     filterTags,
+    tagMatchMode,
     filterLocations,
     filterDates,
     search,
@@ -104,8 +110,16 @@ export function matchEntries(m: MatchedInputs, list: readonly MomoEntry[]): Momo
     }
     // 「无标签」模式（统计页下钻）：与搜索可叠加（交集），与标签 / 日期互斥（见各动作）
     if (untaggedOnly && e.tags.length !== 0) return false
-    // 标签多选为并集（ADR-004 §2.4，2026-09-18 起）：命中任一已选标签（含其子树）即显示
-    if (filterTags.length && !filterTags.some((k) => entryMatchesTagKey(e, k))) return false
+    // 标签多选的组合口径（2026-10-12 起可切，默认并集 = ADR-004 §5 的既定行为）：
+    // 并集 = 命中任一已选标签（含其子树）即显示；交集 = 同时含全部已选标签才显示。
+    // 只选一个标签时 some ≡ every，切无可察差异。仍与其余维度取交集。
+    if (filterTags.length) {
+      const hit =
+        tagMatchMode === 'intersection'
+          ? filterTags.every((k) => entryMatchesTagKey(e, k))
+          : filterTags.some((k) => entryMatchesTagKey(e, k))
+      if (!hit) return false
+    }
     // 地点多选为并集（2026-10-01，地点从浏览模式降级为筛选维度）：命中任一已选
     // 层级节点的覆盖范围即显示（`entryAtLocNode`：任一路径落在该节点下就算，
     // 多地点条目在哪个节点的地盘里就归哪儿）。集合为空 = 不过滤。

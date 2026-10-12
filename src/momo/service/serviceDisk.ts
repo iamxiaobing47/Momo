@@ -23,6 +23,7 @@ import {
   DEFAULT_NEW_NOTE_LOCATIONS,
   DEFAULT_SECTIONS,
   DEFAULT_STATS_SECTIONS,
+  DEFAULT_TAG_MATCH,
   DEFAULT_TAG_SORT,
   HEATMAP_MONTHS,
   REVIEW_COUNT,
@@ -61,6 +62,7 @@ import {
   sanitizeStatsCustomRange,
   sanitizeStatsRange,
   sanitizeStatsSections,
+  sanitizeTagMatch,
   sanitizeTagPosition,
   sanitizeTagSort,
   sanitizeTrash,
@@ -123,6 +125,8 @@ export const DEFAULT_DATA: MomoData = {
     sortMode: 'createdDesc',
     // 侧栏标签区排序（v0.9.18）：默认「数量」= 升级前写死的那个顺序
     tagSort: DEFAULT_TAG_SORT,
+    // 多选标签的组合方式（2026-10-12）：默认并集 = 本字段存在之前的行为
+    tagMatchMode: DEFAULT_TAG_MATCH,
     sidebarWidth: SIDEBAR_WIDTH.default,
     sidebarSide: 'left',
     sections: { ...DEFAULT_SECTIONS },
@@ -271,6 +275,8 @@ export function prefsFromDisk(raw: Record<string, unknown>): MomoData['prefs'] {
     sortMode: sanitizeSortMode(view.sortMode, view.sortAsc),
     // 侧栏标签区排序（v0.9.18）：旧 data.json 无此键 → 回「数量」（升级前后逐行一致）
     tagSort: sanitizeTagSort(view.tagSort),
+    // 多选标签组合方式（2026-10-12）：旧 data.json 无此键 → 回「并集」（= 升级前行为）
+    tagMatchMode: sanitizeTagMatch(view.tagMatchMode),
     // 内部侧栏宽度：旧 data.json 无此字段 → 默认；脏数据夹回合法区间
     sidebarWidth: clampSidebarWidth(view.sidebarWidth as number | undefined),
     // 内部侧栏停靠侧（v0.4.6）：非 'right' 一律回左

@@ -12,6 +12,7 @@ export type PrefsSlice = Pick<
   | 'setPrefs'
   | 'setSortMode'
   | 'setTagSort'
+  | 'setTagMatchMode'
   | 'setStatsRange'
   | 'setStatsCustom'
   | 'setStatsRangeEditing'
@@ -37,6 +38,7 @@ export function createPrefsSlice({ set, get }: StoreActions): PrefsSlice {
         reviewSeen: get().reviewSeen,
         sortMode: get().sortMode,
         tagSort: get().tagSort,
+        tagMatchMode: get().tagMatchMode,
         sidebarWidth: get().sidebarWidth,
         sidebarSide: get().sidebarSide,
         sections: get().sections,
@@ -91,6 +93,7 @@ export function createPrefsSlice({ set, get }: StoreActions): PrefsSlice {
         reviewSeen: next.reviewSeen,
         sortMode: next.sortMode,
         tagSort: next.tagSort,
+        tagMatchMode: next.tagMatchMode,
         sidebarWidth: next.sidebarWidth,
         sidebarSide: next.sidebarSide,
         sections: next.sections,
@@ -143,6 +146,15 @@ export function createPrefsSlice({ set, get }: StoreActions): PrefsSlice {
      */
     setTagSort(key) {
       get().setPrefs({ tagSort: key })
+    },
+
+    /**
+     * 多选标签的组合方式（2026-10-12）：与 setTagSort 同路——它也是**视图偏好**
+     * （ADR-003，落盘、关面板不丢）。切的是「怎么读已选中的标签」的口径，
+     * 不是「此刻筛哪几个」的临时意图（那是会话态，见 filters.ts 的 tagFilter）。
+     */
+    setTagMatchMode(mode) {
+      get().setPrefs({ tagMatchMode: mode })
     },
 
     setStatsRange(range) {

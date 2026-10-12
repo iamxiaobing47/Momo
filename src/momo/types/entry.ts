@@ -17,6 +17,7 @@ import type {
   StatsRange,
   StatsSections,
   TagPosition,
+  TagMatchMode,
   TagSortKey,
   UiScale,
   WarmRatio,
@@ -214,6 +215,17 @@ export interface MomoData {
      * 两组筛选是**会话内 transient**（不入这个文件，见 store 的 tagFilter）。
      */
     tagSort: TagSortKey
+    /**
+     * **多选标签**时主区卡片的匹配口径（2026-10-12，两值枚举）：
+     * `union` = 并集（含任一已选标签即显示，默认 = ADR-004 §5 的既定口径）、
+     * `intersection` = 交集（同时含全部已选标签才显示）。在侧栏「过滤标签」
+     * 输入框右侧那枚按钮的浮层里切。
+     *
+     * 与 `tagSort` 同属**视图偏好**（落盘）：它定「怎么读我的选中」，不是
+     * 「此刻筛哪几个」的临时意图（那是会话态，不入这个文件）。只影响标签
+     * 这一维，与其余筛选维度仍取交集。
+     */
+    tagMatchMode: TagMatchMode
     /** 置顶标签（身份键列表，ADR-004）：只影响侧栏展示顺序，不是 Momo 内容 */
     pinned: string[]
     /**
@@ -253,8 +265,8 @@ export interface MomoData {
      *  老用户的覆盖不丢；恢复默认同样不清它（PREFS_DEFAULTS 不收这个键） */
     customCss: string
     /** 面板字体（v0.9.16）：面板界面文字（侧栏 / 弹层 / 设置页）用哪套字。取值空间
-     *  与兜底见 sanitizeFontPref：'' = 跟随默认 | 'bundled:<id>' = 内置开源字体 |
-     *  其余 = 系统已装字体名（收白名单后注入 CSS 变量） */
+     *  与兜底见 sanitizeFontPref：'' = 跟随默认 | 'obsidian:<role>' = Obsidian 的字体
+     *  角色（v1.0.0 起，内置开源字体已退役）| 其余 = 盘上遗留的系统已装字体名 */
     uiFont: string
     /** 卡片字体（v0.9.16）：卡片正文与标题用哪套字，取值空间同 uiFont。
      *  空串 = 跟随面板字体（卡片本来就从面板继承字体） */

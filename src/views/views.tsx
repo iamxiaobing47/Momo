@@ -120,6 +120,9 @@ export class MomoView extends ReactItemView {
       // 侧栏标签区排序（v0.9.18 漏网补丁）：这个键当初没进回灌列表，用户改过
       // 排序后重开面板会被 store 初值（'count'）盖掉。一并补上。
       tagSort: service.data.prefs.tagSort,
+      // 多选标签组合方式（2026-10-12）：与 tagSort 同批补进回灌列表——漏了它，
+      // 用户切到「交集」后重开面板会被 store 初值（并集）盖掉（tagSort 当初踩过）。
+      tagMatchMode: service.data.prefs.tagMatchMode,
       pinned: service.data.prefs.pinned,
       pinnedNotes: service.data.prefs.pinnedNotes,
       reviewSeen: service.data.prefs.reviewSeen,

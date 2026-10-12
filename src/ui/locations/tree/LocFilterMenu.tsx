@@ -29,6 +29,8 @@ import { PopDialog } from '../../kit'
  * 边界夹取与 LocTreeSection 算落点时的右对齐（那边 `import { MENU_W }`）。
  * 高只是夹取估算（同 TagFilterMenu 的 MENU_H 口径，不追求精确）——多选后
  * 组名下一行口径说明仍是一行字，高度估值不变。
+ * 2026-10-12：那行口径说明整个删掉了，这里没跟着缩——估大只会让弹层离底边
+ * 多留一点空，裁不到内容，留着当余量。
  */
 export const MENU_W = 208
 const MENU_H = 168
@@ -83,8 +85,6 @@ export function LocFilterMenu({
       <div className="momo-tagfgroup">
         <div className="momo-tagfgroup-head">
           <span className="momo-tagfgroup-label">{copy.location.treeFilterGroup}</span>
-          {/* 一行口径说明（同标签区两组：组名下一行人话，写太长会挤破 208px） */}
-          <span className="momo-tagfgroup-hint">{copy.location.treeFilterHint}</span>
         </div>
         <div className="momo-tagfgroup-chips">
           {LOC_TREE_LEVELS.map((value) => {

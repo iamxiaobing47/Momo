@@ -280,6 +280,52 @@
   white-space: nowrap;
 }
 
+/* 副文（2026-10-12 组合方式浮层的两行选项）：口径一句话，比主名小一档、弱一档。
+   主名说「这是什么」，副文说「点下去我的列表会怎么变」——术语（并集 / 交集）
+   alone 答不上后一个问题。同一枚类也当组名下的说明行用（见 .momo-pop-hint）。 */
+.momo-pop-sub {
+  font-size: var(--momo-fs-1);
+  color: var(--momo-ink-3);
+}
+
+/* 组名下的口径说明行（无标题弹层里它替标题回答「这是啥」）：与组名同级左对齐，
+   **不**跟行内文字对齐——它属于这个组，不属于下面哪一行。 */
+.momo-pop-hint {
+  padding: 0 8px 3px;
+  font-size: var(--momo-fs-1);
+  color: var(--momo-ink-3);
+}
+
+/* 两行选项的列表（2026-10-12）：行高从固定 28 改成随内容、label 从单行省略改成竖排。
+   只在这个浮层里改——modifier 挂在 .momo-pop-list 上收口，上面那几条共享规则
+   一行不动（别处仍是 28px 单行）。.momo-app 前缀是为了压过 .momo-app .momo-pop-row
+   的 height: 28（(0,3,0) > (0,2,0)），与打不打 !important 无关。 */
+.momo-app .momo-pop-list-twoline .momo-pop-row {
+  height: auto;
+  min-height: 28px;
+  align-items: flex-start;
+  padding: 5px 8px;
+}
+
+/* check 圈与**第一行**文字对齐（不是两行的垂直中心）：14px 圈配 13px 首行 */
+.momo-app .momo-pop-list-twoline .momo-pop-check {
+  margin-top: 1px;
+}
+
+.momo-app .momo-pop-list-twoline .momo-pop-label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* 两行各自省略：父级那条 nowrap 会被两枚 span 继承，不各自收口的话副文能把行撑宽 */
+.momo-pop-list-twoline .momo-pop-label > span {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* 右列只说「点下去会变多少」：+N / −N / 已含；口径长句进 title（hover） */
 .momo-pop-stat {
   margin-left: auto;

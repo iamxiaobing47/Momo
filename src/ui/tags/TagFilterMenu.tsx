@@ -17,34 +17,38 @@ import { PopDialog } from '../kit'
 //
 // v0.9.18 还有过第三组「层级」（把树拉平，只留一级 / 只留末级），v0.9.19 按用户裁决
 // 移除：没嵌套标签时三个选项长得一样，有嵌套时又没人说得清「顶层 / 叶子」。
+// 更早的版本每组组名下还有一行口径说明（「按最新一篇的时间」/「按有没有带图的笔记」），
+// 同样按用户裁决移除：两句话谁都没看懂，只把 236px 的浮层撑高了一截。现在每组只剩
+// 组名 + chip 排，口径靠选项自己的名字（7 天 / 有配图）说清。
 // 余下两组**都不改变树形**，所以列表永远按树渲染（缩进 + 展开箭头）。
 //
 // 筛选是**会话内 transient**（不落盘）：它是「我现在想找点东西」的临时意图，
 // 重开面板还留着会让人莫名其妙少了半屏标签。排序才落盘（见 TagSortMenu）。
 //
 // 「清除全部」放左下角文字钮（与 TagEditMenu 的置顶 / 删除同位），点完**不关浮层** ——
-// 用户要看着后面的标签列表恢复过来，才知道真清干净了。
+// 用户要看着后面的标签列表恢复过来，才知道真清干净了。字号比 TagEditMenu 那颗小一档
+// （.momo-pop-textbtn-sm）：这座浮层里最大的字是 12px 的 chip，13px 的底栏按钮会跳出层。
 
 /**
  * 弹层尺寸。宽用于边界夹取 + TagTree 算落点时的右对齐（那边 `import { MENU_W }`）。
  * 236 是**上限**：窄侧栏（232px 那档）下 CSS 的 `.momo-pop-free { max-width:
  * calc(100% - 16px) }` 会把它收到面板宽内，chip 组自然换行——所以要按两行估算高度。
  * 高只是边界夹取的估算，不追求精确（同 TagEditMenu 的 MENU_H 口径）。
+ * 2026-10-12：组名下的口径说明删掉后每组矮了一行，210 是按「两组各换行成两排 chip」估的
+ * （44 底栏 + 2 × 83）；单排 chip 的实际高度只有 ≈150，估高不估低——夹狠了浮层会贴顶。
  */
 export const MENU_W = 236
-const MENU_H = 240
+const MENU_H = 210
 
-/** 一组 chip：组名 + 一行口径说明 + 单选互斥的选项 */
+/** 一组 chip：组名 + 单选互斥的选项 */
 function Group<T extends string>({
   label,
-  hint,
   values,
   current,
   nameOf,
   onPick,
 }: {
   label: string
-  hint: string
   values: readonly T[]
   current: T
   nameOf: (value: T) => string
@@ -54,10 +58,6 @@ function Group<T extends string>({
     <div className="momo-tagfgroup">
       <div className="momo-tagfgroup-head">
         <span className="momo-tagfgroup-label">{label}</span>
-        {/* 每组一行说明：两组都被问过「这是啥意思」（2026-09-28 用户反馈）——
-            层级那组直接因此被砍掉，剩下的两组改成「组名 + 一行人话」。
-            口径的准话在 momo/tags/tagFilter.ts，这里只放人话版——写太长会挤破 236px。 */}
-        <span className="momo-tagfgroup-hint">{hint}</span>
       </div>
       <div className="momo-tagfgroup-chips">
         {values.map((value) => {
@@ -123,7 +123,7 @@ export function TagFilterMenu({
       returnFocus={returnFocus}
       footerLeft={
         <div className="momo-pop-footleft">
-          <button className="momo-pop-textbtn" onClick={() => clearTagFilter()}>
+          <button className="momo-pop-textbtn momo-pop-textbtn-sm" onClick={() => clearTagFilter()}>
             {copy.tags.filterClear}
           </button>
         </div>
@@ -131,7 +131,6 @@ export function TagFilterMenu({
     >
       <Group
         label={copy.tags.filterGroupTime}
-        hint={copy.tags.filterHintTime}
         values={TAG_TIME_FILTERS}
         current={tagFilter.time}
         nameOf={(value: TagTimeFilter) => copy.meta.tagTimeFilter[value]}
@@ -139,7 +138,6 @@ export function TagFilterMenu({
       />
       <Group
         label={copy.tags.filterGroupAttachment}
-        hint={copy.tags.filterHintAttachment}
         values={TAG_ATTACHMENT_FILTERS}
         current={tagFilter.attachments}
         nameOf={(value: TagAttachmentFilter) => copy.meta.tagAttachmentFilter[value]}
