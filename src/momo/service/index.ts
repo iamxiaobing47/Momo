@@ -43,6 +43,7 @@ import {
   globePackFileNames,
   globePackUrl,
   isGlobePackFileValid,
+  type GlobePackFailure,
 } from '../globe/pack'
 
 // Momo 服务（contract-momo-storage / concept-momo-trash）：
@@ -1845,10 +1846,11 @@ export class MomoService {
   async downloadGlobePack(
     version: string,
     onProgress?: (done: number, total: number) => void,
-  ): Promise<{ ok: boolean; failed: string[] }> {
+  ): Promise<{ ok: boolean; failed: string[]; reason: GlobePackFailure }> {
     const dir = this.pluginDir()
     const names = globePackFileNames()
     const failed: string[] = []
+    const kinds: GlobePackFailure[] = []
     if (!(await this.vault.adapter.exists(dir))) {
       try {
         await this.vault.adapter.mkdir(dir)
@@ -1858,13 +1860,23 @@ export class MomoService {
     }
     for (let i = 0; i < names.length; i++) {
       const name = names[i]!
+      // 失败口径逐件定，取第一次失败的那档当整包口径（13 件同因时它就是代表）
+      let kind: GlobePackFailure = 'network'
       try {
         const res = await requestUrl({ url: globePackUrl(version, name), method: 'GET' })
-        if (res.status !== 200) throw new Error(`HTTP ${res.status}`)
+        if (res.status === 404) {
+          kind = 'missing'
+          throw new Error(`HTTP 404 (${name})`)
+        }
+        if (res.status !== 200) throw new Error(`HTTP ${res.status} (${name})`)
         const buf = res.arrayBuffer
-        if (!isGlobePackFileValid(name, buf)) throw new Error('globe pack: content check failed')
+        if (!isGlobePackFileValid(name, buf)) {
+          kind = 'corrupt'
+          throw new Error('globe pack: content check failed')
+        }
         await this.vault.adapter.writeBinary(normalizePath(`${dir}/${name}`), buf)
       } catch (e) {
+        kinds.push(kind)
         console.error('[Momo] 星球资源包下载失败', name, e)
         failed.push(name)
       }
@@ -1876,7 +1888,7 @@ export class MomoService {
         JSON.stringify({ version }),
       )
     }
-    return { ok: failed.length === 0, failed }
+    return { ok: failed.length === 0, failed, reason: kinds[0] ?? 'network' }
   }
 
   /**

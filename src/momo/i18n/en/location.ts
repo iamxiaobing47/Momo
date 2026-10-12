@@ -174,6 +174,8 @@ export const location = {
     packDownload: 'Download globe asset pack',
     packDownloading: (done: number, total: number): string => `Downloading ${done}/${total}…`,
     packFailed: (n: number): string => `Download failed (${n} files) — check your network and retry`,
+    packFailedMissing: 'No release with the asset pack exists for this version yet — grab the full package from GitHub, or wait for the author to publish one',
+    packFailedCorrupt: (n: number): string => `Downloaded files failed validation (${n}) — a proxy or mirror may have altered them; retry or use the full package`,
   },
   /** Aria name of the "grouped by location" view tier (group flow: one stream, scrolled down) */
   groupViewAria: 'Group by location',

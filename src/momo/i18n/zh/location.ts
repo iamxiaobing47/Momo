@@ -168,6 +168,8 @@ export const location = {
     packDownload: '下载星球资源包',
     packDownloading: (done: number, total: number): string => `正在下载 ${done}/${total}…`,
     packFailed: (n: number): string => `下载失败（${n} 件）——检查网络后重试`,
+    packFailedMissing: '这一版还没有发布资源包（Release）——可去 GitHub 下完整包，或等作者发版',
+    packFailedCorrupt: (n: number): string => `下载内容校验不过（${n} 件）——可能被代理 / 镜像改写，重试或走完整包`,
   },
   /** 「地点分组」那一档的 aria 名（分组流：按地点连成一条流往下滚） */
   groupViewAria: '按地点分组',

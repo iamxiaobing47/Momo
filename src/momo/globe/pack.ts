@@ -67,3 +67,13 @@ export function hasGlobe3dMarker(buf: ArrayBuffer): boolean {
 export function isGlobePackFileValid(name: string, buf: ArrayBuffer): boolean {
   return name === GLOBE_PACK_3D_FILE ? hasGlobe3dMarker(buf) : isPngBytes(buf)
 }
+
+/**
+ * 下载失败的口径（v1.0.0，给 UI 分口径说话）：
+ * - `missing` —— release / 资产不在（HTTP 404）：**这一版还没发资源包**，不是网络问题。
+ *   这两件事的修法完全不同（一个是等作者发版 / 下完整包，一个是查网络），
+ *   混成一句「检查网络后重试」会把用户引到错的方向。
+ * - `corrupt` —— 字节不对（PNG 魔数 / 工厂标记不过）：代理 / 镜像改写了内容。
+ * - `network` —— 其余（断网、超时、非 2xx）。
+ */
+export type GlobePackFailure = 'missing' | 'network' | 'corrupt'

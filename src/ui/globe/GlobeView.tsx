@@ -6,6 +6,7 @@ import { locGroupOf, type LocCount } from '../../momo/locations'
 import { GlobeStage } from './GlobeStage'
 import { globeStars } from './globeStars'
 import { TextButton } from '../kit'
+import type { GlobePackFailure } from '../../momo/globe/pack'
 import type { GlobeAnchorItem } from './globeGesture'
 
 // 星球视图（F7；2026-10-01 晚起是「全部笔记」视图分段里的一档，不再是地点模式的
@@ -78,9 +79,14 @@ export function GlobeView({
   const caps = useUi((s) => s.caps)
   /** 下载成功后 +1：重挂 GlobeStage，贴图与三维后端重新装载（见 runPackDownload） */
   const [stageKey, setStageKey] = useState(0)
-  const [pack, setPack] = useState<{ phase: 'idle' | 'busy' | 'failed'; done: number; total: number; failed: number }>(
-    { phase: 'idle', done: 0, total: 0, failed: 0 },
-  )
+  const [pack, setPack] = useState<{
+    phase: 'idle' | 'busy' | 'failed'
+    done: number
+    total: number
+    failed: number
+    /** 失败口径：missing = 这一版还没发资源包（不是网络问题） */
+    reason: GlobePackFailure
+  }>({ phase: 'idle', done: 0, total: 0, failed: 0, reason: 'network' })
   useEffect(() => {
     const el = rootRef.current
     if (!el || typeof ResizeObserver === 'undefined') return
@@ -133,19 +139,19 @@ export function GlobeView({
   const runPackDownload = async (): Promise<void> => {
     const fn = caps?.downloadGlobePack
     if (!fn) return
-    setPack({ phase: 'busy', done: 0, total: 0, failed: 0 })
+    setPack({ phase: 'busy', done: 0, total: 0, failed: 0, reason: 'network' })
     try {
-      const res = await fn((done, total) => setPack({ phase: 'busy', done, total, failed: 0 }))
+      const res = await fn((done, total) => setPack({ phase: 'busy', done, total, failed: 0, reason: 'network' }))
       if (!res.ok) {
-        setPack({ phase: 'failed', done: 0, total: 0, failed: res.failed.length })
+        setPack({ phase: 'failed', done: 0, total: 0, failed: res.failed.length, reason: res.reason })
         return
       }
-      setPack({ phase: 'idle', done: 0, total: 0, failed: 0 })
+      setPack({ phase: 'idle', done: 0, total: 0, failed: 0, reason: 'network' })
       setTexFailed(false)
       setStageKey((k) => k + 1)
     } catch (e) {
       console.error('[Momo] 星球资源包下载失败', e)
-      setPack({ phase: 'failed', done: 0, total: 0, failed: 1 })
+      setPack({ phase: 'failed', done: 0, total: 0, failed: 1, reason: 'network' })
     }
   }
 
@@ -175,7 +181,11 @@ export function GlobeView({
               {pack.phase === 'busy'
                 ? copy.location.globe.packDownloading(pack.done, pack.total)
                 : pack.phase === 'failed'
-                  ? copy.location.globe.packFailed(pack.failed)
+                  ? pack.reason === 'missing'
+                    ? copy.location.globe.packFailedMissing
+                    : pack.reason === 'corrupt'
+                      ? copy.location.globe.packFailedCorrupt(pack.failed)
+                      : copy.location.globe.packFailed(pack.failed)
                   : copy.location.globe.packDownload}
             </TextButton>
           )}

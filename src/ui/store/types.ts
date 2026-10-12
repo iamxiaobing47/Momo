@@ -33,6 +33,7 @@ import type { LatLon } from '../../momo/locations'
 import type { LocRegion } from '../../momo/locations'
 import type { LocTreeLevel, LocTreeLevels } from '../../momo/locations'
 import type { IconOverrides } from '../../momo/icons'
+import type { GlobePackFailure } from '../../momo/globe/pack'
 import type { LocPickerMode } from '../locations/picker/rows'
 import type { TagPickerMode } from '../tags/picker/rows'
 
@@ -220,9 +221,12 @@ export interface MomoCaps {
   /**
    * 下载星球资源包（v1.0.0）：globe3d.js + 两套 cube 贴图 12 张。这是插件**唯一**的
    * 联网动作，用户显式点击才触发。逐件校验后写盘，全部成功才写记账文件；返回失败件名
-   * 清单（空 = 成功）。`onProgress(done, total)` 供 UI 报进度。
+   * 清单（空 = 成功）与失败**口径**（`missing` = 这一版还没发资源包 / `corrupt` = 字节
+   * 被改写 / `network` = 其余）。`onProgress(done, total)` 供 UI 报进度。
    */
-  downloadGlobePack?(onProgress?: (done: number, total: number) => void): Promise<{ ok: boolean; failed: string[] }>
+  downloadGlobePack?(
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<{ ok: boolean; failed: string[]; reason: GlobePackFailure }>
   savePrefs(prefs: PrefsPatch): Promise<void>
   listEntries(): Promise<MomoEntry[]>
   /** 回收站行（文件名 + 软删登记 + 完整索引投影，见 `TrashItem`） */

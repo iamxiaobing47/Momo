@@ -168,6 +168,8 @@ export const location = {
     packDownload: '地球アセットパックをダウンロード',
     packDownloading: (done: number, total: number): string => `ダウンロード中 ${done}/${total}…`,
     packFailed: (n: number): string => `ダウンロード失敗（${n} 件）——ネットワークを確認して再試行してください`,
+    packFailedMissing: 'このバージョンにはまだアセットパック付きの Release がありません——GitHub から完全版を入手するか、作者のリリースをお待ちください',
+    packFailedCorrupt: (n: number): string => `ダウンロード内容の検証に失敗（${n} 件）——プロキシ / ミラーが書き換えた可能性があります。再試行するか完全版をご利用ください`,
   },
   /** 「地点でグループ」ビュー档の aria 名（グループフロー：地点ごとに一続きで下へ） */
   groupViewAria: '地点でグループ',
