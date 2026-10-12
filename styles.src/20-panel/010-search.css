@@ -1,0 +1,57 @@
+/* ---- 顶栏搜索：共用输入语言 + 左侧放大镜。wrap 只做定位锚，视觉全在 input 上 ---- */
+.momo-search-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 240px;
+  flex: none;
+  min-width: 0;
+}
+
+.momo-search-wrap > svg {
+  position: absolute;
+  left: 10px;
+  z-index: 1;
+  color: var(--momo-ink-3);
+  pointer-events: none;
+}
+
+/* 图标占位：左内缩比其它输入多 19px。写在 .momo-app 下与 .momo-input 同特异性、
+   源码在后，padding 才能盖过输入语言的 0 11px */
+.momo-app .momo-search {
+  width: 100%;
+  padding-left: 30px;
+}
+
+
+
+/* BUG-186：color 不声明在裸类上（宿主 `button:not(.clickable-icon)`（(0,1,1)）
+   压得住）——宿主前缀那条（60-design/050-topbar.css 的 `.momo-app .momo-seg`，
+   与 28×28 定尺同一条）已带 --momo-ink-3。 */
+.momo-seg {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--momo-r-3);
+  display: flex;
+  align-items: center;
+}
+
+.momo-seg:hover {
+  color: var(--momo-accent);
+}
+
+/* 分段选中态：2026-10-02 横展十套，从 accent-soft 底改成 **透明底 + accent 描边**。
+   为什么：accent-soft 对 surface 四套只有 1.00~1.16（stone 恰好 1.00 同色；收编前 sepia 1.01，该套已删），
+   作「底」是弱信号。分段控件的选中本就该有明确边界，而 accent 描边四套 4.71~6.80、
+   全过 3:1 —— 底色只作辅助，边界交给描边。accent 字与字重照旧（那是主信号）。
+   ⚠️ 宿主给 date input 的原生底要用 accent-soft + accent 字 + accent 描边一起压，
+   那一组在 30-pop.css 的 `.momo-app .momo-seg-on` 里，**两处要一起改**。
+   BUG-186：color 不在裸类上声明（宿主 (0,1,1) 压得住）——由 040-tagpicker.css 的
+   `.momo-app .momo-seg-on` 那条带（accent 字与底 / 描边同一条，改一起改）。 */
+.momo-seg-on {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--momo-accent);
+}
+

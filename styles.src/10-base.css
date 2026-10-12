@@ -1,0 +1,68 @@
+/* ---- 发布框：不是编辑器，是「写点什么」的入口——点击新建 Momo，
+    在原生 Obsidian 编辑器里写 ---- */
+
+.momo-composer:hover,
+.momo-composer:focus-within {
+  border-color: var(--momo-accent);
+  box-shadow: var(--momo-shadow-pop);
+}
+
+.momo-composer-entry {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  border-radius: var(--momo-r-4);
+  font-family: var(--font-interface, inherit);
+  font-size: var(--momo-fs-4);
+  text-align: left;
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+/* color 不声明在裸类上（BUG-186：宿主 `button:not(.clickable-icon)`（(0,1,1)）
+   压得住）——宿主前缀那条在 60-design/060-composer.css，与几何同一条。 */
+
+.momo-composer-entry:hover {
+  color: var(--momo-accent);
+  background: var(--momo-accent-soft);
+}
+
+/* ---- 通用按钮：次级操作的默认形态——中性底 + 1px 描边，hover 才染古铜；实底墨色只归主行动，这里不抢 ---- */
+
+.momo-btn {
+  cursor: pointer;
+  border-radius: var(--momo-r-3);
+  border: 1px solid var(--momo-border);
+  background: var(--background-primary, #fff);
+  padding: 5px 12px;
+  font-size: var(--momo-fs-3);
+  white-space: nowrap;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+/* color 不声明在裸类上（BUG-186：宿主 (0,1,1) 压得住）——回顾页两颗按钮的
+   字色宿主前缀那条在 30-pop/020-sidebar.css，与底色 / 描边同一条。 */
+
+.momo-btn:hover {
+  border-color: var(--momo-accent);
+  color: var(--momo-accent);
+}
+
+/* （BUG-134b 删除两条死规则：`.momo-btn-danger` / `.momo-btn-danger:hover`——
+   src/ 从不产出这个类名，危险操作的实底/描边一律由各自组件的类表达。
+   `.momo-sr-only` 也一并删除：src/ 里既没有该类名，也没有 `aria-labelledby`，
+   无障碍名全部走 `aria-label`（见 docs/howto/styling.md 的同一行说明）。） */
+
+
+
+
+
+
+
+
+

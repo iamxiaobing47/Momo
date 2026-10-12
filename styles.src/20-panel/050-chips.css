@@ -1,0 +1,40 @@
+/* ---- 通用胶囊 ----
+   `.momo-chip` 现唯一的产出点是侧栏置顶胶囊（`momo-chip momo-pin-chip`，
+   TagTreePinnedArea.tsx——BUG-187b 注记）。这一片只留裸类上**还有活声明**的
+   基座（transition 是唯一没有别处声明的属性，删了 hover 就不再 120ms 过渡）；
+   底色 / 描边 / 字色都由 60-design/030-sidebar-tags.css 的 `.momo-app .momo-pin-chip`
+   按 (0,2,0) 更后源码序接管，两态 color 走宿主前缀（BUG-186）。 */
+
+
+
+.momo-chip {
+  cursor: pointer;
+  border-radius: var(--momo-r-pill);
+  border: 1px solid var(--momo-border);
+  background: var(--momo-surface);
+  padding: 2px 10px;
+  font-size: var(--momo-fs-2);
+  transition: all 120ms ease;
+}
+
+/* 未选中胶囊的 hover（BUG-188）：旧写法裸类 (0,2,0)、源码序在 30-pop 基态
+   `.momo-app .momo-chip`（同特异性、更后）与 60-design `.momo-app .momo-pin-chip`
+   （同特异性、更更后）之前——border-color / color 两条声明被按源码序整条压掉，
+   未选中胶囊悬停四层全无反馈。修法照 BUG-185 的 :where() 手法：宿主前缀 +
+   排除选中态 + (0,3,0)，稳压两条基态；选中态的 hover 仍走
+   `.momo-pin-chip.momo-chip-on:hover`（(0,4,0)，accent-line 描边那套）不动。 */
+.momo-app .momo-chip:where(:not(.momo-chip-on)):hover {
+  border-color: var(--momo-accent);
+  color: var(--momo-accent);
+}
+
+/* （BUG-188 收口：`.momo-chip-on` 裸类底与 `.momo-chip-on:hover` 裸类字色两条
+   死声明删除——对唯一消费者分别被 30-pop `.momo-app .momo-chip-on`（(0,2,0)）与
+   60-design `.momo-pin-chip.momo-chip-on:hover`（(0,4,0)）按特异性整条盖过，
+   且值逐字相同，删除零差异。） */
+
+.momo-chip-count {
+  flex: none;
+  opacity: 0.65;
+  font-size: var(--momo-fs-1);
+}

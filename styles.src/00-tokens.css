@@ -1,0 +1,268 @@
+/* Momo · 视觉样式：设计令牌（**不含配色**）—— v0.5 设计稿 · 方桁 A4
+
+    设计源：docs/design/mockups/danpan-v05-design.html §0 设计令牌
+
+    本文件只放**换肤时不变**的令牌：字号 / 圆角 / 字体 / 层级 / 兼容别名。
+    全部配色令牌（--momo-page / --momo-ink / --momo-accent / --momo-heat-* /
+    --momo-shadow-* …）都在 **styles.src/themes/<方案>.css**，一个方案一个文件——
+    新增配色方案请读那个目录下的 README，不要在这里加色值。
+
+    配色主张（为什么主按钮是墨黑而不是古铜）：「高级感」要靠克制达成——
+    彩色主按钮读起来是「亲和」，近黑主按钮读起来是「克制 / 精致」。
+    所以签名色（古铜）不占主按钮，退到选中点 / 热力图 / 图表线 / 进度条这类次级角色。 */
+
+/* 令牌块由 .momo-app / .momo-confirm / .momo-settings 共享：
+    确认弹窗是 Obsidian Modal、挂在 body 下不在面板里，取不到 .momo-app 上的
+    var(--momo-*)；Obsidian 自己的灰色外壳与默认字体（弹窗显旧的一部分原因）
+    也靠这一层盖掉。
+
+    第四个宿主 .momo-set-scheme 是设置页的**配色方案卡**（v0.9.6）：那几张卡
+    要各自预览自己代表的方案，所以每张卡自己挂 momo-theme-<id> 并**自持一套
+    令牌**——否则它只会继承页根当前的方案，几张卡预览出同一个颜色。
+
+    这四个宿主**都必然带一个 momo-theme-* 类**（面板 App.tsx / 弹窗 caps.ts /
+    设置页 settings.ts 的 applyScheme / 色卡 fields.ts），所以配色令牌可以整块
+    住在 themes/*.css 里，这里不必再留一份兜底色值。 */
+.momo-app,
+.momo-confirm,
+.momo-settings,
+.momo-set-scheme {
+  /* ---- 浮层层级（Dialog 视觉系统，2026-09-23；设计稿 docs/design/mockups/momo-dialog-v1.png）----
+     一条线：全屏点击遮罩 30 < 面板内浮层（批量标签 / 标签管理）40 < 全屏定位菜单
+     （卡片右键）50。替代此前的 38 / 40 / 41 / 1200 四条线——旧的 .momo-menu-overlay
+     同时当遮罩又当卡片菜单容器，两个 z-index 并存就是设计稿说的「错层」。
+     三者都活在 .momo-app 内：Obsidian 自己的 notice(60) / tooltip(70) 层在
+     .workspace-leaf（contain:strict）撑起的层叠上下文之外，挡不到面板内部。 */
+  --momo-z-mask: 30;
+  --momo-z-pop: 40;
+  --momo-z-menu: 50;
+
+  /* ---- 字号档位（治理方案 §6：8 档；组件规则只许用这八档）----
+     统计页的数字阶梯 44/36/26/22/20 是有注释背书的设计（hero 逐档降级），
+     刻意不并档——「以注释为准」，26/36/20 三档留字面量并各自带注释。 */
+  --momo-fs-1: 11px; /* 微标注：热力图月份 / 轴标签 / 日历星期 */
+  --momo-fs-2: 12px; /* 次级信息：meta / hint / 计数 / 标签 */
+  --momo-fs-3: 13px; /* 小字正文：按钮 / 输入 / 列表项 */
+  --momo-fs-4: 14px; /* 正文：卡片正文 / 面板基座 */
+  --momo-fs-5: 15px; /* 强调正文：品牌名 / 页标题 */
+  --momo-fs-6: 17px; /* 标题：卡片标题 / 区块标题 */
+  --momo-fs-7: 22px; /* 统计大数字（档位内最大）*/
+  --momo-fs-8: 44px; /* display 级：hero 数字 */
+
+  /* ---- 圆角档位（治理方案 §6：6 档）----
+     「Npx Npx 0 0」的异形圆角（标签页翘角）与 50% 正圆是有意形状，不并档。 */
+  --momo-r-1: 2px; /* 微圆角：复选框 / 小点 */
+  --momo-r-2: 4px; /* 小圆角：输入 / 代码 / 微章 */
+  --momo-r-3: 8px; /* 按钮 / 操作项 */
+  --momo-r-4: 10px; /* 小组件 / 品牌标 / 浮层菜单 */
+  --momo-r-5: 16px; /* 大卡 / 浮层（卡片本体走 --momo-ui-r-card 偏好档）*/
+  --momo-r-pill: 999px; /* 全胶囊 */
+  /* ---- 字体：中文思源黑体 / 西文与数字 Inter ----
+      首选能生效就生效，落不回用户主题的界面字体（不硬顶用户的字体选择）。
+      v0.9.16 起面板字体可配（设置 → 界面外观 → 字体）：运行时注入
+      （ui/shared/fontStyle.ts）在四类宿主上**整条覆盖 --momo-sans 本体**
+      （选中族 + 下面这段尾栈）；没选时本行的字面量照旧生效，行为与升级前
+      逐字节一致。卡片字体不走这条：80-settings 的消费端段在 .momo-card 等
+      卡面上单独接 --momo-font-card（卡片栈 = 卡片族 + 面板当前有效栈）。
+      ⚠️ 本行**不许**再引用任何 momo 自有自定义属性（var(--momo-font-ui) 之类）：
+      2026-10-06 修掉的「变量环」正是「--momo-sans 读 --momo-font-ui、运行时
+      注入的 --momo-font-ui 栈尾又读 var(--momo-sans)」——两个属性挂在同一批
+      宿主上互为首尾，Chromium 把环内变量全部算成 invalid at computed-value
+      time，面板与卡片的字体选择一起哑掉（卡片走 fallback inherit 跟着面板跑，
+      即用户报障「修改系统字体影响卡片字体」）。守卫：
+      scripts/font-vars-cycle.test.mts。 */
+  --momo-sans: "Noto Sans SC", var(--font-interface, sans-serif);
+  --momo-num: Inter, "Noto Sans SC", var(--font-interface, sans-serif);
+
+  /* ---- 兼容别名 ----
+      旧代码里大量使用 --momo-border / --momo-text 系列（约 60+ 处），
+      统一指向新令牌，避免逐条改写；新写的代码请直接用上面的正式令牌。 */
+  --momo-border: var(--momo-line);
+  --momo-text: var(--momo-ink);
+  --momo-text-2: var(--momo-ink-2);
+  --momo-text-3: var(--momo-ink-4);
+
+  /* 语义别名：把 Obsidian 原生变量指回当前配色方案，继承它们的第三方样式一起换肤。
+     这一组全是 var() 指向配色令牌（定义见 themes/*.css），所以换肤时自动跟随，
+     本文件不需要再为每个方案写一遍。
+     两个带色值的原生变量（--background-primary / --text-highlight-bg）是配色的一部分，
+     也在 themes/*.css 里。 */
+  --text-normal: var(--momo-ink);
+  --text-muted: var(--momo-ink-2);
+  --text-faint: var(--momo-ink-3);
+  --background-secondary: var(--momo-page);
+  --background-modifier-hover: var(--momo-surface);
+
+  /* ---- 渲染进面板的 Obsidian **派生**变量（v0.9.14 起；2026-09-28 扩到表单控件与代码块）----
+     Obsidian 在 body 上把一大批语义变量定义成「var(别的变量)」——例如
+     `--checklist-done-color: var(--text-normal)`、`--code-background:
+     var(--background-primary-alt)`、`--background-modifier-form-field:
+     var(--color-base-00)`。var() 在**声明处**求值：body 上算定的值会一路继承进
+     .momo-app，上面那组「指回 momo 令牌」的别名管不到它（别名只改在 .momo-app
+     上解析 var() 的用法，不改 body 上已经算完的值）。于是面板里交给宿主的元素
+     继续吃**宿主 Obsidian 主题**的取值——宿主题浅色、方案深色时，泄漏进来的
+     浅色就是一块块刺眼的白斑。这里逐条把它们重指回 momo 令牌。
+     取值全部落在 check-contrast.mjs 已判定的令牌上（ink-2..4 / accent /
+     accent-hover / sage / clay / warn / danger 作文字，均有 4.5:1 背书）。
+
+     · Markdown 渲染内容（v0.9.14，用户报障「墨夜背景下卡片的内容无法渲染」）：
+       已完成任务的文字拿到主题的近黑 #26272b，画在深色卡片上等于看不见；
+       嵌套在已完成项里的未勾选项靠 color 继承同样中招。复选框填充跟主题强调色
+       （蓝）、链接是主题蓝、hr 与列表 marker 是主题灰。
+     · 表单控件（2026-09-28 用户报障「墨夜下输入框呈纯白」）：
+       `--background-modifier-form-field` 的宿主取值是 `var(--color-base-00)`＝
+       **纯白**，而 app.css 的 `input[type='text']:not(:disabled):hover`（特异性
+       (0,3,1)）压得住 20-panel.css 的 `.momo-app .momo-input:hover`（(0,3,0)）——
+       鼠标一移到输入框上，底色就从方案的 surface 翻成纯白。
+       这里**不跟宿主抢特异性**（(0,3,1) 本身就超出 .stylelintrc 的 0,3,0 预算，
+       赢了等于给两道门禁各添一条坑），改成把宿主那条规则会读到的变量换掉：
+       基座与 hover 两态都指回 surface（= hover 只加深描边、不换底，与 20-panel.css
+       开头那段输入语言一致），描边三态指回 line / ink-6 / accent。
+       残留：鼠标 hover 与焦点同时成立时，宿主的 hover 规则仍赢，那一刻的描边是
+       ink-6 而不是 accent——键盘 Tab 聚焦（无 hover）走 20-panel.css 的 focus 规则，
+       accent 描边 + card 底照常；两侧取值都由这里兜住，不会再漏出宿主题的色。
+     · 代码块 palette（2026-09-28 用户报障「墨夜下代码块底 #f5f6f8 刺眼」）：宿主把
+       `--code-background` 定成 `var(--background-primary-alt)`（浅色主题下 #f5f6f8）、
+       `--code-normal` 定成 `var(--text-normal)`（近黑），语法色是 --color-pink/-green/…
+       一整套**按浅底设计**的主题色。底色改成 surface-2（themes/*.css 里注释为
+       「嵌面」，与 60-design.css 的引用块同档——那条注释原本就写着「引用块 / 行内代码
+       = 设计稿 §3 的 .qb 卡片语言」，这里把它兑现），语法色改用方案自己的 8 个语义
+       令牌。**不需要**为每套方案单独配 palette：十套方案令牌名相同，这组映射写一次
+       就随肤；判定对见 check-contrast.mjs 的 ⑦ 组（按 surface-2 底量，正文 4.5:1）。
+     清单见 scripts/markdown-var-guard.test.mts：新增 / 漏掉这里都会编译不过。 */
+  --checklist-done-color: var(--momo-ink-3);
+  --checklist-done-decoration: line-through;
+  --list-marker-color: var(--momo-ink-4);
+  --list-marker-color-hover: var(--momo-ink-3);
+  --table-header-color: var(--momo-ink-2);
+  --link-color: var(--momo-accent);
+  --link-color-hover: var(--momo-accent-hover);
+  --link-unresolved-color: var(--momo-ink-4);
+  --link-unresolved-decoration-color: var(--momo-ink-4);
+  --hr-color: var(--momo-line);
+  --checkbox-color: var(--momo-accent);
+  --checkbox-color-hover: var(--momo-accent-hover);
+  --checkbox-border-color: var(--momo-ink-4);
+  --checkbox-border-color-hover: var(--momo-ink-3);
+  --checkbox-marker-color: var(--momo-on-accent);
+  --text-selection: color-mix(in srgb, var(--momo-accent) 25%, transparent);
+
+  /* 表单控件的取色（2026-09-28）：宿主 app.css 里那套文本类控件的基座 / hover /
+     focus 规则读的就是这几个变量，见 scripts/host-field-var-guard.test.mts。
+     后两个（-form-field-hover / -border-hover）在**聚焦的那个元素上**会被
+     20-panel.css 的焦点规则改写（→ card / accent）——那是「鼠标聚焦时宿主 hover 规则
+     赢下层叠」的唯一解法：不抢特异性，改让宿主读到焦点态的值。 */
+  --background-modifier-form-field: var(--momo-surface);
+  --background-modifier-form-field-hover: var(--momo-surface); /* 悬停不换底；聚焦时被改写为 card */
+  --background-modifier-border: var(--momo-line);
+  --background-modifier-border-hover: var(--momo-ink-6); /* 悬停加深一档；聚焦时被改写为 accent */
+  --background-modifier-border-focus: var(--momo-accent);
+  --input-placeholder-color: var(--momo-ink-3);
+
+  /* 代码块 palette（2026-09-28）：宿主那套 --code-* 里我们只接管**带色**的那些 ——
+     底色 / 描边 / 文字 / 注释 / 标点 / 运算符 / 属性 / 函数 / 标签 / 数值 /
+     字符串 / 关键字 / 强调 / 括号配对底。几何量（--code-size / --code-radius /
+     --code-border-width / --code-white-space）留给宿主，不在这里换。
+     一个角色一个令牌：property / function / tag 共用 clay，标点与注释共用 ink-3，
+     运算符用 ink-2——方案的语义色只有 accent / sage / clay / warn / danger 五种，
+     再细分就得为每套方案新造色值，那是另一件事。 */
+  --code-background: var(--momo-surface-2);
+  --code-border-color: var(--momo-line);
+  --code-normal: var(--momo-ink);
+  --code-comment: var(--momo-ink-3);
+  --code-punctuation: var(--momo-ink-3);
+  --code-operator: var(--momo-ink-2);
+  --code-property: var(--momo-clay);
+  --code-function: var(--momo-clay);
+  --code-tag: var(--momo-clay);
+  --code-value: var(--momo-warn);
+  --code-string: var(--momo-sage);
+  --code-keyword: var(--momo-accent);
+  --code-important: var(--momo-danger);
+  --code-bracket-background: var(--momo-accent-soft);
+}
+
+/* 默认侧栏停靠左侧（prefs.sidebarSide，v0.4.6）：DOM 顺序不变、整行反转，
+    拖宽手柄仍在两栏之间（flex 顺序自动跟随）。 */
+.momo-app.momo-side-right {
+  flex-direction: row-reverse;
+}
+
+/* 要盖掉 Obsidian 原生控件的默认投影 / 字体，统一定义 */
+.momo-app button,
+.momo-app input,
+.momo-app select,
+.momo-app textarea {
+  box-shadow: none;
+  font-family: var(--font-interface, inherit);
+  min-height: 0;
+}
+
+.momo-app button:focus-visible,
+.momo-app input:focus-visible,
+.momo-app select:focus-visible,
+.momo-app textarea:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* ---- 面板滚动条（2026-09-30 报障「墨金视图里看不到滚动条」；2026-10-01 换成标准属性才算修对）----
+   宿主的滚动条在面板里等于没有，根因**不在**我们伪元素写得对不对，而在宿主从 1.13 起
+   改用**标准属性**接管全应用滚动条（obsidian.asar 的 app.css）：
+     *                            { scrollbar-width: var(--scrollbar-native-width) }（= auto）
+     body:not(.styled-scrollbars) { scrollbar-color: var(--scrollbar-thumb-bg) var(--scrollbar-bg) }
+   而 `--scrollbar-thumb-bg: color-mix(in oklch, var(--mono-100) 10%, transparent)` 是
+   **10% 不透明度**的拇指（暗色宿主题下就是 10% 白）。它一直在、也一直占着十几像素的槽位，
+   只是与石墨案的深炭底几乎同色 —— 观感就是「没有滚动条」。开「样式化滚动条」
+   （`body.styled-scrollbars`）会换走伪元素那条路，但读的**还是**同一个 10% 令牌，一样看不见。
+   ★ 关键事实（2026-10-01 真 Chromium 实测）：只要 `scrollbar-color` 取到非 `auto` 值，
+   Blink 就**整条无视 `::-webkit-scrollbar` 伪元素**，且与选择器特异性无关 —— body 给红、
+   元素自己再给 `::-webkit-scrollbar-thumb { background: 绿 }`，画出来是红的。
+   所以 2026-09-30 那版只写伪元素，在 1.13.7 上是一行都没生效的死代码。
+   修法：**用同一个标准属性自己声明一次** —— 声明在元素上压得过从 body 继承来的 10%，
+   标准属性又压得过伪元素，两种宿主模式都赢。灰取 ink-5（用户口径「稍微发灰一点」）：
+   四套方案上 ink-5 对 card 都在 3:1 以上（check-contrast 的 ui 组判的就是它），
+   看得见但不抢戏；轨道保持透明。
+   **不动 `scrollbar-width`**：宽度沿用宿主 / 系统那一档，`scrollbar-gutter: stable`
+   预留的格因此分毫不变（槽位守卫见 scripts/scroll-gutter.test.mts 的第五条）。 */
+.momo-app,
+.momo-settings,
+.momo-confirm {
+  scrollbar-color: var(--momo-ink-5) transparent;
+}
+
+/* 伪元素那套留给**旧宿主**兜底：minAppVersion 是 1.5.0，而 1.13 以前没有上面那条标准属性
+   规则（那时的 Electron 也还不认 `scrollbar-color`），面板里滚的是原生滚动条，伪元素才是
+   唯一能画的地方 —— 12px 槽位（与宿主样式化滚动条同宽，`scrollbar-gutter: stable` 预留的格
+   因此不变）、透明轨道、灰滑块；悬停 / 按下提亮一档到 ink-4，给个「拇指在这儿」的反馈。
+   标准属性那侧没有拇指级悬停钩子（改挂滚动区自己的 `:hover` 会在鼠标碰到列表任意处就整条
+   变色，是噪音，不做），所以这一档只属于这条路。 */
+.momo-app ::-webkit-scrollbar,
+.momo-settings ::-webkit-scrollbar,
+.momo-confirm ::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+  background: transparent;
+}
+
+/* 拇指：3px 透明描边 + background-clip: padding-box = 12px 槽里画 6px 的灰条，
+   滑块不贴容器边缘（贴边在圆角卡片上尤其难看）。手法同宿主 app.css 那条
+   styled-scrollbars 的拇指。 */
+.momo-app ::-webkit-scrollbar-thumb,
+.momo-settings ::-webkit-scrollbar-thumb,
+.momo-confirm ::-webkit-scrollbar-thumb {
+  background: var(--momo-ink-5);
+  background-clip: padding-box;
+  border: 3px solid transparent;
+  border-radius: var(--momo-r-pill);
+}
+
+.momo-app ::-webkit-scrollbar-thumb:hover,
+.momo-settings ::-webkit-scrollbar-thumb:hover,
+.momo-confirm ::-webkit-scrollbar-thumb:hover,
+.momo-app ::-webkit-scrollbar-thumb:active,
+.momo-settings ::-webkit-scrollbar-thumb:active,
+.momo-confirm ::-webkit-scrollbar-thumb:active {
+  background: var(--momo-ink-4);
+}
+

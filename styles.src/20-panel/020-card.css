@@ -1,0 +1,36 @@
+/* ---- 卡片流 ---- */
+
+.momo-content > :first-child {
+  margin-top: var(--top-gap);
+}
+
+/* 瀑布流用多列布局而不是 CSS Grid：Grid 要预先定死列数，卡片高度不一时
+    会留下大量空白；多列让卡片在列间断开，瀑布流的高度差正好填进这个缺口。 */
+
+/* 操作行 hover 显隐的唯一真源在 60-design/110-globe.css（同特异性超集、层序在后
+    必胜）——本地这条曾被同值超集整条压死（Q16，2026-10-12 删）。 */
+
+/* 正文区域不是富文本编辑器：点击走 Obsidian 原生编辑器（Migration Phase 1.3）。
+    只提供「去原生编辑器里改」的入口，hover 给一档底色暗示可点，
+    正文本身保持只读、选中即复制。 */
+/* 卡片底部的小信息行：与正文隔开一档（concept-momo-tags） */
+.momo-card-tags a {
+  color: var(--momo-accent);
+  text-decoration: none;
+}
+
+/* 卡片底部信息行（locPosition / tagPosition = 'bottom' 时的地点胶囊 + #标签）：
+   地点在左、标签在后，装不下就换行——排布与 meta 行那一套一致。
+   原来这两行是 .momo-card 下的两条兄弟行：.momo-loc-pills 是 inline-flex、
+   .momo-card-tags 是块级 flex，同级放进去必然一上一下叠成**两排**
+   （用户反馈：地点和标签分成了两行）。外包一层 flex 容器统一排，与正文的
+   间距也由这一层给——原先 -bottom 修饰类上那两条 margin-top 因此撤掉
+   （类仍留在 DOM 里，测试与截图场景靠它定位）。 */
+.momo-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+

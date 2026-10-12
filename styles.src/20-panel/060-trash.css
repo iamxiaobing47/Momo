@@ -1,0 +1,224 @@
+/* ---- 回收站 / 清空确认 / 清空后提示 ---- */
+
+/* BUG-153：删掉 `.momo-trash` 规则——回收站自 v0.9.26 起按正常卡片渲染，
+   src 里从没有这个包裹层类名；此前被 `momo-trash-*` 的子串匹配掩盖。 */
+
+
+
+
+
+
+
+/* 回收站默认折叠（省地方）：收起时只显示 service.trashPreview 拿到的前几条摘要，
+    超过 80 字截断；展开后按分页继续加载。 */
+
+
+
+
+
+
+/* ---- 二次确认弹窗（Obsidian Modal；views.tsx confirmDialog 挂接）----
+   0.9.0 起与四个面板内浮层收敛成同一套骨架（工单 2026-09-23-dialog-visual-system）：
+   容器 328 · r 12 · 1px 描边 · float 阴影；分隔线 + 底栏 44——左侧「不可撤销」
+   提示（仅危险确认），右侧 取消（描边）+ 主动作（实底 accent；危险为实底 danger）。
+   Modal 挂在 body 下拿不到 .momo-app 的令牌：共享令牌块挂在 .momo-confirm 上
+   （与 .momo-app / .momo-settings 同一处定义），colorScheme 再把配色方案类挂上来，
+   让弹窗跟随用户选的配色（每套方案各有一份令牌覆写块，类按 id 挂）。
+   v0.9.26 密度一刀：头 44→36、底 54→44，与面板浮层同步（见 30-pop.css 文件头）。
+   2026-10-10 起**没有头部标题**（BUG-160：用户「所有的 dialog，左上角都不要有标题」）：
+   标题与底栏主动作按钮是同一句话的第二遍（「删除标签」/「彻底删除」…），与
+   BUG-157 / 158 去掉的面板浮层标题同判据。原生 modal-title 由下面那条规则隐藏，
+   内容区的上内距补到与无头浮层（.momo-pop-nohead）相称的一刀。 */
+.modal.momo-confirm {
+  width: min(328px, calc(100vw - 32px));
+  padding: 0;
+  border-radius: var(--momo-r-4);
+  border: 1px solid var(--momo-line);
+  background: var(--momo-card);
+  box-shadow: var(--momo-shadow-float);
+  font-family: var(--momo-sans);
+  color: var(--momo-ink);
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 遮罩浓度：Obsidian 默认偏亮，压回与面板浮层一致的一档 */
+.modal-container:has(.momo-confirm) .modal-bg {
+  background-color: rgba(18, 17, 16, 0.32);
+}
+
+/* 头部整行隐藏（BUG-160）：Obsidian 的 Modal 构造函数总会建一个 titleEl，不写文字
+   它也是一条 36px 的空白带——与 .momo-pop-nohead 的口径一致，直接不渲染。
+   四条弹窗（caps 的 openConfirmModal / pickDay、notesMigration 的两框）都不再传标题。 */
+.momo-confirm .modal-title {
+  display: none;
+}
+
+/* contentEl 是 flex 列：消息独占上边距，底栏（含分隔线）贴底——actions 由
+   views.tsx createDiv 挂在 contentEl 里，contentEl 不能有左右内边距，
+   否则分隔线玑不挨着模态边缘。
+   头部隐藏后上内距由这 8px 补（与 .momo-pop-nohead 同值）。 */
+.momo-confirm .modal-content {
+  padding: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.momo-confirm-message {
+  margin: 0;
+  padding: 2px 14px 12px;
+  font-size: var(--momo-fs-3);
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  color: var(--momo-ink-2);
+}
+
+/* 底栏：与浮层骨架同一规格（h 44 / 上下 6 / 分隔线 / 按钮 h 32 · r 9 / 内缩 14） */
+.momo-confirm-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+  flex: none;
+  padding: 6px 14px;
+  border-top: 1px solid var(--momo-line-soft);
+}
+
+.momo-confirm-hint {
+  font-size: var(--momo-fs-2);
+  color: var(--momo-ink-3);
+  letter-spacing: 0.01em;
+}
+
+.momo-confirm-acts {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* 存放路径确认框（askDirChange，2026-10-04）的改动清单：一行「行名：旧值 → 新值」。
+   与正文同款字号，只把路径那截压暗一档——旧值 → 新值是这一屏要读的东西，
+   行名（「Momo 根目录」）是次要的。长路径（root + 目录拼起来）允许换行，
+   不截断：截断的路径没法核对，而这个框的唯一用途就是核对。 */
+.momo-confirm-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 14px 12px;
+}
+
+.momo-confirm-row {
+  font-size: var(--momo-fs-3);
+  line-height: 1.6;
+  color: var(--momo-ink);
+  overflow-wrap: anywhere;
+}
+
+/* 按钮复用浮层骨架的四件套（.momo-pop-btn*）。Modal 不在 .momo-app 里，
+   没有面板级 button reset，不需要 !important 铺垫；字体仍要显式指定——
+   Obsidian 全局 button 走 --font-interface，这里要跟面板一致。 */
+.momo-confirm .momo-pop-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  flex: none;
+  padding: 0 14px;
+  border-radius: var(--momo-r-4);
+  border: 1px solid var(--momo-border);
+  background: var(--momo-card);
+  color: var(--momo-ink-2);
+  font-family: var(--momo-sans);
+  font-size: var(--momo-fs-3);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease,
+    opacity 120ms ease;
+}
+
+.momo-confirm .momo-pop-btn:hover {
+  border-color: var(--momo-accent);
+  color: var(--momo-accent);
+}
+
+.momo-confirm .momo-pop-btn-primary,
+.momo-confirm .momo-pop-btn-primary:hover {
+  border-color: var(--momo-accent);
+  background: var(--momo-accent);
+  color: var(--momo-on-accent);
+  font-weight: 600;
+}
+
+.momo-confirm .momo-pop-btn-primary:hover {
+  border-color: var(--momo-accent-hover);
+  background: var(--momo-accent-hover);
+}
+
+.momo-confirm .momo-pop-btn-danger,
+.momo-confirm .momo-pop-btn-danger:hover {
+  border-color: var(--momo-danger);
+  background: var(--momo-danger);
+  color: var(--momo-on-danger);
+  font-weight: 600;
+}
+
+.momo-confirm .momo-pop-btn-danger:hover {
+  border-color: var(--momo-danger-hover);
+  background: var(--momo-danger-hover);
+}
+
+.momo-confirm .momo-pop-btn:focus-visible {
+  outline: 2px solid var(--momo-accent-line);
+  outline-offset: 1px;
+}
+
+/* 设计稿 card 05 的确认框没有关闭钮；Esc / 点遮罩照常关闭（modal.onClose 兜底） */
+.momo-confirm .modal-close-button {
+  display: none;
+}
+
+/* 补记弹窗（views/caps 的 pickBackfillDay）：复用 .momo-confirm 的模态骨架与
+   按钮，这里只补日期行那两件——说明文字下面一枚原生 date 输入框（h 32 与按钮
+   齐档），占满内容宽。样式最小化：输入框长什么样交给 Obsidian 宿主。 */
+.momo-backfill-row {
+  padding: 0 14px 14px;
+}
+
+.momo-backfill-date {
+  width: 100%;
+  height: 32px;
+  box-sizing: border-box;
+}
+
+.momo-empty {
+  color: var(--text-muted);
+  text-align: center;
+  padding: 90px 20px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.momo-empty-icon {
+  color: var(--momo-ink-6);
+  margin-bottom: 6px;
+}
+
+.momo-empty-title {
+  font-size: var(--momo-fs-6);
+  font-weight: 600;
+  color: var(--text-normal);
+}
+
+.momo-empty-sub {
+  font-size: var(--momo-fs-3);
+  color: var(--text-faint);
+}
+

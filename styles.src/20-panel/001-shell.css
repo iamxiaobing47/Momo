@@ -1,0 +1,133 @@
+/* ============================================================================
+   输入框（2026-09-23 统一输入语言，横展到全部 input：顶栏搜索 / 侧栏过滤标签 /
+   弹层搜索 / 统计日期区间 / 设置页输入与下拉）
+   ----------------------------------------------------------------------------
+   为什么统一挂 .momo-app / .momo-settings 前缀：Obsidian app.css 有全局
+   表单规则 input[type='text'|'search'|'date'|…]（含 hover / focus），**基座**那条
+   是 (0,1,1)（带 [type=…] 属性选择器），单类选择器 (0,1,0) 压不过它——此前每个
+   输入框各写各的类，实际刷出来的是 Obsidian 默认表单控件那套（灰底 / 5px 圆角 /
+   各自的 hover），「输入框缺乏质感」的根因就在这。两前缀 = (0,2,0)，稳压基座。
+   规格与弹层输入对齐：h 34 / r 9 / 1px 描边 / surface 底 / accent 焦点环；
+   hover 只加深一档描边，不换底（换底留给 focus）。
+
+   ⚠ hover 那一档**压不过宿主**（2026-09-28 查清）：app.css 的
+   `input[type=…]:not(:disabled):hover` 是 **(0,3,1)**——比本文件 focus 规则的
+   (0,3,0) 还高一级，也比 .stylelintrc 的 0,3,0 预算高一级（宿主不受我们的 lint
+   约束，我们要压过它就必然自己破预算）。所以这一仗改成**不抢特异性、改抢取值**：
+   00-tokens.css「表单控件」段把宿主那条规则会读的变量接管回 momo 令牌——hover 底色
+   `--background-modifier-form-field-hover` → --momo-surface、 hover 描边
+   `--background-modifier-border-hover` → --momo-ink-6。宿主赢下这场层叠，拿到的值
+   却已经是我们想要的。代价是这里的 hover / focus 规则只在「宿主那条规则没盖住」时
+   生效（键盘 Tab 聚焦、未来的宿主改版都属于这一类），所以两条都留着——它们记的是
+   意图，也是宿主规则没落上时的兜底。
+
+   ⚠ 焦点态的控制权（2026-09-28 二改；当天三改把环压细）：鼠标聚焦时 hover 变体同时成立，
+   会把底色与描边一起顶掉，于是「焦点」只剩环一个信号——而环当时是 3px accent-soft，实测
+   与底色只有 1.00–1.16:1（四套全不足 3:1，石白那套 1.00 = 完全看不见；用户报「输入时状态
+   不明显」）。现在两处一起改：① 环换成全项目统一的 accent 色 outline（宿主那条 hover 规则
+   只写 background-color / border-color，**不碰 outline**，所以鼠标点进来也看得见；
+   accent 做环 4.71–6.80:1）；② 焦点规则在**该元素上**重定义宿主会读的那两个变量
+   （同元素的直接声明优先于从 .momo-app 继承来的值），把底色与描边也收回来。
+   普通悬停不受影响。
+
+   ⚠ 环的**厚度**（2026-09-28 三改，用户：「聚焦颜色，薄一圈就行，现在太厚了」）：厚是两圈
+   叠出来的——① 宿主 app.css 的 `input[type=…]:focus` 还有一条
+   `box-shadow: 0 0 0 var(--input-border-width-focus) var(--background-modifier-border-focus)`
+   （= **2px** accent，L8291-8322）；00-tokens.css 开头那条「要盖掉 Obsidian 原生控件的默认
+   投影」只写到 `.momo-app input` 的 **(0,1,1)**，压不过它的 **(0,2,1)**，于是宿主的环一直在。
+   与这里的 1px 描边贴在一起是一条 3px 实心带，外面再浮一个 2px outline，肉眼是 6px。
+   ② 于是本规则显式 `box-shadow: none`（(0,3,0) 稳压宿主那条 (0,2,1)），并把 outline 从
+   2px 收到 **1px**。
+   ⚠ 且是**一**圈，不是两道线（2026-09-28 四改，用户：「现在环还是两层，只要一层就行」）：
+   `outline-offset` 用默认值 **0** —— outline 紧贴描边外侧、与 accent 描边**相接**，合成一条
+   连续的 2px 环；三改时的 `outline-offset: 1px` 在中间留了 1px 的底色，看上去就是「描边 +
+   环」两层。accent 面积 = 2px 粗的周长量级，过 WCAG 2.4.11 的口径。
+
+   ⚠ 文本光标（caret，2026-09-28 用户报障「input 聚焦后没有光标闪动」）：本族**第三例**
+   宿主取色泄漏，但机制与前两例不同，而且**变量接管这次救不了**——
+     · app.css L3235-3239 是 `body { user-select: none; caret-color: var(--caret-color) }`，
+       其中 `--caret-color: var(--text-normal)`（L2153-2154）。var() 在**声明处**求值，
+       body 上算出来的就是**宿主题**的文字色。
+     · 更关键：`caret-color` 是**继承属性**，而全表没有一条规则会在输入框上重新读
+       `--caret-color`（app.css 只把它写在 body 上）。输入框拿到的是从 body 继承下来的
+       **算完的颜色**——在 .momo-app 上重指 `--caret-color` 是死写入，一行都改不动。
+       （00-tokens.css 那套派生变量接管之所以有效，是因为那些变量在**面板内**还有规则
+       重新读它；这里没有那个读者，只能把属性本身写一遍。）
+     · 症状只在「宿主题明暗 ≠ momo 方案明暗」时现形：宿主题浅色（正是本轮那位用户，
+       证据是表单字段漏出过纯白 `--color-base-00`）+ 石墨这类深方案 → 光标是宿主题的近黑，
+       画在 --momo-card 的深炭上等于看不见；而**文字**是本规则自己声明的 --momo-ink，
+       浅色、看得见——于是「能打字、字正常，就是没有光标」。
+   写法就落在本规则里（与 color 同源，光标跟文字走）：面板里现在只有 .momo-input 一族
+   是真可编辑面（7 个输入框全挂该类）；**以后新增可编辑控件记得挂 .momo-input**，
+   否则光标色会退回宿主题。
+   ============================================================================ */
+.momo-app .momo-input,
+.momo-settings .momo-input {
+  box-sizing: border-box;
+  height: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--momo-border);
+  border-radius: var(--momo-r-4);
+  background: var(--momo-surface);
+  color: var(--momo-ink);
+  /* 光标跟文字走。必写：宿主 `body { caret-color: var(--caret-color) }` 的值在 body 上就
+     算成了**宿主题**的文字色，继承属性一路带进面板、又没有规则在输入框上重读那个变量
+     ——不写这条，浅宿主题 + 深方案下光标是不可见的（详见文件头第三段 ⚠）。 */
+  caret-color: var(--momo-ink);
+  font-family: var(--momo-sans);
+  font-size: var(--momo-fs-3);
+  letter-spacing: 0.01em;
+  outline: none;
+  transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+}
+
+.momo-app .momo-input::placeholder,
+.momo-settings .momo-input::placeholder {
+  color: var(--momo-ink-3);
+}
+
+/* 焦点态（2026-09-28 二改，三改压细环）：与全项目**同一条焦点语言**——accent 色的 outline
+   （按钮 / 胶囊 / 下钻 / 设置页控件的 :focus-visible 都是这一条，见 80-settings.css 的
+   「键盘可达」段）。此前这里用的是 `box-shadow: 0 0 0 3px var(--momo-accent-soft)`，
+   实测那个环与底色的对比度只有 **1.00–1.16:1**（四套方案全远低于非文字门槛 3:1，
+   石白那套 1.00 = 完全看不见）——「输入时状态不明显」的主因是环，不是底色：
+   换个底色也救不了，四套的 card/surface 只有 1.03–1.29:1；
+   accent 做环是 4.71–6.80:1（vs surface）/ 4.75–7.93:1（vs card）。
+
+   环用 outline 还顺手绕开了层叠：宿主那条 hover 规则只写 background-color /
+   border-color，**不碰 outline**，所以鼠标点进来也看得见。
+   底色与描边的控制权本来在宿主手里（hover 变体 (0,3,1) > 这里 (0,3,0)）——不抢特异性，
+   改为在**这个元素上**重定义宿主会读的那两个变量：自定义属性在同元素上的直接声明
+   优先于从 .momo-app 继承来的值，宿主拿到的就是我们给焦点态准备的值。于是「鼠标聚焦」
+   也真的换底、也真的把描边换成签名色（此前「hover ∩ focus 时描边是 ink-6」的残留就此
+   消掉），而**普通悬停不变**（仍是 ink-6、不换底）。 */
+.momo-app .momo-input:focus,
+.momo-settings .momo-input:focus {
+  /* 2026-10-02 横展十套：底从 --momo-card 改 --momo-surface-2（跟随「层级载体统一」）。
+     聚焦的强信号由 border-color + outline 两道 accent 描边承担（accent 十套 4.71~6.80），
+     底色只做轻嵌面即可 —— 原先那层 card 底在墨夜与 surface 只差 1.026，等于没换。
+     变量与属性两处都要改：变量给宿主的 hover 规则读，属性是自己的底。 */
+  --background-modifier-form-field-hover: var(--momo-surface-2); /* 宿主 hover 规则读它 → 焦点才换底 */
+  --background-modifier-border-hover: var(--momo-accent);   /* 同上 → 焦点描边是签名色 */
+  border-color: var(--momo-accent);
+  background: var(--momo-surface-2);
+  /* 清掉宿主那条 `0 0 0 2px` 的聚焦环（(0,2,1)，压得住 00-tokens.css 开头 `.momo-app input`
+     的 (0,1,1)）——不清它就是 1px 描边 + 2px 环贴成一条 3px 实心带，加上 outline 共 6px。 */
+  box-shadow: none;
+  /* 一圈 2px，不再两道线：offset 取默认值 0，outline 紧贴描边外侧、与 accent 描边**相接**
+     合成一条 2px 的环（改前 offset: 1px 时中间留了 1px 底色，肉眼看是「描边 + 环」两层）。
+     用户口径（2026-09-28 四改）：「只要一层就行」。 */
+  outline: 1px solid var(--momo-accent);
+}
+
+/* 原生日期选择器的日历指示器：默认存在感太强，压一档透明度、hover 回实 */
+.momo-input::-webkit-calendar-picker-indicator {
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+
+.momo-input::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+

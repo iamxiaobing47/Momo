@@ -1,0 +1,76 @@
+/* ---- 侧栏过滤标签 ---- */
+
+/* 默认侧栏停靠左侧时，拖宽手柄夹在侧栏与主区之间：手柄内用 setPointerCapture
+    抓住指针，拖动全程都在手柄内，松手才结束。 */
+.momo-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  border-radius: var(--momo-r-1);
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+.momo-resize-handle:hover::after,
+.momo-resize-handle:active::after {
+  background: var(--momo-accent);
+  opacity: 0.45;
+}
+
+.momo-resize-handle:focus-visible {
+  outline: none;
+}
+
+.momo-resize-handle:focus-visible::after {
+  background: var(--momo-accent);
+}
+
+.momo-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  gap: 10px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  padding: 9px 12px;
+  border-radius: var(--momo-r-4);
+  font-size: var(--momo-fs-4);
+  font-weight: normal;
+  text-align: left;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+/* BUG-186：宿主 `button:not(.clickable-icon)`（(0,1,1)）压得住裸类的 color——
+   侧栏菜单项的基态字色宿主前缀声明（不动状态规则的特异性）。
+   ⚠ 这一条与 60-design/020-sidebar-menu.css 的 `.momo-app .momo-menu .momo-menu-item`
+   （(0,3,0)）同值（--momo-text-2 ≡ ink-2），真源在那边；留它是 host-button-clash
+   守卫对 `.momo-menu-item` 类的 color 覆盖证词。曾与它并列的三条状态规则——
+   `.momo-menu-item:hover`（accent-soft 款）与 `.momo-menu-on` 两态——已随 BUG-189
+   删除：所有菜单项都渲染在 `.momo-menu` 里（Sidebar.tsx），它们恒输给 60-design
+   的 (0,4,0)，自入库起就没有上过脸；选中项的字色 ink / svg accent 由 60-design
+   的 -on 规则携带。 */
+.momo-app .momo-menu-item {
+  color: var(--momo-text-2);
+}
+
+.momo-menu-on svg {
+  opacity: 1;
+}
+
+
+.momo-sidebar-title {
+  font-size: var(--momo-fs-4);
+  font-weight: 600;
+  color: var(--text-normal);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
