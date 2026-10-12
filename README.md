@@ -1,8 +1,19 @@
-# Momo
-
 [简体中文](README.zh.md) | [日本語](README.ja.md)
 
 **Momo is a lightweight note-taking plugin that lives inside Obsidian.**
+
+---
+
+## **How it looks like:**
+
+### **StepFun theme**
+
+<img width="1572" height="919" alt="image" src="https://github.com/user-attachments/assets/7f45edea-a819-4aed-a6b3-9c381b6d562a" />
+
+### **Graphite night theme**
+
+<img width="1578" height="921" alt="image" src="https://github.com/user-attachments/assets/11bbbdcb-0153-4e2a-8e05-b51d47432814" />
+
 
 ## What it does for you
 
