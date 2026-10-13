@@ -2,7 +2,7 @@
 // 这是临时文件清理的唯一入口，不要手写 rm 命令（历史教训见 AGENTS.md §5）。
 // 用法：
 //   npm run clean          只清可再生成的 tmp/test、tmp/bench（下次运行自动重建）
-//   npm run clean -- --all 连 tmp/ 整个目录（含 scratch/repro/shots 归档）一起清
+//   npm run clean -- --all 连 tmp/ 整个目录（含 scratch / repro 归档）一起清
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'

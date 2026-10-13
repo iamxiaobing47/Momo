@@ -22,9 +22,9 @@ import { Icon } from '../../shared/icons'
 // **交互模型一个字没改**（这是换造型的前提；2026-10-01 晚「地点页面」撤除后
 // 从单选变多选，点谁加谁 / 再点那颗 = 取消那颗，祖先节点不点亮）：三级都可点、
 // 点谁筛谁、再点当前那颗 = 取消该节点。DOM 契约也照旧——
-// `.momo-locnode` / `-row` / `-label` / `-count` / `-twisty` / `-row-on` / `-on`
+ // `.momo-locnode` / `-row` / `-label` / `-count` / `-twisty` / `-row-on` / `-on`
 // / `data-depth` / `aria-pressed` 全部保留（`scripts/app.drill.test.mts` 十几条
-// 断言与 `scripts/shots/scenes.ts` 的截图场景都钉着它们），新增的只有
+// 断言钉着它们），新增的只有
 // `.momo-locnode-head`（头 = twisty + 行，卡片态要它把 hover / 选中收在头那一行）、
 // `.momo-locnode-body`（体 = 国家列 / 芯片行）与 `data-card`（有子级的大洲才是卡）。
 //

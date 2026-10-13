@@ -42,8 +42,6 @@ export function LocTreeSection({ nodes }: { nodes: readonly LocTreeNode[] }): Re
   // 档位过滤（纯函数，momo 层）：all / 空集 = 完整树；否则只留勾中的级。hook 要在
   // 下面的 0 地点早退**之前**——条件 return 之后的 hook 会随节点数变化改变调用次序。
   const shown = useMemo(() => filterLocTreeByLevels(nodes, locTreeLevels), [nodes, locTreeLevels])
-  // 完整树 = 没在过滤（['all'] / 空集）：漏斗的激活态与「全部」chip 的选中态共用它
-  const full = locTreeLevels.length === 0 || locTreeLevels.includes('all')
 
   // 全库 0 个地点：整块不渲染（地点是筛选条件，没有条件就没有「空态」可言；
   // 想建地点有两条路：卡片操作行那颗 mappin（F3）、多选批量条（F4））
@@ -71,13 +69,15 @@ export function LocTreeSection({ nodes }: { nodes: readonly LocTreeNode[] }): Re
     <>
       <div className="momo-loctree-head">
         <span className="momo-loctree-title">{copy.location.all}</span>
-        {/* 工具行：一颗层级过滤漏斗。按钮与激活态复用标签区那套 .momo-tagbtn
-            （两棵树的工具行长成一个样）；激活 = 当前不在完整树档。同样不挂
+        {/* 工具行：一颗层级过滤漏斗。按钮复用标签区那套 .momo-tagbtn（两棵树的工具行
+            长成一个样）；**没有激活态**——2026-10-13 用户裁定「过滤条件生效的时候，
+            过滤图标不要变成蓝色」，两棵树的漏斗一起摘掉 `.momo-tagbtn-on`（档位勾了
+            几级只由浮层里的 chip 说，漏斗自己只报「这是一颗筛选入口」）。同样不挂
             title（面板级禁用原生气泡），名字走 aria-label。 */}
         <div className="momo-loctree-tools">
           <button
             type="button"
-            className={`momo-tagbtn momo-tagbtn-filter${full ? '' : ' momo-tagbtn-on'}`}
+            className="momo-tagbtn momo-tagbtn-filter"
             aria-haspopup="dialog"
             aria-expanded={menu !== null}
             aria-label={copy.location.treeFilterAria}

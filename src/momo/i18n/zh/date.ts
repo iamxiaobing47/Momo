@@ -36,13 +36,4 @@ export const date = {
 
   /** `9/14 周`（趋势按周时的报告标签与页面 label 同口径） */
   weekPoint: (month: number, day: number): string => `${month}/${day} 周`,
-
-  /** 相对日期（回顾页头部） */
-  today: '今天',
-  yesterday: '昨天',
-  daysAgo: (days: number): string => `${days} 天前`,
-  /** 未来日期（预写 / 定时条目，BUG-125c）：`3 天后`——别并进「今天」 */
-  daysLater: (days: number): string => `${days} 天后`,
-  monthsAgo: (months: number): string => `${months} 个月前`,
-  yearsAgo: (years: number): string => `${years} 年前`,
 }

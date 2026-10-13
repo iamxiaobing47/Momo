@@ -359,14 +359,9 @@
   /* （v0.9.15）窄面板的叠瓦压边收窄规则已随「一屏一卡」退场——叠瓦负 margin
      整体删了（见 60-design.css .momo-focus-item > .momo-card），这条没有存在意义。 */
 
-  .momo-review-card {
-    padding: 18px;
-  }
-
-  .momo-review-hero {
-    font-size: var(--momo-fs-5);
-  }
-
+  /* （回顾档那张卡 2026-10-13 起就是 `.momo-card`，窄档内距与字号跟着上面那条走；
+     原先那份 `.momo-review-card { padding: 18px }` 与 `.momo-review-hero` 随
+     独立大卡退役。） */
 
   .momo-fab {
     /* 形状（可换行 / 正圆角小卡片）已提到 560px 那一档，这里只把图标之间的间距再收紧一格 */

@@ -36,13 +36,4 @@ export const date = {
 
   /** `wk of 9/14` (trend axis at week grain) */
   weekPoint: (month: number, day: number): string => `wk of ${month}/${day}`,
-
-  /** Relative dates (review page header) */
-  today: 'Today',
-  yesterday: 'Yesterday',
-  daysAgo: (days: number): string => `${days} days ago`,
-  /** Future dates (pre-written / scheduled entries, BUG-125c) — never folded into "Today" */
-  daysLater: (days: number): string => (days === 1 ? 'Tomorrow' : `In ${days} days`),
-  monthsAgo: (months: number): string => `${months} months ago`,
-  yearsAgo: (years: number): string => `${years} years ago`,
 }

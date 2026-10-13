@@ -36,6 +36,11 @@ import { monthDayOf, firstLines, splitFirstLine, timeOf } from './title'
 // 之所以做成 Card 的入参而不是另写一张预览卡：预览卡要的就是「主页面上那一张」，
 // 两条渲染路径各写一遍，任何一边改版面都会再次漂移（v0.7.6 那张 `.momo-record-card`
 // 伪卡正是这么来的）。默认两个都不传 = 主页面原样，行为零变化。
+//
+// 第三档入参 `filtersLocked` 专供**回顾档**（2026-10-13 用户裁决「随机回顾画面的卡片，
+// 也保持和主页面的卡片一样，只是标签不能做过滤了」）：回顾页整页改用这张 Card，
+// 唯一差别是标签 / 地点胶囊只作展示——回顾批次是进档那一刻 `matched()` 的快照，
+// 筛选区块本来就整块锁着（BUG-123b），pill 再能点就是点了没反应的动作。
 
 export interface CardProps {
   entry: MomoEntry
@@ -43,9 +48,16 @@ export interface CardProps {
   preview?: boolean
   /** 正文只渲染前几行（统计页最长笔记用，默认不截断）。标题升格与全篇字数不受影响 */
   previewLines?: number
+  /** 回顾档：标签 / 地点胶囊只作展示、不可点（其余版面与主页那张逐字同源） */
+  filtersLocked?: boolean
 }
 
-export const Card = memo(function Card({ entry, preview = false, previewLines = 0 }: CardProps) {
+export const Card = memo(function Card({
+  entry,
+  preview = false,
+  previewLines = 0,
+  filtersLocked = false,
+}: CardProps) {
   // 多选态按**卡**选布尔量（v0.9.10）：zustand 对同值选择器直接 bail out，
   // 勾别的卡不会带这张重渲。（这里曾经经 CardScope Context 收四件套，context value
   // 每次勾选都换新 Set，几百张卡全重跑 render——那就是这轮修掉的性能回退。）
@@ -240,6 +252,8 @@ export const Card = memo(function Card({ entry, preview = false, previewLines = 
         tagPosition={tagPosition}
         locPosition={locPosition}
         tags={entry.tags}
+        // 回顾档：pill 只作展示（见 CardProps 的 filtersLocked）
+        filtersLocked={filtersLocked}
         // 地点 pill 在回收站模式收起：点它会跳去地点模式，而回收站是「就地浏览 +
         // 就地筛选」的一页（与操作行在 trash 模式换成功下列两颗是同一条理由）
         locations={mode === 'trash' ? [] : entry.locations}
@@ -305,9 +319,12 @@ export const Card = memo(function Card({ entry, preview = false, previewLines = 
               locations={mode === 'trash' ? [] : entry.locations}
               bottom
               selectMode={selectMode}
+              locked={filtersLocked}
             />
           )}
-          {tagPosition === 'bottom' && <CardTags tags={entry.tags} bottom selectMode={selectMode} />}
+          {tagPosition === 'bottom' && (
+            <CardTags tags={entry.tags} bottom selectMode={selectMode} locked={filtersLocked} />
+          )}
         </div>
       )}
       {contextMenu && (

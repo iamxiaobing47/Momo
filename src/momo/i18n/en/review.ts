@@ -1,6 +1,7 @@
 /**
  * Random review (Review.tsx + App topbar review-mode segments).
- * Relative dates (today / yesterday / N days ago) live in `copy.date`.
+ * The review card is the main-page `Card` (2026-10-13), so everything inside it
+ * (timestamp / action row / open-in-Obsidian) reads `copy.card`.
  */
 import type { ReviewMode } from '../../review'
 
@@ -41,7 +42,6 @@ export const review = {
   step: (d: { index: number; total: number }): string => `Card ${d.index} of ${d.total}`,
   /** Streak: `12-day streak` */
   streak: (days: number): string => `${days}-day streak`,
-  openInObsidian: 'Open in Obsidian',
   prev: 'Previous',
   next: 'Next',
 
@@ -49,9 +49,9 @@ export const review = {
    *  BUG-127b: these five sit in the topbar segment — one row, no ellipsis, and it
    *  shares its row with the search box / view switch (see Segmented.tsx). English
    *  runs wider than zh (342px total), so each name is the shortest form that still
-   *  reads as a mode: the seg-truncation guard measures every locale against the
-   *  panel-width matrix (960/720/620/560/480/430) and fails the round when a label
-   *  set punches past the panel edge. Total budget ≈390px. */
+   *  reads as a mode. Total budget ≈390px.
+   *  （当年量这件事的 seg 截断守卫随截图工具链移除，2026-10-13；改名前自己在
+   *   Obsidian 里切 en / ja 看那一排会不会出省略号。） */
   mode: {
     random: 'Random',
     week: 'Week unseen',

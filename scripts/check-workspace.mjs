@@ -7,7 +7,7 @@
 // 共 376 项条目）；而 `npm run clean`
 // 默认又不碰顶层，堆积是单调递增的。判据三条，命中任意一条即 exit 1 并逐条点名：
 //   ① 仓库根没有 tmp-* / .tmp-* 散件；
-//   ② tmp/ 顶层只有六个白名单子目录（test / bench / repro / shots / scratch /
+//   ② tmp/ 顶层只有五个白名单子目录（test / bench / repro / scratch /
 //      tsbuild，各位的用途见 AGENTS.md §5）；一次性脚本放 tmp/scratch/；
 //   ③ git 索引里没有位于 outputs/、tmp/、根级 tmp-* / .tmp-* 下的文件
 //      （outputs/ 是「不该入库的一次性产物」；摘除走 git rm，见 BUG-114 工单）。
@@ -22,9 +22,9 @@ const projectDir = projectRoot(import.meta.url)
 const argDir = process.argv[2]
 const cwd = argDir ? path.resolve(argDir) : projectDir
 
-// tmp/ 顶层白名单：与 AGENTS.md §5 的六个临时区位一一对应。
+// tmp/ 顶层白名单：与 AGENTS.md §5 的五个临时区位一一对应。
 // 要开新位先改规约（并同步本表），别往顶层扔。
-const TMP_WHITELIST = new Set(['test', 'bench', 'repro', 'shots', 'scratch', 'tsbuild'])
+const TMP_WHITELIST = new Set(['test', 'bench', 'repro', 'scratch', 'tsbuild'])
 const problems = []
 
 // ① 仓库根散件：tmp-* / .tmp-*
@@ -34,12 +34,12 @@ for (const name of fs.readdirSync(cwd)) {
   }
 }
 
-// ② tmp/ 顶层形状：只许六个白名单子目录（不存在 tmp/ 视为未开临时区，跳过）
+// ② tmp/ 顶层形状：只许五个白名单子目录（不存在 tmp/ 视为未开临时区，跳过）
 const tmpDir = path.join(cwd, 'tmp')
 if (fs.existsSync(tmpDir)) {
   for (const name of fs.readdirSync(tmpDir)) {
     if (!TMP_WHITELIST.has(name)) {
-      problems.push(`tmp/ 顶层散件：tmp/${name}（只许六个白名单子目录；一次性脚本放 tmp/scratch/）`)
+      problems.push(`tmp/ 顶层散件：tmp/${name}（只许五个白名单子目录；一次性脚本放 tmp/scratch/）`)
     }
   }
 }

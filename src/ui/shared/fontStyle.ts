@@ -32,8 +32,8 @@ import { FONT_ROLE_PREFIX, type FontRole } from '../../momo/types'
 let styleEl: HTMLStyleElement | null = null
 
 /** 变量挂载的四类宿主：与 00-tokens.css 令牌块的选择器同表（含色卡预览 .momo-set-scheme）。
- *  export 是给截图脚手架用的（scripts/shots/harness.ts 要按同一张表注入字体变量，
- *  否则截出来的「真截图」缺字体、跟真 Obsidian 对不上）——改这里两边一起变。 */
+ *  （export 曾给截图脚手架按同一张表注入字体变量，那个工具链 2026-10-13 已移除；
+ *  现在只有本模块的 fontVarsBlock 用它。） */
 export const FONT_HOSTS = '.momo-app, .momo-confirm, .momo-settings, .momo-set-scheme'
 
 /** 默认面板字体栈的尾段：与 00-tokens.css 的 --momo-sans 字面量**逐字一致**
@@ -50,7 +50,7 @@ const ROLE_CSS: Record<FontRole, string> = {
 }
 
 /** Obsidian 字体角色 → 实际 CSS 值。给设置页预览格用（与运行期 fontVarsBlock
- *  同一份映射），也让截图脚手架能按同一张表给格子设字体。 */
+ *  同一份映射）。 */
 export function fontRoleCss(role: FontRole): string {
   return ROLE_CSS[role]
 }
@@ -70,8 +70,7 @@ export function fontFamilyForPref(value: string): string | null {
 
 /**
  * 两个槽位 → head <style> 的全部内容（'' = 两个都没选，不注入任何变量）。
- * 真源函数：运行期 syncFontStyle 与截图脚手架（scripts/shots/harness.ts）
- * 都调它，别在两处各拼一遍——v0.9.35 起脚手架的字体注入必须与运行期逐字一致。
+ * 真源函数：运行期 syncFontStyle 调它，别在两处各拼一遍。
  *
  * 卡片栈把面板的有效栈整条接在后面（卡片族打头）：卡片选了等宽、面板选了界面字体时，
  * 卡片里的汉字由面板那套接住——与 80-settings/040-fonts.css 头注同一意图。

@@ -63,7 +63,7 @@ export const settingsPage = {
    *  Same copy discipline as every other domain: the sample lines live here too. */
   mock: {
     label: 'Preview',
-    readOnlyTip: 'Read-only: no hover lift, and clicking the body no longer opens Obsidian.',
+    readOnlyTip: 'Read-only: clicking the body no longer opens Obsidian; use the button in the action row.',
     /* ①②③ Language / colour scheme / typeface: the tiles and swatches ARE the preview,
        so there is nothing to draw. The head still explains why the slot is empty. */
     /* The "avatar & name" sidebar-corner preview (mark follows the icon tiles, name
@@ -351,7 +351,7 @@ export const settingsPage = {
     },
     readOnly: {
       name: 'Read-only browsing',
-      desc: 'When on, cards no longer lift on hover and clicking the body does not open Obsidian; use the “Open in Obsidian (edit)” item in the action menu.',
+      desc: 'When on, clicking the body does not open Obsidian; use the “Open in Obsidian (edit)” item in the action menu.',
     },
     /** Fonts (v0.9.16, per request “users can configure the system font and the card
      *  font separately”): one row each for the panel font and the card font; tiles
@@ -371,8 +371,11 @@ export const settingsPage = {
        *  the old “Journal Aa 123” measured 118px at its widest against the 82px
        *  content box of the old 104px min tile, so every tile ellipsized. All three
        *  locales shortened together — **hard line**: no wider than ~84px at 14px
-       *  (the 116px min tile gives a 94px content box; keep 10px slack). Enforced
-       *  by scripts/shots/font-truncation.mjs. The shape stays “CJK + Latin case +
+       *  (the 116px min tile gives a 94px content box; keep 10px slack). **No
+       *  automated gate on this line any more**: the guard that enforced it
+       *  (scripts/shots/font-truncation.mjs) went out with the screenshot
+       *  toolchain (2026-10-13) — when changing the sample's length, switch to
+       *  en / ja in Obsidian yourself and check the tiles for ellipsis. The shape stays “CJK + Latin case +
        *  figures” — CJK (where kai/sans/serif differ) plus Latin case and figures
        *  (the mono tile's selling point); drop either half and you lose a thing to
        *  look at.

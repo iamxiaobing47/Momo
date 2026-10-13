@@ -1,6 +1,7 @@
 /**
  * ランダムふりかえり（Review.tsx + App トップバーのふりかえり方法セグメント）。
- * 相対日付（今日 / 昨日 / N日前）は `copy.date` にあり、ここでは重複しない。
+ * ふりかえり那颗卡就是主页面的 `Card`（2026-10-13），卡内文案（时间戳 / 操作行 /
+ * 「在 Obsidian で開く」）は `copy.card` 側。
  */
 import type { ReviewMode } from '../../review'
 
@@ -40,7 +41,6 @@ export const review = {
   step: (d: { index: number; total: number }): string => `${d.total}枚中 ${d.index}枚目`,
   /** 連続記録：`12日連続` */
   streak: (days: number): string => `${days}日連続`,
-  openInObsidian: 'Obsidianで開く',
   prev: '前へ',
   next: '次へ',
 

@@ -1,15 +1,18 @@
 /* ---- 只读模式（v0.5.3 prefs.readOnly）----
     卡片正文不可改、卡片操作行只留「在原生编辑器里打开」；
-    hover 不出浮起（光标也用 default：这一档不提供任何编辑暗示）；
-    多选 / 取消多选仍可用——用 :not() 把这两种态从 hover 复位里摘出来，
-    不让只读把交互入口一起关掉。 */
+    多选 / 取消多选仍可用。
+
+    2026-10-13：**只读态不再单独复位 hover**。旧版这里有一条
+    `.momo-card-readonly:not(.momo-card-select, .momo-card-checked):hover`
+    （border-color → line、box-shadow → shadow-card），本意是「只读悬停不浮起、
+    不给编辑暗示」，实际效果却是**悬停时把卡片投影撤掉**：静止挂着 pop 投影、
+    悬停换成几乎看不见的 shadow-card，卡一悬停反而变扁——用户 2026-10-13 报障
+    「hover 前后对调一下」，根因就是这条。
+    卡片投影语言已统一成「静止扁平 / 悬停浮起」（底座见 80-settings/090-ui-scale.css
+    的 .momo-card、悬停见 60-design/110-globe.css 的 .momo-card:hover），只读态跟随
+    同一套语言即可：只读真正差的只剩「正文不能改 / 操作行只留那一枚铅笔」。 */
 .momo-card.momo-card-readonly {
   cursor: default;
-}
-
-.momo-card-readonly:not(.momo-card-select, .momo-card-checked):hover {
-  border-color: var(--momo-line);
-  box-shadow: var(--momo-shadow-card);
 }
 
 .momo-card-readonly .momo-card-body {

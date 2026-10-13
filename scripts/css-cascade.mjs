@@ -127,6 +127,22 @@ function baseState() {
   return s
 }
 
+/**
+ * 基态与「单标志为真」的 23 个状态**各建一次**，热循环里只读复用（2026-10-13 性能修）。
+ *
+ * 原实现在 diffWinners 的候选收集里 `baseState()` 按「每条规则」new 一次、
+ * `baseState() + st[f] = true` 按「每条规则 × 每个标志」new 一次——元素以万计、
+ * 规则近千条，于是同一个 23 字段的空壳被 new 上千万次，profile 里 32% 的自身时间
+ * 都耗在这个函数上（css-cascade 的 Q10 两条用例 18.5s / 19.7s 就是这么来的）。
+ *
+ * 复用的前提是**这些状态对象只被读、不被写**：complexMatches / compoundMatches /
+ * contextOk 对 state 一律只读（state[...] = 的写法在本文件一处都没有）。谁要改
+ * 状态就自己 new，别往共享对象上写——否则一次静默污染会让整张赢家表失真。
+ */
+const BASE_STATE = baseState()
+const STATE_ONE = {}
+for (const f of STATE_FLAGS) STATE_ONE[f] = { ...BASE_STATE, [f]: true }
+
 /** 规则在给定状态下是否适用：@container / @media 的条件必须被状态满足 */
 function contextOk(ctx, state) {
   for (const k in ctx) if (ctx[k] && !state[k]) return false
@@ -474,11 +490,10 @@ export function diffWinners(oldRules, newRules, opts = {}) {
   for (const el of spec) {
     const cands = []
     for (const r of [...a, ...b]) {
-      if (r.alts.some((alt) => complexMatches(alt, el, baseState()))) { cands.push(r); continue }
+      if (r.alts.some((alt) => complexMatches(alt, el, BASE_STATE))) { cands.push(r); continue }
       let hit = false
       for (const f of STATE_FLAGS) {
-        const st = baseState()
-        st[f] = true
+        const st = STATE_ONE[f]
         if (contextOk(r.ctx, st) && r.alts.some((alt) => complexMatches(alt, el, st))) { hit = true; break }
       }
       if (hit) cands.push(r)
@@ -489,8 +504,7 @@ export function diffWinners(oldRules, newRules, opts = {}) {
     for (const r of cands) {
       for (const k in r.ctx) if (r.ctx[k]) flags.add(k)
       for (const f of STATE_FLAGS) {
-        const st = baseState()
-        st[f] = true
+        const st = STATE_ONE[f]
         if (r.alts.some((alt) => complexMatches(alt, el, st))) { flags.add(f); break }
       }
     }

@@ -719,8 +719,8 @@ export function buildLookTab(ctx: SettingsCtx): void {
 
   // 「短首行作为标题」的字数上限（v0.9.12 用户要求「允许自定义字数」；此前写死 32）
   // 与标题字号（同年用户要求「这个标题字号大小的选项」）。
-  // 拖动即重切标题：Card / ReviewCard 的 memo 依赖里都有 titleMaxChars，
-  // store 一改就重新 split，不用重建整页。
+  // 拖动即重切标题：Card 的 memo 依赖里有 titleMaxChars（回顾档那颗就是这张 Card，
+  // 2026-10-13 起），store 一改就重新 split，不用重建整页。
   buildSliderRow(ctx, cTitle, 'titleMaxChars', lk.titleMaxChars, TITLE_MAX)
   buildSliderRow(ctx, cTitle, 'cardTitleSize', lk.cardTitleSize, CARD_TITLE_SIZE)
 

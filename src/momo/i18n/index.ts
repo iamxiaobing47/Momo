@@ -28,8 +28,7 @@ export type Locale = 'zh' | 'en' | 'ja'
 export const SUPPORTED_LOCALES: readonly Locale[] = ['zh', 'en', 'ja']
 
 /** 语言 → 字典。`Record<Locale, Dict>` 的 Dict 是**完整**字典类型，缺键编译不过。
- *  导出给截图工具链的 seg 截断守卫（scripts/shots/seg-dict-entry.ts）取三语言档位名，
- *  守卫不硬编码文案副本。 */
+ *  （曾导出给截图工具链的 seg 截断守卫取三语言档位名；该工具链 2026-10-13 已移除。） */
 export const DICTS: Record<Locale, Dict> = { zh, en, ja }
 
 /** 回退语言：未支持的语种一律用它（绝不半中半英） */

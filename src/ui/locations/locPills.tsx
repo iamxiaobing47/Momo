@@ -43,12 +43,19 @@ export function LocationPills({
   locations = [],
   bottom,
   selectMode,
+  locked,
 }: {
   locations?: readonly string[]
   /** 排布在卡片底部（prefs.locPosition === 'bottom'） */
   bottom?: boolean
   /** 多选模式：pill 不筛地点，点击冒泡到卡片根节点完成勾选（与 CardTags 同口径） */
   selectMode?: boolean
+  /**
+   * 筛选锁着（回顾档，BUG-123b）：与 `CardTags` 同一条理由——回顾批次是进档那一刻
+   * `matched()` 的快照，点一颗地点胶囊既筛不动这批、还会改掉用户回头看到的那份
+   * 筛选，所以渲染成不吃指针的 span（`momo-loc-pill-locked`）。
+   */
+  locked?: boolean
 }): React.JSX.Element | null {
   const curGroup = useLocGroup()
   const toggleLocation = useUi((s) => s.toggleLocation)
@@ -87,23 +94,38 @@ export function LocationPills({
 
   return (
     <span className={`momo-loc-pills${bottom ? ' momo-loc-pills-bottom' : ''}`}>
-      {others.map((g) => (
-        <button
-          key={g.key}
-          type="button"
-          className="momo-loc-pill"
-          aria-label={copy.location.pillAria(g.label)}
-          // 多选态整张卡是勾选热区：pill 是操作不是勾选，别冒泡上去（与 CardTags 同口径）
-          onClick={(e) => {
-            if (selectMode) return
-            e.stopPropagation()
-            jump(g.key)
-          }}
-        >
-          <Icon name="mappin" size={12} />
-          <span>{g.label}</span>
-        </button>
-      ))}
+      {others.map((g) => {
+        const label = <span>{g.label}</span>
+        const icon = <Icon name="mappin" size={12} />
+        // 展示态（回顾档筛选锁着）：与真按钮同一个 class 串，只是不再是 button——
+        // 指针与 hover 反色由 `.momo-loc-pill-locked` / `button.momo-loc-pill:hover`
+        // 两条收口，文字仍是它自己的可读名（所以这里不挂 aria-label）。
+        if (locked) {
+          return (
+            <span key={g.key} className="momo-loc-pill momo-loc-pill-locked">
+              {icon}
+              {label}
+            </span>
+          )
+        }
+        return (
+          <button
+            key={g.key}
+            type="button"
+            className="momo-loc-pill"
+            aria-label={copy.location.pillAria(g.label)}
+            // 多选态整张卡是勾选热区：pill 是操作不是勾选，别冒泡上去（与 CardTags 同口径）
+            onClick={(e) => {
+              if (selectMode) return
+              e.stopPropagation()
+              jump(g.key)
+            }}
+          >
+            {icon}
+            {label}
+          </button>
+        )
+      })}
     </span>
   )
 }

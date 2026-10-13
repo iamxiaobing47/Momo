@@ -282,16 +282,8 @@
 
 /* 副文（2026-10-12 组合方式浮层的两行选项）：口径一句话，比主名小一档、弱一档。
    主名说「这是什么」，副文说「点下去我的列表会怎么变」——术语（并集 / 交集）
-   alone 答不上后一个问题。同一枚类也当组名下的说明行用（见 .momo-pop-hint）。 */
+   alone 答不上后一个问题。 */
 .momo-pop-sub {
-  font-size: var(--momo-fs-1);
-  color: var(--momo-ink-3);
-}
-
-/* 组名下的口径说明行（无标题弹层里它替标题回答「这是啥」）：与组名同级左对齐，
-   **不**跟行内文字对齐——它属于这个组，不属于下面哪一行。 */
-.momo-pop-hint {
-  padding: 0 8px 3px;
   font-size: var(--momo-fs-1);
   color: var(--momo-ink-3);
 }
@@ -310,6 +302,19 @@
 /* check 圈与**第一行**文字对齐（不是两行的垂直中心）：14px 圈配 13px 首行 */
 .momo-app .momo-pop-list-twoline .momo-pop-check {
   margin-top: 1px;
+}
+
+/* 组合方式浮层：选中行的 check 圈**不跟着染 accent**（2026-10-13 用户裁决）。
+   这一层是单选（两行里只有一行能 on），选中已经由「行底色 + 字重 + 文字色」说了三遍，
+   圈再变一次蓝就成了第四遍——而它恰好是弹层里最小、最先被看到的一枚图形。
+   保留空心圈 + 中性勾：形状仍然说「就是这一行」，不靠颜色。
+   共享规则上面那条不动：批量标签弹层的 accent 实心圈是「已进待处理队列」的语义色，
+   那边要的就是一眼分清「待处理 / 全命中」。
+   不带 .momo-app 前缀：(0,3,0) 已经压得住共享那条 (0,2,0)，不必再加一层。 */
+.momo-pop-list-twoline .momo-pop-row-on .momo-pop-check {
+  background: transparent;
+  border-color: var(--momo-ink-5);
+  color: var(--momo-ink-4);
 }
 
 .momo-app .momo-pop-list-twoline .momo-pop-label {

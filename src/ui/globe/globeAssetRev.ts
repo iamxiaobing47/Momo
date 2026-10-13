@@ -16,15 +16,15 @@
 // 而 ui/ 不能 import views/（AGENTS.md §3.1 的分层反向），所以指纹的**取用**放在
 // ui/ 这侧，caps 只 import 它。
 //
-// ⚠️ 空串是合法值：jsdom 测试与截图 harness 走 scripts/run-tests.mjs 与 esbuild
-// 的另两条配置，那两条**不注入**这个 define。此时 `typeof` 守卫兜成空串 =
+// ⚠️ 空串是合法值：jsdom 测试走 scripts/run-tests.mjs 与 esbuild
+// 的另一条配置，那条**不注入**这个 define。此时 `typeof` 守卫兜成空串 =
 // 不追加 query = 退回改动前的行为（不崩、不改变那些环境的语义）。
 
 /**
  * 内容指纹（12 位十六进制）；构建未注入该 define 时返回空串。
  *
  * 用 `typeof` 而不是直接引用：未注入 define 的构建路径下裸引用会 ReferenceError，
- * 那会让 jsdom 测试与截图 harness 整体挂掉——为一个「缓存优化」付这种代价不值。
+ * 那会让 jsdom 测试整体挂掉——为一个「缓存优化」付这种代价不值。
  */
 export function globeAssetRev(): string {
   return typeof __GLOBE_ASSET_REV__ === 'string' ? __GLOBE_ASSET_REV__ : ''
@@ -34,7 +34,7 @@ export function globeAssetRev(): string {
  * 给运行时资源 URL 追加 `?v=<rev>`（内容变 → URL 变 → 缓存必失效；内容不变 →
  * URL 不变 → 仍然命中缓存，不牺牲正常路径）。
  *
- * - 空 URL（没有 caps 的环境：jsdom / 截图 harness 的 fake-caps）原样返回；
+ * - 空 URL（没有 caps 的环境：jsdom 测试的 fake-caps）原样返回；
  * - 空指纹（同上，见本文件头）原样返回；
  * - 原 URL 已带 query 时用 `&` 续，不覆盖既有参数；
  * - **已带同一个 `v=` 时原样返回**（幂等）：指纹可能加在两处（caps 与真正的

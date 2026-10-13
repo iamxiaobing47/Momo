@@ -1118,9 +1118,12 @@
    反色取 tag / page：这对取值是 check-contrast ②c 组已判定的
    （五套方案都 ≥4.5:1），不引入未守卫的新组合。
    两个宿主都要列：预览卡里那颗也得是同一张脸。
+   `button.` 限定只给真按钮（与 .momo-loc-pill 的 hover 同一纪律）：
+   回顾档那颗 pill 是只读展示、渲染成 span（Card 的 filtersLocked），
+   摆着不能点就不该反色给人一个「点得掉」的错觉。
    （`.momo-card-tag.momo-card-tag-on` 的选中环在 30-pop / 60-design 两处，是另一件事。） */
-.momo-app .momo-card-tag:hover,
-.momo-settings .momo-card-tag:hover {
+.momo-app button.momo-card-tag:hover,
+.momo-settings button.momo-card-tag:hover {
   background: var(--momo-tag);
   color: var(--momo-page);
 }
@@ -1414,16 +1417,8 @@
 
 /* 副文（2026-10-12 组合方式浮层的两行选项）：口径一句话，比主名小一档、弱一档。
    主名说「这是什么」，副文说「点下去我的列表会怎么变」——术语（并集 / 交集）
-   alone 答不上后一个问题。同一枚类也当组名下的说明行用（见 .momo-pop-hint）。 */
+   alone 答不上后一个问题。 */
 .momo-pop-sub {
-  font-size: var(--momo-fs-1);
-  color: var(--momo-ink-3);
-}
-
-/* 组名下的口径说明行（无标题弹层里它替标题回答「这是啥」）：与组名同级左对齐，
-   **不**跟行内文字对齐——它属于这个组，不属于下面哪一行。 */
-.momo-pop-hint {
-  padding: 0 8px 3px;
   font-size: var(--momo-fs-1);
   color: var(--momo-ink-3);
 }
@@ -1442,6 +1437,19 @@
 /* check 圈与**第一行**文字对齐（不是两行的垂直中心）：14px 圈配 13px 首行 */
 .momo-app .momo-pop-list-twoline .momo-pop-check {
   margin-top: 1px;
+}
+
+/* 组合方式浮层：选中行的 check 圈**不跟着染 accent**（2026-10-13 用户裁决）。
+   这一层是单选（两行里只有一行能 on），选中已经由「行底色 + 字重 + 文字色」说了三遍，
+   圈再变一次蓝就成了第四遍——而它恰好是弹层里最小、最先被看到的一枚图形。
+   保留空心圈 + 中性勾：形状仍然说「就是这一行」，不靠颜色。
+   共享规则上面那条不动：批量标签弹层的 accent 实心圈是「已进待处理队列」的语义色，
+   那边要的就是一眼分清「待处理 / 全命中」。
+   不带 .momo-app 前缀：(0,3,0) 已经压得住共享那条 (0,2,0)，不必再加一层。 */
+.momo-pop-list-twoline .momo-pop-row-on .momo-pop-check {
+  background: transparent;
+  border-color: var(--momo-ink-5);
+  color: var(--momo-ink-4);
 }
 
 .momo-app .momo-pop-list-twoline .momo-pop-label {
@@ -3675,8 +3683,10 @@
   box-shadow: inset 0 0 0 1px var(--momo-ink-6);
 }
 
-/* 筛选生效：按钮自己就是那盏指示灯（浮层关着的时候，除了列表上方的摘要条就只剩它）。
-   色 + 描边两个信号，不只靠一个 —— 与 .momo-tagchip-on 同一套。 */
+/* 亮灯态（色 + 描边两个信号，不只靠一个 —— 与 .momo-tagchip-on 同一套）。
+   2026-10-13 起唯一的消费者是标签区**组合方式**按钮（交集态）；两棵树的漏斗
+   不再进这个类（用户裁定「过滤条件生效的时候，过滤图标不要变成蓝色」——
+   筛着什么由摘要条 / 浮层里的 chip 说，漏斗只报「筛选入口」）。 */
 .momo-app .momo-tagbtn-on {
   color: var(--momo-accent);
   background: var(--momo-accent-soft);
@@ -5246,9 +5256,15 @@
 }
 
 /* 卡片流（设计稿 §1 .col / .card） */
-/* 卡片（设计稿 §1 .card：白底 / 1px 描边 / 16 圆角 / 14 内距 / pop 投影）。 */
+/* 卡片（设计稿 §1 .card：白底 / 1px 描边 / 16 圆角 / 14 内距）。**悬停只浮起**：
+   静止是扁平的（底座在 80-settings/090-ui-scale.css 的 .momo-card，box-shadow: none），
+   指针落上来补一档 pop 投影——2026-10-13 用户裁定两态对调（此前静止挂着投影、
+   悬停反而被只读那条复位压扁）。
+   **描边不参与**：这里原先还有 `border-color: var(--momo-ink-6)`，用户同日追加
+   「Hover 的时候不要有黑色边框」——投影已经承担了悬停反馈，再叠一条深描边在浅底
+   上读起来就是一圈黑框（stepfun 的 ink-6 #7583ae 对 line #cfe6ef 是跳档），
+   故整行删掉：悬停只换投影，卡片描边从头到尾都是 --momo-line。 */
 .momo-card:hover {
-  border-color: var(--momo-ink-6);
   box-shadow: var(--momo-shadow-pop);
 }
 
@@ -5821,16 +5837,19 @@
 
 /* ---- 只读模式（v0.5.3 prefs.readOnly）----
     卡片正文不可改、卡片操作行只留「在原生编辑器里打开」；
-    hover 不出浮起（光标也用 default：这一档不提供任何编辑暗示）；
-    多选 / 取消多选仍可用——用 :not() 把这两种态从 hover 复位里摘出来，
-    不让只读把交互入口一起关掉。 */
+    多选 / 取消多选仍可用。
+
+    2026-10-13：**只读态不再单独复位 hover**。旧版这里有一条
+    `.momo-card-readonly:not(.momo-card-select, .momo-card-checked):hover`
+    （border-color → line、box-shadow → shadow-card），本意是「只读悬停不浮起、
+    不给编辑暗示」，实际效果却是**悬停时把卡片投影撤掉**：静止挂着 pop 投影、
+    悬停换成几乎看不见的 shadow-card，卡一悬停反而变扁——用户 2026-10-13 报障
+    「hover 前后对调一下」，根因就是这条。
+    卡片投影语言已统一成「静止扁平 / 悬停浮起」（底座见 80-settings/090-ui-scale.css
+    的 .momo-card、悬停见 60-design/110-globe.css 的 .momo-card:hover），只读态跟随
+    同一套语言即可：只读真正差的只剩「正文不能改 / 操作行只留那一枚铅笔」。 */
 .momo-card.momo-card-readonly {
   cursor: default;
-}
-
-.momo-card-readonly:not(.momo-card-select, .momo-card-checked):hover {
-  border-color: var(--momo-line);
-  box-shadow: var(--momo-shadow-card);
 }
 
 .momo-card-readonly .momo-card-body {
@@ -6049,82 +6068,30 @@
   transition: width 200ms ease;
 }
 
-.momo-review-card.momo-review-card-on {
-  border-color: var(--momo-accent);
-  background: var(--momo-accent-soft-2);
-  cursor: pointer;
+/* 中间那张卡 2026-10-13 起就是主页面的 `.momo-card`（用户裁决「随机回顾画面的卡片，
+   也保持和主页面的卡片一样，只是标签不能做过滤了」）：本文件原先那整套
+   `.momo-review-card / -meta / -date / -hero / -body / -foot / -open`
+   （含自带的引述块语言、相对时间、页脚那颗「在 Obsidian 中打开」）整块退役，
+   版面 / 时间戳 / 字数 / 操作行 / 点正文打开全部由 Card 那条路径负责。
+   这里只留回顾页自己的框：内容列、头部、进度条、底部两键、完成态。
+   唯一多出来的一条是 `.momo-card-tag-locked` / `.momo-loc-pill-locked`：
+   筛选锁着时 pill 只作展示——见下面那段。 */
+
+/* 卡片与进度条之间那道间距（旧 `.momo-review-card` 自带的 margin-top，
+   换成 `.momo-card` 后由这里接着——它没有自己的上边距） */
+.momo-review-col > .momo-card {
+  margin-top: 20px;
 }
 
-.momo-review-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.momo-review-date {
-  font-family: var(--momo-num);
-  font-size: var(--momo-fs-2);
-  font-weight: 500;
-  color: var(--momo-ink-4);
-}
-
-.momo-review-hero {
-  font-size: var(--momo-fs-6);
-  font-weight: 700;
-  line-height: 1.35;
-  color: var(--momo-ink);
-  margin: 14px 0 0;
-  overflow-wrap: anywhere;
-}
-
-/* 引用块 / 行内代码 = 设计稿 §3 的 .qb 卡片语言 */
-.momo-review-body blockquote {
-  background: var(--momo-surface-2);
-  border-left: none;
-  border-radius: var(--momo-r-4);
-  padding: 14px 16px;
-  margin: 10px 0;
-  color: var(--momo-ink-2);
-}
-
-.momo-review-body blockquote > :first-child {
-  margin-top: 0;
-}
-
-.momo-review-body blockquote > :last-child {
-  margin-bottom: 0;
-}
-
-.momo-review-body > :first-child {
-  margin-top: 0;
-}
-
-.momo-review-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 18px;
-}
-
-.momo-app .momo-review-open {
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--momo-accent);
-  font-size: var(--momo-fs-2);
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.momo-app .momo-review-open:hover {
-  color: var(--momo-accent-hover);
+/* 回顾档的 pill 只作展示（BUG-123b 的可见面，与顶部那行只读筛选回显同一条理由）：
+   批次是进档那一刻 `matched()` 的快照，筛选区块整块锁着，pill 再能点就是点了
+   没反应的动作。形态 = 同一个 `.momo-card-tag` / `.momo-loc-pill` class 串挂在
+   span 上：不指针、没有 hover 反色（那两条 hover 本就限在 `button.` 上，
+   见 20-panel/080-tagchips.css 与 60-design/090-locpills.css 的同一纪律），
+   选中环照旧按 `filterTags` 点亮——那正是「这批是按什么筛出来的」。 */
+.momo-app .momo-card-tag-locked,
+.momo-app .momo-loc-pill-locked {
+  cursor: default;
 }
 
 .momo-review-acts {
@@ -6231,9 +6198,8 @@
    原 78px 行（.momo-trow*）与两颗文字钮（.momo-tok / .momo-tdel）整块删除；
    卡片操作行在 trash 模式换成「恢复 / 彻底删除」，复用 .momo-card-act*。 */
 
-/* ---- 搜索命中高亮（卡片正文 + 回顾正文一起收口）---- */
-.momo-card-body mark.momo-hit,
-.momo-review-body mark.momo-hit {
+/* ---- 搜索命中高亮（卡片正文；回顾档那张卡 2026-10-13 起也是 `.momo-card-body`）---- */
+.momo-card-body mark.momo-hit {
   background: var(--momo-accent-soft);
   color: inherit;
   border-radius: var(--momo-r-2);
@@ -8580,36 +8546,31 @@
 .momo-ui-gap-sm { --momo-ui-gap: 6px; }
 .momo-ui-gap-md { --momo-ui-gap: 10px; }
 .momo-ui-gap-lg { --momo-ui-gap: 16px; }
-/* 卡片字体偏好（v0.9.16）：--momo-font-card 由运行时注入（ui/shared/fontStyle.ts，
+/* 卡片投影语言（2026-10-13 用户报障「hover 前后对调一下」后统一）：
+   静止**扁平**（不画投影）、悬停只浮起（--momo-shadow-pop，见 60-design/110-globe.css；
+   那条同时钉住「悬停不动描边」——用户同日追加「Hover 的时候不要有黑色边框」）。
+   此前是反的：静止挂着 pop 投影（观感「看起来是悬浮的」），而只读态悬停又被
+   170-readonly.css 那条复位换成几乎看不见的 shadow-card，于是「一悬停反而变扁」。
+   过渡里 box-shadow 一项因此是这条语言的主角：扁平 ↔ 浮起靠它 120ms 插值。
+
+   卡片字体偏好（v0.9.16）：--momo-font-card 由运行时注入（ui/shared/fontStyle.ts，
    @font-face 在 views/fontFaces.ts）。未选字体时回 inherit——卡片本来就从
    面板继承字体，行为不变；选了才一切「读一条 Momo 的面」换字体（完整卡 /
-   紧凑行 / 回顾大卡，统计页「最长笔记」那三张预览卡 2026-10-01 起也是完整卡，
-   一并跟着换）。面板字体走 00-tokens.css 的 --momo-sans
+   紧凑行，统计页「最长笔记」那三张预览卡 2026-10-01 起也是完整卡，
+   一并跟着换；回顾档那一张 2026-10-13 起也是同一张卡，跟着换）。
+   面板字体走 00-tokens.css 的 --momo-sans
    （运行时整条覆盖本体，不再经 --momo-font-ui 间接），不经这里。 */
-.momo-card,
-.momo-review-card {
-  font-family: var(--momo-font-card, inherit);
-}
 .momo-card  {
+  font-family: var(--momo-font-card, inherit);
   padding: 28px;
   background: var(--momo-card);
   border: 1px solid var(--momo-line);
-  box-shadow: var(--momo-shadow-pop);
+  box-shadow: none;
   margin: 0;
   cursor: pointer;
   transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
   border-radius: var(--momo-ui-r-card);
 }
-.momo-review-card  {
-      padding: 28px;
-      margin-top: 20px;
-      background: var(--momo-card);
-      border: 1px solid var(--momo-line);
-      box-shadow: var(--momo-shadow-pop);
-      cursor: default;
-      transition: border-color 120ms ease, background 120ms ease;
-      border-radius: var(--momo-ui-r-card);
-    }
 .momo-flow  {
   display: flex;
   flex-direction: column;
@@ -8624,13 +8585,6 @@
   word-break: break-word;
   font-size: var(--momo-ui-fs-body);
 }
-.momo-review-body  {
-    line-height: 24px;
-    color: var(--momo-ink-2);
-    margin-top: 8px;
-    font-size: var(--momo-ui-fs-body);
-    word-break: break-word;
-  }
 .momo-card-title  {
   letter-spacing: 0.01em;
   font-weight: 600;
@@ -8784,15 +8738,18 @@
   max-width: 440px;
 }
 /* 预览卡不是真卡片：没有点击、没有 hover 浮起。标签字号与 .momo-app 上那条同一算式
-   （--momo-ui-fs-body 由 mock.ts 内联在卡上，所以这条折算拿得到当期值）。 */
+   （--momo-ui-fs-body 由 mock.ts 内联在卡上，所以这条折算拿得到当期值）。
+   2026-10-13：卡片的悬停反馈（.momo-card:hover 的 pop 投影）也要在这里按住——
+   预览是「摆出来给你看的一张卡」，不该跟着指针变。描边不必管：卡片悬停本来就不动
+   描边（见 60-design/110-globe.css）。 */
 .momo-settings .momo-set-mock-stage .momo-card {
   cursor: default;
   --momo-ui-fs-tags: calc(var(--momo-ui-fs-body) - 1.5px);
 }
 .momo-settings .momo-set-mock-stage .momo-card:where(:hover) {
-  border-color: var(--momo-line);
+  box-shadow: none;
 }
-/* 只读态预览脚注：卡片自己已经不再有 hover 浮起，这句再说清「点正文也不开」 */
+/* 只读态预览脚注：只读差的已经不是 hover（卡片一律悬停浮起），这句只说清「点正文也不开」 */
 .momo-settings .momo-set-mock-readonly-tip {
   margin-top: 10px;
   font-size: var(--momo-fs-1);
@@ -9204,14 +9161,9 @@
   /* （v0.9.15）窄面板的叠瓦压边收窄规则已随「一屏一卡」退场——叠瓦负 margin
      整体删了（见 60-design.css .momo-focus-item > .momo-card），这条没有存在意义。 */
 
-  .momo-review-card {
-    padding: 18px;
-  }
-
-  .momo-review-hero {
-    font-size: var(--momo-fs-5);
-  }
-
+  /* （回顾档那张卡 2026-10-13 起就是 `.momo-card`，窄档内距与字号跟着上面那条走；
+     原先那份 `.momo-review-card { padding: 18px }` 与 `.momo-review-hero` 随
+     独立大卡退役。） */
 
   .momo-fab {
     /* 形状（可换行 / 正圆角小卡片）已提到 560px 那一档，这里只把图标之间的间距再收紧一格 */

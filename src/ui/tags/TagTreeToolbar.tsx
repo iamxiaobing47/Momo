@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { useUi } from '../store'
 import { copy } from '../../momo/i18n'
-import { isTagFilterActive, type TagFilterState } from '../../momo/tags'
+import type { TagFilterState } from '../../momo/tags'
 import { TagFilterMenu, MENU_W as FILTER_MENU_W } from './TagFilterMenu'
 import { TagSortMenu, MENU_W as SORT_MENU_W } from './TagSortMenu'
 import { Icon } from '../shared/icons'
@@ -118,11 +118,12 @@ export function TagTreeToolbar() {
             <Icon name="chevron-down" size={11} strokeWidth={2} />
           </button>
 
+          {/* 漏斗**没有激活态**（2026-10-13 用户裁定「过滤条件生效的时候，过滤图标
+              不要变成蓝色」）：筛着什么由摘要条逐枚列着，这枚钮只报「筛选入口」。
+              地点树那颗同款同步摘掉 `.momo-tagbtn-on`（共享类仍归组合方式按钮用）。 */}
           <button
             type="button"
-            className={`momo-tagbtn momo-tagbtn-filter ${
-              isTagFilterActive(tagFilter) ? 'momo-tagbtn-on' : ''
-            }`}
+            className="momo-tagbtn momo-tagbtn-filter"
             aria-haspopup="dialog"
             aria-expanded={filterMenu !== null}
             aria-label={copy.tags.filterAria}

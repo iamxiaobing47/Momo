@@ -57,36 +57,31 @@
 .momo-ui-gap-sm { --momo-ui-gap: 6px; }
 .momo-ui-gap-md { --momo-ui-gap: 10px; }
 .momo-ui-gap-lg { --momo-ui-gap: 16px; }
-/* 卡片字体偏好（v0.9.16）：--momo-font-card 由运行时注入（ui/shared/fontStyle.ts，
+/* 卡片投影语言（2026-10-13 用户报障「hover 前后对调一下」后统一）：
+   静止**扁平**（不画投影）、悬停只浮起（--momo-shadow-pop，见 60-design/110-globe.css；
+   那条同时钉住「悬停不动描边」——用户同日追加「Hover 的时候不要有黑色边框」）。
+   此前是反的：静止挂着 pop 投影（观感「看起来是悬浮的」），而只读态悬停又被
+   170-readonly.css 那条复位换成几乎看不见的 shadow-card，于是「一悬停反而变扁」。
+   过渡里 box-shadow 一项因此是这条语言的主角：扁平 ↔ 浮起靠它 120ms 插值。
+
+   卡片字体偏好（v0.9.16）：--momo-font-card 由运行时注入（ui/shared/fontStyle.ts，
    @font-face 在 views/fontFaces.ts）。未选字体时回 inherit——卡片本来就从
    面板继承字体，行为不变；选了才一切「读一条 Momo 的面」换字体（完整卡 /
-   紧凑行 / 回顾大卡，统计页「最长笔记」那三张预览卡 2026-10-01 起也是完整卡，
-   一并跟着换）。面板字体走 00-tokens.css 的 --momo-sans
+   紧凑行，统计页「最长笔记」那三张预览卡 2026-10-01 起也是完整卡，
+   一并跟着换；回顾档那一张 2026-10-13 起也是同一张卡，跟着换）。
+   面板字体走 00-tokens.css 的 --momo-sans
    （运行时整条覆盖本体，不再经 --momo-font-ui 间接），不经这里。 */
-.momo-card,
-.momo-review-card {
-  font-family: var(--momo-font-card, inherit);
-}
 .momo-card  {
+  font-family: var(--momo-font-card, inherit);
   padding: 28px;
   background: var(--momo-card);
   border: 1px solid var(--momo-line);
-  box-shadow: var(--momo-shadow-pop);
+  box-shadow: none;
   margin: 0;
   cursor: pointer;
   transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
   border-radius: var(--momo-ui-r-card);
 }
-.momo-review-card  {
-      padding: 28px;
-      margin-top: 20px;
-      background: var(--momo-card);
-      border: 1px solid var(--momo-line);
-      box-shadow: var(--momo-shadow-pop);
-      cursor: default;
-      transition: border-color 120ms ease, background 120ms ease;
-      border-radius: var(--momo-ui-r-card);
-    }
 .momo-flow  {
   display: flex;
   flex-direction: column;
@@ -101,13 +96,6 @@
   word-break: break-word;
   font-size: var(--momo-ui-fs-body);
 }
-.momo-review-body  {
-    line-height: 24px;
-    color: var(--momo-ink-2);
-    margin-top: 8px;
-    font-size: var(--momo-ui-fs-body);
-    word-break: break-word;
-  }
 .momo-card-title  {
   letter-spacing: 0.01em;
   font-weight: 600;

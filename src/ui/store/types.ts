@@ -199,7 +199,7 @@ export interface MomoCaps {
    * 等距圆柱（在极点有几何奇异），换成 cube 后极点落在 +Z/-Z 面正中，天然无奇异。
    * 2026-10-02 起不再内联进 main.js（内联把 onload 的 parse+eval 抬一大截），
    * 改为独立部署产物，路径在这里按插件目录拼好给 ui/。可选：没有 caps 的环境
-   * （jsdom 测试 / 截图 harness）拿不到 URL，星球只留 SVG 叠层，功能不炸。
+   * （jsdom 测试）拿不到 URL，星球只留 SVG 叠层，功能不炸。
    *
    * 入参 `earth` = `prefs.globeEarth`：贴图与光照**一起**按档切（见
    * momo/types/prefs.ts 的 GlobeEarth），所以这里按档给出**对应那套**六面，

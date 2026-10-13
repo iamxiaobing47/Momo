@@ -55,6 +55,11 @@ export interface CardMetaProps extends CardActionsProps {
   /** 本篇的地点清单（frontmatter locations）：喂 meta 行的地点 pill */
   locations: readonly string[]
   /**
+   * 筛选锁着（回顾档，BUG-123b）：meta 行右侧的地点 pill 与 #标签都退回纯展示。
+   * 底部那两份由 Card.tsx 直接渲染，同一个开关也从那里透传下去。
+   */
+  filtersLocked?: boolean
+  /**
    * 只读预览（统计页「最长笔记」那三张，2026-10-01 用户反馈）：**整行操作区都不渲染**——
    * 预览卡是「看一眼然后去 Obsidian 读」，不在面板里改它（用户裁决：与主页面卡片
    * 一致，但只读）。勾选圈同样不渲染（多选态在统计模式进不去，留着一颗点了没反应的
@@ -74,6 +79,7 @@ export const CardMeta = memo(function CardMeta({
   tags,
   locPosition,
   locations,
+  filtersLocked = false,
   mode,
   path,
   content,
@@ -131,10 +137,14 @@ export const CardMeta = memo(function CardMeta({
       <Spacer />
       {/* 地点标签（F6 pill 升级形态，2026-10-01）：位置由 locPosition 决定——
           meta 行时放这里、标签之前；bottom 那份由 Card.tsx 渲染。点一颗即筛那个地点 */}
-      {locPosition === 'meta' && <LocationPills locations={locations} selectMode={selectMode} />}
-      {/* 标签在 meta 行右侧（v0.7.3 起，v0.7.4 做成可配）：回顾页把 pill 放在
-          日期同一行，两种排布共用同一份 pill 与点击行为，只换挂点 */}
-      {tagPosition === 'meta' && <CardTags tags={tags} selectMode={selectMode} />}
+      {locPosition === 'meta' && (
+        <LocationPills locations={locations} selectMode={selectMode} locked={filtersLocked} />
+      )}
+      {/* 标签在 meta 行右侧（v0.7.3 起，v0.7.4 做成可配）：meta 行与卡片底部两种
+          排布共用同一份 pill 与点击行为，只换挂点 */}
+      {tagPosition === 'meta' && (
+        <CardTags tags={tags} selectMode={selectMode} locked={filtersLocked} />
+      )}
       {preview ? null : selectMode ? (
         <CheckCircle checked={checked} />
       ) : (

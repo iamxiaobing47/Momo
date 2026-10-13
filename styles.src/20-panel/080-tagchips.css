@@ -40,9 +40,12 @@
    反色取 tag / page：这对取值是 check-contrast ②c 组已判定的
    （五套方案都 ≥4.5:1），不引入未守卫的新组合。
    两个宿主都要列：预览卡里那颗也得是同一张脸。
+   `button.` 限定只给真按钮（与 .momo-loc-pill 的 hover 同一纪律）：
+   回顾档那颗 pill 是只读展示、渲染成 span（Card 的 filtersLocked），
+   摆着不能点就不该反色给人一个「点得掉」的错觉。
    （`.momo-card-tag.momo-card-tag-on` 的选中环在 30-pop / 60-design 两处，是另一件事。） */
-.momo-app .momo-card-tag:hover,
-.momo-settings .momo-card-tag:hover {
+.momo-app button.momo-card-tag:hover,
+.momo-settings button.momo-card-tag:hover {
   background: var(--momo-tag);
   color: var(--momo-page);
 }

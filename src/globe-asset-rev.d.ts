@@ -7,8 +7,8 @@
 // 磁盘产物逐字节校验全对，用户仍看到「球有贴图但不转」——球与贴图走 app://
 // 固定 URL 被缓存，光点在 main.js 里所以是新的）。
 //
-// ⚠️ 为什么声明成「可能未定义」而不是 `string`：jsdom 测试与截图 harness 走
-// scripts/run-tests.mjs 与 esbuild 的另一条配置，那两条**不注入**这个 define。
+// ⚠️ 为什么声明成「可能未定义」而不是 `string`：jsdom 测试走
+// scripts/run-tests.mjs 与 esbuild 的另一条配置，那条**不注入**这个 define。
 // 声明成 string 会让 `typeof __GLOBE_ASSET_REV__ === 'string'` 之外的用法编译
 // 通过、运行期却 ReferenceError；这里用「未定义也合法」的口径，运行时由
 // `globeAssetRev()` 兜成空串（= 不加 query = 退回改动前的行为，不崩）。

@@ -135,15 +135,18 @@
   max-width: 440px;
 }
 /* 预览卡不是真卡片：没有点击、没有 hover 浮起。标签字号与 .momo-app 上那条同一算式
-   （--momo-ui-fs-body 由 mock.ts 内联在卡上，所以这条折算拿得到当期值）。 */
+   （--momo-ui-fs-body 由 mock.ts 内联在卡上，所以这条折算拿得到当期值）。
+   2026-10-13：卡片的悬停反馈（.momo-card:hover 的 pop 投影）也要在这里按住——
+   预览是「摆出来给你看的一张卡」，不该跟着指针变。描边不必管：卡片悬停本来就不动
+   描边（见 60-design/110-globe.css）。 */
 .momo-settings .momo-set-mock-stage .momo-card {
   cursor: default;
   --momo-ui-fs-tags: calc(var(--momo-ui-fs-body) - 1.5px);
 }
 .momo-settings .momo-set-mock-stage .momo-card:where(:hover) {
-  border-color: var(--momo-line);
+  box-shadow: none;
 }
-/* 只读态预览脚注：卡片自己已经不再有 hover 浮起，这句再说清「点正文也不开」 */
+/* 只读态预览脚注：只读差的已经不是 hover（卡片一律悬停浮起），这句只说清「点正文也不开」 */
 .momo-settings .momo-set-mock-readonly-tip {
   margin-top: 10px;
   font-size: var(--momo-fs-1);

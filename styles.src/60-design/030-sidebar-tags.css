@@ -65,8 +65,10 @@
   box-shadow: inset 0 0 0 1px var(--momo-ink-6);
 }
 
-/* 筛选生效：按钮自己就是那盏指示灯（浮层关着的时候，除了列表上方的摘要条就只剩它）。
-   色 + 描边两个信号，不只靠一个 —— 与 .momo-tagchip-on 同一套。 */
+/* 亮灯态（色 + 描边两个信号，不只靠一个 —— 与 .momo-tagchip-on 同一套）。
+   2026-10-13 起唯一的消费者是标签区**组合方式**按钮（交集态）；两棵树的漏斗
+   不再进这个类（用户裁定「过滤条件生效的时候，过滤图标不要变成蓝色」——
+   筛着什么由摘要条 / 浮层里的 chip 说，漏斗只报「筛选入口」）。 */
 .momo-app .momo-tagbtn-on {
   color: var(--momo-accent);
   background: var(--momo-accent-soft);

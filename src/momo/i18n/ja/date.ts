@@ -34,13 +34,4 @@ export const date = {
 
   /** `9/14 週`（トレンドの週軸ラベル） */
   weekPoint: (month: number, day: number): string => `${month}/${day} 週`,
-
-  /** 相対日付（ふりかえりページのヘッダー） */
-  today: '今日',
-  yesterday: '昨日',
-  daysAgo: (days: number): string => `${days}日前`,
-  /** 未来の日付（予約・予定のエントリ、BUG-125c）：「今日」にまとめない */
-  daysLater: (days: number): string => `${days}日後`,
-  monthsAgo: (months: number): string => `${months}か月前`,
-  yearsAgo: (years: number): string => `${years}年前`,
 }

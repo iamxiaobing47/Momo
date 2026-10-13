@@ -27,7 +27,7 @@ import { loadGlobeCube } from './globeTexture'
 import { useUi } from '../store'
 
 /** 预装载当前档位（`prefs.globeEarth`）的贴图六面与三维库。无 caps 的环境
- *  （jsdom / 截图 harness）直接跳过——那种环境本来也不画球。 */
+ *  （jsdom 测试）直接跳过——那种环境本来也不画球。 */
 export function warmGlobeAssets(): void {
   const s = useUi.getState()
   const caps = s.caps

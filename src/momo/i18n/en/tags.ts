@@ -36,11 +36,10 @@ export const tags = {
       this one decides how the main area combines the tags you picked — the two sit
       a few pixels apart, so the names must not read as the same job. */
   matchAria: 'Tag combination',
-  /** Group name in the popover (the dialog has no title, so this is it — BUG-160) */
-  matchGroup: 'How to combine multiple tags',
-  /** One line under the group name (same rule as filterHintTime: one plain sentence) */
-  matchHint: 'Which notes to show when several tags are selected',
-  /** One line of rule per option (names live in copy.meta.tagMatch, enum-bound) */
+  /** One line of rule per option (names live in copy.meta.tagMatch, enum-bound).
+      The group name and the one-line note under it were removed on 2026-10-13
+      (user call, same as TagFilterMenu's group hint): the option names plus their
+      own sub-lines already say what happens. */
   matchUnionHint: 'Show notes with any selected tag',
   matchIntersectionHint: 'Show only notes with all selected tags',
 

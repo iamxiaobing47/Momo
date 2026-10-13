@@ -1,6 +1,7 @@
 /**
  * 随机回顾（Review.tsx + App.tsx 顶栏的回顾方式分段）。
- * 相对时间（今天/昨天/N 天前）在 `copy.date`，这里不重复一份。
+ * 回顾档那张卡就是主页面的 Card（2026-10-13），卡内文案（时间戳 / 操作行 /
+ * 「在 Obsidian 中打开」）走 `copy.card`，这里只管回顾页自己的框与键。
  */
 import type { ReviewMode } from '../../review'
 
@@ -39,7 +40,6 @@ export const review = {
   step: (d: { index: number; total: number }): string => `第 ${d.index} 张 / 共 ${d.total} 张`,
   /** 连续记录：`连续 12 天` */
   streak: (days: number): string => `连续 ${days} 天`,
-  openInObsidian: '在 Obsidian 中打开',
   prev: '上一个',
   next: '下一个',
 

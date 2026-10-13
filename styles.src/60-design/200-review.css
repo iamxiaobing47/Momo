@@ -58,82 +58,30 @@
   transition: width 200ms ease;
 }
 
-.momo-review-card.momo-review-card-on {
-  border-color: var(--momo-accent);
-  background: var(--momo-accent-soft-2);
-  cursor: pointer;
+/* 中间那张卡 2026-10-13 起就是主页面的 `.momo-card`（用户裁决「随机回顾画面的卡片，
+   也保持和主页面的卡片一样，只是标签不能做过滤了」）：本文件原先那整套
+   `.momo-review-card / -meta / -date / -hero / -body / -foot / -open`
+   （含自带的引述块语言、相对时间、页脚那颗「在 Obsidian 中打开」）整块退役，
+   版面 / 时间戳 / 字数 / 操作行 / 点正文打开全部由 Card 那条路径负责。
+   这里只留回顾页自己的框：内容列、头部、进度条、底部两键、完成态。
+   唯一多出来的一条是 `.momo-card-tag-locked` / `.momo-loc-pill-locked`：
+   筛选锁着时 pill 只作展示——见下面那段。 */
+
+/* 卡片与进度条之间那道间距（旧 `.momo-review-card` 自带的 margin-top，
+   换成 `.momo-card` 后由这里接着——它没有自己的上边距） */
+.momo-review-col > .momo-card {
+  margin-top: 20px;
 }
 
-.momo-review-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.momo-review-date {
-  font-family: var(--momo-num);
-  font-size: var(--momo-fs-2);
-  font-weight: 500;
-  color: var(--momo-ink-4);
-}
-
-.momo-review-hero {
-  font-size: var(--momo-fs-6);
-  font-weight: 700;
-  line-height: 1.35;
-  color: var(--momo-ink);
-  margin: 14px 0 0;
-  overflow-wrap: anywhere;
-}
-
-/* 引用块 / 行内代码 = 设计稿 §3 的 .qb 卡片语言 */
-.momo-review-body blockquote {
-  background: var(--momo-surface-2);
-  border-left: none;
-  border-radius: var(--momo-r-4);
-  padding: 14px 16px;
-  margin: 10px 0;
-  color: var(--momo-ink-2);
-}
-
-.momo-review-body blockquote > :first-child {
-  margin-top: 0;
-}
-
-.momo-review-body blockquote > :last-child {
-  margin-bottom: 0;
-}
-
-.momo-review-body > :first-child {
-  margin-top: 0;
-}
-
-.momo-review-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 18px;
-}
-
-.momo-app .momo-review-open {
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--momo-accent);
-  font-size: var(--momo-fs-2);
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.momo-app .momo-review-open:hover {
-  color: var(--momo-accent-hover);
+/* 回顾档的 pill 只作展示（BUG-123b 的可见面，与顶部那行只读筛选回显同一条理由）：
+   批次是进档那一刻 `matched()` 的快照，筛选区块整块锁着，pill 再能点就是点了
+   没反应的动作。形态 = 同一个 `.momo-card-tag` / `.momo-loc-pill` class 串挂在
+   span 上：不指针、没有 hover 反色（那两条 hover 本就限在 `button.` 上，
+   见 20-panel/080-tagchips.css 与 60-design/090-locpills.css 的同一纪律），
+   选中环照旧按 `filterTags` 点亮——那正是「这批是按什么筛出来的」。 */
+.momo-app .momo-card-tag-locked,
+.momo-app .momo-loc-pill-locked {
+  cursor: default;
 }
 
 .momo-review-acts {

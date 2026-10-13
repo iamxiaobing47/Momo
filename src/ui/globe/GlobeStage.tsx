@@ -267,7 +267,7 @@ function GlobeStageInner({
   // 拖拽 → 切走再回来都不重解码；换档则是另一套 URL，自然另解码一次）。六面 URL 由
   // caps 按档给（插件目录下的独立产物，不再内联进 main.js——那 1.95MB base64 把 bundle
   // 抬到 2.7MB，插件 onload 的 parse+eval 实测 ~50ms 里它占大头）；没有 caps 的
-  // 环境（jsdom 测试 / 截图 harness）拿不到 URL，直接不画球，只留 SVG 叠层。
+  // 环境（jsdom 测试）拿不到 URL，直接不画球，只留 SVG 叠层。
   //
   // 三维后端（globe3d.js）与贴图**并行**装载，但第一帧要等两边都就绪：后端未决时
   // paint 是空操作（2d / webgl2 上下文互斥，回退判定只有一次机会，见

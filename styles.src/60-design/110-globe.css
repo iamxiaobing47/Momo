@@ -236,9 +236,15 @@
 }
 
 /* 卡片流（设计稿 §1 .col / .card） */
-/* 卡片（设计稿 §1 .card：白底 / 1px 描边 / 16 圆角 / 14 内距 / pop 投影）。 */
+/* 卡片（设计稿 §1 .card：白底 / 1px 描边 / 16 圆角 / 14 内距）。**悬停只浮起**：
+   静止是扁平的（底座在 80-settings/090-ui-scale.css 的 .momo-card，box-shadow: none），
+   指针落上来补一档 pop 投影——2026-10-13 用户裁定两态对调（此前静止挂着投影、
+   悬停反而被只读那条复位压扁）。
+   **描边不参与**：这里原先还有 `border-color: var(--momo-ink-6)`，用户同日追加
+   「Hover 的时候不要有黑色边框」——投影已经承担了悬停反馈，再叠一条深描边在浅底
+   上读起来就是一圈黑框（stepfun 的 ink-6 #7583ae 对 line #cfe6ef 是跳档），
+   故整行删掉：悬停只换投影，卡片描边从头到尾都是 --momo-line。 */
 .momo-card:hover {
-  border-color: var(--momo-ink-6);
   box-shadow: var(--momo-shadow-pop);
 }
 

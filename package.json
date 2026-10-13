@@ -19,7 +19,8 @@
     "check:internals": "node scripts/check-internals.mjs",
     "check:workspace": "node scripts/check-workspace.mjs",
     "merge:css": "node scripts/merge-css.mjs",
-    "verify:deploy": "node scripts/verify-deploy.mjs"
+    "verify:deploy": "node scripts/verify-deploy.mjs",
+    "release:publish": "node scripts/publish-release.mjs"
   },
   "keywords": [
     "obsidian",

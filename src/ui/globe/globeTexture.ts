@@ -27,7 +27,7 @@ export interface GlobeCubeData {
  * 贴图解码的模块级单例 Promise：切进星球视图 → 拖拽 → 切走再回来都只解码一次。
  *
  * 按 URL 组合缓存（同一会话里插件目录不变，实际就是一套）：调用方传空数组时
- * 根本不建 Promise——没有 caps 的环境（jsdom 测试 / 截图 harness）直接走
+ * 根本不建 Promise——没有 caps 的环境（jsdom 测试）直接走
  * 「解不出就不画球」那条老路，不重试。
  *
  * 只缓存**成功**：任一解码失败（onerror / 污染画布 / 分配失败）时把这一格清掉，

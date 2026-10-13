@@ -21,12 +21,12 @@ import { PopDialog, PopRow } from '../kit'
 
 /**
  * 弹层尺寸。宽同时用于两处：这里的边界夹取，以及 TagFilterInput 算落点时的右对齐
- * （那边 `import { MENU_W }`，别在两处各写一个数）。236 与筛选浮层同宽——副文
- * 「同时选中几个标签时，主区显示哪些笔记」18 个字按 12px 估 ≈216，加左右内距正好。
- * 高只是边界夹取的估算（组头 + 两行各两行字）。
+ * （那边 `import { MENU_W }`，别在两处各写一个数）。236 与筛选浮层同宽——两颗按钮在
+ * 侧栏上下相邻，浮层一样宽才不显得歪。
+ * 高只是边界夹取的估算（2026-10-13 删掉组名与口径说明后：两行各约 36 + 间距与内距）。
  */
 export const MENU_W = 236
-const MENU_H = 132
+const MENU_H = 96
 
 export function TagMatchMenu({
   x,
@@ -72,12 +72,10 @@ export function TagMatchMenu({
       onMaskClick={onClose}
       returnFocus={returnFocus}
     >
-      {/* 无标题弹层（BUG-160 起 dialog 左上角不放标题）：组名就是这一层的标题，
-          口径说明跟在它下面。两个类都是现成浮层语言（momo-pop-seclabel /
-          momo-pop-empty 同款次级字），不新立门户。 */}
+      {/* 无标题弹层（BUG-160 起 dialog 左上角不放标题，2026-10-13 连组名与它下面那句
+          口径说明一起删了——同 TagFilterMenu 的组名说明：两行的副文已经各自说清口径）。
+          两行选项的行高随内容（.momo-pop-list-twoline）。 */}
       <div className="momo-pop-list momo-pop-list-twoline">
-        <div className="momo-pop-seclabel">{copy.tags.matchGroup}</div>
-        <div className="momo-pop-hint">{copy.tags.matchHint}</div>
         {TAG_MATCH_MODES.map((mode) => (
           <PopRow
             key={mode}

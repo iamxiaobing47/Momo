@@ -3,9 +3,8 @@
    原 78px 行（.momo-trow*）与两颗文字钮（.momo-tok / .momo-tdel）整块删除；
    卡片操作行在 trash 模式换成「恢复 / 彻底删除」，复用 .momo-card-act*。 */
 
-/* ---- 搜索命中高亮（卡片正文 + 回顾正文一起收口）---- */
-.momo-card-body mark.momo-hit,
-.momo-review-body mark.momo-hit {
+/* ---- 搜索命中高亮（卡片正文；回顾档那张卡 2026-10-13 起也是 `.momo-card-body`）---- */
+.momo-card-body mark.momo-hit {
   background: var(--momo-accent-soft);
   color: inherit;
   border-radius: var(--momo-r-2);
