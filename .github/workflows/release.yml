@@ -67,7 +67,13 @@ jobs:
           # （手列会变成第二份真源，正是 BUG-117b 的教训）。
           mapfile -t assets < <(find . -type f -printf '%P\n' | sort)
           echo "release assets:"; printf '  %s\n' "${assets[@]}"
+          # `--repo` 是必须的：上面的 cd 已经把 cwd 挪到仓库外，而 gh 在没显式给仓库时
+          # 会退回「在当前目录跑 git」去解析仓库、并执行 `git tag --list` 读 tag 注解，
+          # 于是必然报 `failed to run git: fatal: not a git repository`——v1.0.0 首发的
+          # 真实故障：build / 铺包 / artifact 全绿，只在最后这一步红。给了 --repo 后 gh
+          # 走 REST（`--generate-notes` 也变成服务端 generate_release_notes），不再碰 git。
           gh release create "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
             --title "${GITHUB_REF_NAME}" \
             --generate-notes \
             --verify-tag \
