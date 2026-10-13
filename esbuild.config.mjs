@@ -82,8 +82,13 @@ if (globe3dIssues.length > 0) {
 // 旧行为** —— 这种不一致只有一个解释：浏览器手里的不是这个文件。
 //
 // 正解：把内容哈希编进 main.js（下面的 __GLOBE_ASSET_REV__），运行期由
-// caps.globeCubeUrls / caps.globe3dUrl 追加成 `?v=<hash>`。内容变 → URL 变 →
-// 缓存必失效；内容不变 → URL 不变 → 仍然命中缓存（不牺牲正常路径的性能）。
+// ui/globe/globe3dLoader.ts 给 globe3d.js 的 <script> URL 追加成 `?v=<hash>`。
+// 内容变 → URL 变 → 缓存必失效；内容不变 → URL 不变 → 仍然命中缓存（不牺牲正常路径）。
+//
+// ⚠️ 2026-10-13 起**只有 <script> 这一路**还吃指纹：贴图改走「caps 读字节 → blob: URL」
+// （旧实现的资源 URL 对文档是跨源的，`<img>` 装载把 canvas 污染成跨源，getImageData
+// 抛 SecurityError → 六面全解不出）。指纹值仍按下面的口径算全（globe3d.js + 两套十二面）
+// ——它是**构建内容**的指纹，verify-deploy 靠它判断「产物与 main.js 是不是同一次构建」。
 //
 // 指纹取 globe3d.js + **两套**贴图六面（共 12 面）的 sha256 合并哈希：任一产物变了
 // 指纹就变，而产物之间不必同步变化（多算几次哈希的成本可以忽略，构建时一次性）。
@@ -198,8 +203,9 @@ const context = await esbuild.context({
   conditions: ['style', 'browser', 'default'],
   loader: { '.png': 'dataurl', '.svg': 'dataurl' },
   // 运行时资源的内容指纹（见上面 assetRev 那段）：编进 main.js，运行期由
-  // caps.globeCubeUrls / caps.globe3dUrl 追加成 `?v=<hash>`，让
-  // 「改了 globe3d.js 但浏览器拿的还是缓存旧副本」这件事不可能再发生。
+  // globe3dLoader 给 globe3d.js 的 <script> URL 追加成 `?v=<hash>`，让
+  // 「改了 globe3d.js 但浏览器拿的还是缓存旧副本」这件事不可能再发生
+  // （贴图那一路 2026-10-13 起读字节 + blob: URL，不再经过资源缓存）。
   define: { __GLOBE_ASSET_REV__: JSON.stringify(assetRev) },
   // 同一份指纹再以 banner 形式落在 main.js 最前面：verify-deploy 靠它回读
   // 「这次构建认为的指纹」，再跟磁盘上的 globe3d.js / 六面实际重算的结果比对。

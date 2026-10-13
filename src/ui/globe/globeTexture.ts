@@ -13,7 +13,10 @@
 // **贴图不进 main.js**（2026-10-02 性能 + 2026-10-04 换 cube）：六面合计不小，
 // 内联会把插件 onload 的解析+执行抬一大截，而贴图只在切到星球档时才用得上。
 // 现在是**独立部署产物**（vault-targets 的 GLOBE_TEXTURE，与内置字体同一条路），
-// 运行期经 caps.globeCubeUrls() 拿六个 app:// URL 再解码。换贴图照常 `npm run build`。
+// 运行期经 caps.globeCubeUrls() 拿六个 URL 再解码——2026-10-13 起那六个 URL 是
+// caps 读字节包出来的 **`blob:` URL**（同源：资源 URL 跨源会把画布污染成跨源，
+// getImageData 抛 SecurityError，见 MomoCaps.globeCubeUrls / service.readGlobeCubeFaces）。
+// 换贴图照常 `npm run build`。
 
 /** cube 六面的像素数据（与 Globe3DTextureData 同形）：六面同边长 */
 export interface GlobeCubeData {
@@ -26,9 +29,9 @@ export interface GlobeCubeData {
 /**
  * 贴图解码的模块级单例 Promise：切进星球视图 → 拖拽 → 切走再回来都只解码一次。
  *
- * 按 URL 组合缓存（同一会话里插件目录不变，实际就是一套）：调用方传空数组时
- * 根本不建 Promise——没有 caps 的环境（jsdom 测试）直接走
- * 「解不出就不画球」那条老路，不重试。
+ * 按 URL 组合缓存（同一会话里插件目录不变，caps 侧也把 blob: URL 缓存住，
+ * 实际就是一套）：调用方传空数组时根本不建 Promise——没有 caps 的环境（jsdom
+ * 测试）直接走「解不出就不画球」那条老路，不重试。
  *
  * 只缓存**成功**：任一解码失败（onerror / 污染画布 / 分配失败）时把这一格清掉，
  * 允许下次挂载重试。这套贴图虽是随包静态资源，失败却多是「文件没部署到位 /

@@ -31,12 +31,21 @@ export const GLOBE_PACK_STEM: Record<GlobeEarth, string> = {
 /** 三维渲染库的落盘文件名（= 构建产物名，见 vault-targets 的 GLOBE3D） */
 export const GLOBE_PACK_3D_FILE = 'globe3d.js'
 
+/**
+ * 某一档贴图的六个落盘文件名，面序固定 px/nx/py/ny/pz/nz。
+ *
+ * 三处共用同一份口径：构建部署（scripts/vault-targets.mjs 的 GLOBE_TEXTURES）、
+ * 资源包下载（`globePackFileNames`）、以及**运行期读取**（`service.readGlobeCubeFaces`
+ * → caps → globeTexture 解码）。改名要三处一起看。
+ */
+export function globePackCubeNames(earth: GlobeEarth): string[] {
+  return GLOBE_PACK_FACES.map((face) => `${GLOBE_PACK_STEM[earth]}_${face}.png`)
+}
+
 /** 资源包要下的全部文件名（三维库 + 两套贴图各六面），顺序即下载顺序 */
 export function globePackFileNames(): string[] {
   const out: string[] = [GLOBE_PACK_3D_FILE]
-  for (const earth of Object.keys(GLOBE_PACK_STEM) as GlobeEarth[]) {
-    for (const face of GLOBE_PACK_FACES) out.push(`${GLOBE_PACK_STEM[earth]}_${face}.png`)
-  }
+  for (const earth of Object.keys(GLOBE_PACK_STEM) as GlobeEarth[]) out.push(...globePackCubeNames(earth))
   return out
 }
 

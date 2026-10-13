@@ -1,9 +1,10 @@
 // 构建期注入的常量：`__GLOBE_ASSET_REV__`。
 //
 // 由 esbuild.config.mjs 的 `define` 编进 main.js，值是 globe3d.js + cube 六面
-// 的合并内容哈希前 12 位。运行期由 src/views/caps.ts 的 globeCubeUrls /
-// globe3dUrl 追加成 `?v=<hash>`——**给固定文件名的独立产物加内容指纹**，让
-// Chromium 的资源缓存不可能命中旧副本（2026-10-05 踩实：改了 shader 并部署、
+// 的合并内容哈希前 12 位。运行期由 src/ui/globe/globe3dLoader.ts 给 globe3d.js 的
+// `<script>` URL 追加成 `?v=<hash>`（贴图 2026-10-13 起改走读字节 + blob: URL，
+// 不再经过资源缓存，见 src/momo/service/index.ts 的 readGlobeCubeFaces）——给固定
+// 文件名的独立产物加内容指纹，让 Chromium 的资源缓存不可能命中旧副本（2026-10-05 踩实：改了 shader 并部署、
 // 磁盘产物逐字节校验全对，用户仍看到「球有贴图但不转」——球与贴图走 app://
 // 固定 URL 被缓存，光点在 main.js 里所以是新的）。
 //

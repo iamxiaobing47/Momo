@@ -3,28 +3,12 @@ import { useUi, type MomoCaps } from '../ui/store'
 import type { MomoService } from '../momo/service'
 import { copy } from '../momo/i18n'
 import { dayMoment, localDay } from '../momo/dates'
-import { withAssetRev } from '../ui/globe/globeAssetRev'
 import { errMsg } from '../momo/core'
 import type { GlobeEarth } from '../momo/types'
 
 // `MomoCaps` 的组装：ui/ 与 service 之间**唯一**的通道。
 // ui/ 不 import obsidian（AGENTS.md §3.1），所有需要 Obsidian 能力的地方都在这里
 // 包一层白手套交给 store；写操作的 Notice 也全发生在这一层。
-
-/**
- * 地球档 → 贴图套的**文件名词干**（落进 vault 插件目录的那个前缀）。
- *
- * 真源在 `scripts/vault-targets.mjs` 的 `GLOBE_TEXTURES`；src/ 不 import scripts/
- * （分层），两边靠 `scripts/globe-texture-deploy.test.mts` 的守卫对齐——那里逐档
- * 比对词干与六面名，改一边不改另一边就红。
- *
- * 用 `Record<GlobeEarth, …>` 声明：新增一档地球而忘了配贴图 → **编译不过**。
- * 两套的差别只在词干（`tex-earth-cube_*` / `tex-day-cube_*`），六面名与顺序共用。
- */
-const GLOBE_TEX_STEM: Record<GlobeEarth, string> = {
-  night: 'tex-earth-cube',
-  day: 'tex-day-cube',
-}
 
 export interface MomoConfirmOptions {
   message: string
@@ -246,6 +230,16 @@ export async function futureCreate(service: MomoService, day: string): Promise<v
 }
 
 export function buildCaps(service: MomoService): MomoCaps {
+  /**
+   * 某一档贴图的 `blob:` URL（会话级缓存）。
+   *
+   * URL 稳定是两件事的前提：① globeTexture 的模块级解码缓存（键 = 六面 URL 拼接）
+   * 才命中，切视图不重复读盘 + 解码；② 解码出来的 canvas 不再被跨源污染——
+   * blob URL 与创建它的文档**同源**（根因与现场见 service.readGlobeCubeFaces 注释）。
+   *
+   * 失败不进缓存：缺件 / 权限异常时下次挂载照常重试（与 globeTexture 的解码缓存同口径）。
+   */
+  const cubeUrls = new Map<GlobeEarth, Promise<string[]>>()
   return {
     renderMarkdown: (container, markdown) =>
       MarkdownRenderer.render(service.app, markdown, container, service.rootPath(), service.pluginOf()),
@@ -405,23 +399,34 @@ export function buildCaps(service: MomoService): MomoCaps {
     // vault 内路径 → app:// URL（Obsidian 自己的资源协议，桌面 / 移动端都认）。
     // 左上角自定义图标靠它把盘上的图片显示进侧栏品牌标。
     resourceUrl: (path) => service.app.vault.adapter.getResourcePath(path),
-    // 星球贴图（2026-10-02 独立产物；2026-10-04 起换成 cube map 六面；
-    // 2026-10-05 起**两套**：夜地球 / 日地球，按 prefs.globeEarth 切）：
-    // 不再内联进 main.js——内联会把 onload 的 parse+eval 抬一大截，而贴图只在
-    // 切到星球档时才用得上。文件名与 scripts/vault-targets.mjs 的 GLOBE_TEXTURES
-    // 同一份真源（部署 + verify 都走那里；改文件名要照字体那套一起看）。
-    // 顺序固定 px/nx/py/ny/pz/nz（three.js CubeTexture 的构造顺序）。
-    // 这里加内容指纹（withAssetRev）：cube 六面是固定文件名的独立部署物，
-    // 经 app:// 走 <img> 装载，Chromium 的缓存按 URL 记账——不带版本就可能拿回
-    // 旧贴图，且不报错（2026-10-05 踩实，见 src/ui/globe/globeAssetRev.ts）。
-    globeCubeUrls: (earth) =>
-      (['px', 'nx', 'py', 'ny', 'pz', 'nz'] as const).map((f) =>
-        withAssetRev(
-          service.app.vault.adapter.getResourcePath(
-            `${service.vault.configDir}/plugins/${service.pluginId}/${GLOBE_TEX_STEM[earth]}_${f}.png`,
-          ),
-        ),
-      ),
+    // 星球贴图（2026-10-02 独立产物；2026-10-04 起 cube map 六面；2026-10-05 起
+    // **两套**：夜地球 / 日地球，按 prefs.globeEarth 切；2026-10-13 起**读字节包 blob: URL**）：
+    // 不再内联进 main.js——内联会把 onload 的 parse+eval 抬一大截，而贴图只在切到
+    // 星球档时才用得上。六面名与 scripts/vault-targets.mjs 的 GLOBE_TEXTURES 同一份
+    // 真源（那侧管部署 + verify）；运行期这一侧的读取口径在 momo/globe/pack.ts 的
+    // globePackCubeNames，与资源包下载清单同源。顺序固定 px/nx/py/ny/pz/nz。
+    //
+    // 为什么不是资源 URL（旧实现）：`resourcePathPrefix` 形式的 URL 对文档
+    // （app://obsidian.md）是**跨源**的，`<img>` 不带 CORS 装载会把 canvas 污染成
+    // 跨源 → getImageData 抛 SecurityError → 六面全解不出（现场见
+    // service.readGlobeCubeFaces）。自己读字节再包 `blob:` URL 从根上免掉这条；
+    // 也因此不再需要 `?v=` 内容指纹——那一套现在只服务 globe3d.js 的 <script>
+    // （见 ui/globe/globe3dLoader.ts）。
+    //
+    // ⚠️ 它必须是**异步**的：读盘是异步的。调用方（GlobeStage / globePrewarm）
+    // 在拿到六面之前不许画球，也不许把「还没读」当成「读失败」。
+    globeCubeUrls: (earth) => {
+      const hit = cubeUrls.get(earth)
+      if (hit) return hit
+      const pending = service
+        .readGlobeCubeFaces(earth)
+        .then((faces) => faces.map((buf) => URL.createObjectURL(new Blob([buf], { type: 'image/png' }))))
+      cubeUrls.set(earth, pending)
+      pending.catch(() => {
+        if (cubeUrls.get(earth) === pending) cubeUrls.delete(earth)
+      })
+      return pending
+    },
     // 星球三维渲染库（three.js 档，2026-10-04）：同为**独立部署产物**，esbuild 的
     // 第二产物 globe3d.js（three 全量 ~600KB 不许进 main.js，onload parse 账同上）。
     // 运行期经 globe3dLoader 注入 <script> 惰性加载，失败回退 canvas 软渲染。文件名
@@ -439,7 +444,13 @@ export function buildCaps(service: MomoService): MomoCaps {
     // 下载入口的能力面；网络与写盘在 service.downloadGlobePack，这里只把「当前插件
     // 版本」顶进去当记账口径（release 的 tag = 版本号）。
     globePackStatus: async () => ({ ...(await service.globePackStatus()), current: service.pluginVersion }),
-    downloadGlobePack: (onProgress) => service.downloadGlobePack(service.pluginVersion, onProgress),
+    downloadGlobePack: async (onProgress) => {
+      const res = await service.downloadGlobePack(service.pluginVersion, onProgress)
+      // 成功就把贴图的 blob URL 缓存作废：下一次挂载重新读字节，刚下下来的贴图立刻生效
+      // （清缓存不等于重挂舞台——真正拿到新图还要一次挂载，见 GlobeView 的 stageKey）
+      if (res.ok) cubeUrls.clear()
+      return res
+    },
     // N08：签名 Promise<void>——data.json 写失败（只读分区/磁盘满）时调用方能接住，
     // 不再「UI 显示已改、重载后回退」地静默丢偏好。分工与其它写操作一致：
     // caps 层 Notice + rethrow，调用方 catch 后决定是否回退。

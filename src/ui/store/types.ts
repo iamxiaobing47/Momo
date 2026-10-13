@@ -194,23 +194,28 @@ export interface MomoCaps {
    */
   resourceUrl(path: string): string
   /**
-   * 星球贴图的 app:// URL —— **cube map 六面**，固定顺序 px/nx/py/ny/pz/nz
-   * （three.js CubeTexture 的构造顺序，2026-10-04 起）。旧版是单张 2048×1024
-   * 等距圆柱（在极点有几何奇异），换成 cube 后极点落在 +Z/-Z 面正中，天然无奇异。
-   * 2026-10-02 起不再内联进 main.js（内联把 onload 的 parse+eval 抬一大截），
-   * 改为独立部署产物，路径在这里按插件目录拼好给 ui/。可选：没有 caps 的环境
-   * （jsdom 测试）拿不到 URL，星球只留 SVG 叠层，功能不炸。
+   * 星球贴图的六面 URL（`blob:`，**异步**）—— **cube map 六面**，固定顺序
+   * px/nx/py/ny/pz/nz（three.js CubeTexture 的构造顺序，2026-10-04 起）。旧版是单张
+   * 2048×1024 等距圆柱（在极点有几何奇异），换成 cube 后极点落在 +Z/-Z 面正中。
+   * 2026-10-02 起不再内联进 main.js（内联把 onload 的 parse+eval 抬一大截）。
    *
-   * 入参 `earth` = `prefs.globeEarth`：贴图与光照**一起**按档切（见
-   * momo/types/prefs.ts 的 GlobeEarth），所以这里按档给出**对应那套**六面，
-   * 而不是让调用方自己挑路径——文件名口径只此一处。
+   * 2026-10-13 起给的**不是** `app://` 资源 URL，而是 caps 自己读字节包出来的
+   * `blob:` URL：资源 URL 对文档（app://obsidian.md）是跨源的，`<img>` 不带 CORS
+   * 装载会把 canvas 污染成跨源 → `getImageData` 抛 SecurityError → 六面全解不出
+   * （现场：星球黑卡 + 「下载资源包」说明条，而下载毫无用处）。blob URL 与文档
+   * 同源，画布干净。可选：没有 caps 的环境（jsdom 测试）拿不到 URL，星球只留
+   * SVG 叠层，功能不炸。
+   *
+   * 入参 `earth` = `prefs.globeEarth`（贴图与光照**一起**按档切，见
+   * momo/types/prefs.ts 的 GlobeEarth）；文件名口径只此一处（momo/globe/pack.ts）。
    */
-  globeCubeUrls?(earth: GlobeEarth): string[]
+  globeCubeUrls?(earth: GlobeEarth): Promise<string[]>
   /**
    * 星球三维渲染库 globe3d.js（three.js 档）的 app:// URL（可选，先例
    * globeCubeUrls()）。它是**独立部署产物**（esbuild.config 的第二产物，three
    * 全量 ~600KB 不许进 main.js——onload parse 账见 globeCubeUrls 注释），运行期
-   * 经这里惰性注入 <script>，装载失败 / WebGL 不可用时星球回退 canvas 软渲染。
+   * 经这里惰性注入 <script>（<script> 不吃 CORS，跨源照常装载；贴图那条路相反，
+   * 见 globeCubeUrls 的 blob: URL），装载失败 / WebGL 不可用时星球回退 canvas 软渲染。
    * 没有 caps 的环境返回空串 = 直接软渲染。
    */
   globe3dUrl?(): string

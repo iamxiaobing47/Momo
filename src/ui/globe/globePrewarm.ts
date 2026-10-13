@@ -32,7 +32,15 @@ export function warmGlobeAssets(): void {
   const s = useUi.getState()
   const caps = s.caps
   if (!caps) return
-  const urls = caps.globeCubeUrls?.(s.globeEarth) ?? []
-  if (urls.length === 6) void loadGlobeCube(urls).catch(() => {})
+  // 六面 URL 是**异步**的（caps 读字节包 blob: URL）。预热只负责「把 promise 先跑起来」：
+  // 拿不满六面 / 读盘失败都只 catch，真正挂载时 loadGlobeCube 会重试（它只缓存成功）。
+  const urlsP = caps.globeCubeUrls?.(s.globeEarth)
+  if (urlsP) {
+    void urlsP
+      .then((urls) => {
+        if (urls.length === 6) return loadGlobeCube(urls)
+      })
+      .catch(() => {})
+  }
   void loadGlobe3D(caps.globe3dUrl?.() ?? '')
 }

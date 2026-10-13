@@ -279,8 +279,11 @@ function GlobeStageInner({
     let alive = true
     let idleHandle: number | null = null
     const st = useUi.getState()
-    const urls = st.caps?.globeCubeUrls?.(globeEarth) ?? []
-    if (urls.length !== 6) return
+    // 六面 URL 是**异步**的（caps 读字节再包 `blob:` URL，见 MomoCaps.globeCubeUrls 的
+    // 注释：资源 URL 跨源会把 canvas 污染成跨源，getImageData 直接抛 SecurityError）。
+    // 两种「拿不到」要分开：没有 caps（jsdom 测试）静默留 SVG 叠层；有 caps 但读不到
+    // （缺件 / 权限）走下面那道 .catch → onTextureFailed(true) 出说明条。
+    const urlsP: Promise<string[]> = st.caps?.globeCubeUrls?.(globeEarth) ?? Promise.resolve([])
     // 换档（已经建过实例）：光照**立刻**切，不等新贴图到位。那 ~40ms 里画出来的是
     // 「新光照 + 旧贴图」，比「旧光照 + 新贴图」好得多（夜灯配日地球的强受光会把
     // 城市灯光整片洗掉，而日地球配夜档的临边衰减只是暗一点）。贴图随后由 finish 换。
@@ -307,9 +310,10 @@ function GlobeStageInner({
         backend3dRef.current = inst
       }
     })
-    void Promise.all([loadGlobeCube(urls), backendReady])
+    const cubeReady = urlsP.then((urls) => (urls.length === 6 ? loadGlobeCube(urls) : null))
+    void Promise.all([cubeReady, backendReady])
       .then(([t]) => {
-        if (!alive) return
+        if (!alive || t === null) return
         texRef.current = t
         onTextureFailedRef.current?.(false)
         // 首帧（解码完立刻画，GPU 档此时贴图未上、由 setTexture 在 finish 里补）：

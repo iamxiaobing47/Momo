@@ -1,9 +1,11 @@
 // globe3d.js（three.js 档）的装载器——main.js 侧唯一碰「脚本注入」的环节。
 //
 // Obsidian 插件宿主里没有可用的 ESM 动态 import（main.js 是 CJS，相对路径解析不到
-// 插件目录），独立产物的加载走 app:// URL 注入 <script>：与贴图（caps.globeCubeUrls
-// → Image）同一条资源路，不碰 eval、不吃 CSP 的亏。工厂在 window.__momoGlobe3D 上
-// （globe3dStage.ts 挂的），经典脚本执行完才派发 load 事件，onload 里必然拿得到。
+// 插件目录），独立产物的加载走 app:// URL 注入 <script>：**与贴图那条路不同**——
+// 贴图 2026-10-13 起改走「caps 读字节 → blob: URL」（资源 URL 跨源会把 canvas 污染成
+// 跨源），而 <script> 不吃 CORS、经典脚本照常跨源装载。不碰 eval、不吃 CSP 的亏。
+// 工厂在 window.__momoGlobe3D 上（globe3dStage.ts 挂的），经典脚本执行完才派发 load 事件，
+// onload 里必然拿得到。
 //
 // 任何失败（URL 空 / onerror / 超时 / 产物里没有工厂）都 resolve(null)：调用方
 // （GlobeStage）回退 canvas 软渲染。模块级缓存**只存成功**（与 loadGlobeCube 同款

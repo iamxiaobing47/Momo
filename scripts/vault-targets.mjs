@@ -47,8 +47,9 @@ export function vaultPluginDirs() {
  * 的夜地球 base64 后有 1.95MB，内联进 main.js 会把 bundle 抬到 2.7MB——插件
  * onload 的 parse+eval 实测 ~50ms 里它占大头（Chromium 量：parse 19.6ms +
  * eval ~30ms），而它只在切到星球档时才用得上。现在 src 里的 png 不再被 bundle，
- * 构建时随产物同步进 vault 插件目录，运行期经 caps.globeCubeUrls()（app://）
- * 装载。文件名是 caps.ts 与 src/ui/globe/png.d.ts 注释里的同一份真源。
+ * 构建时随产物同步进 vault 插件目录，运行期由 caps 读字节包 `blob:` URL 装载
+ * （2026-10-13 起；旧实现走 app:// 资源 URL，跨源把 canvas 污染了）。文件名是
+ * caps / service 与 src/ui/globe/png.d.ts 注释里的同一份真源。
  *
  * 2026-10-04 起从「一张 2048×1024 等距圆柱」换成 **cube map 六面**（polefix cube，
  * 与 globe.html 同一套 6 面 ×1024²）——等距圆柱在极点有几何奇异，任何软化都只能
@@ -60,7 +61,8 @@ export function vaultPluginDirs() {
  * ≈3.6MB，是**磁盘**上的账，不进 main.js 也不进内存（没被装载的那套不会被读）。
  *
  * 面名前缀跟 three.js CubeTexture 的语义对齐（px/nx/py/ny/pz/nz）。运行期由
- * caps.globeCubeUrls(earth) 取当前档那套的六个 app:// URL 装载。
+ * caps.globeCubeUrls(earth) 取当前档那套的六个 `blob:` URL 装载（读字节 → 同源
+ * blob URL，见 src/momo/service/index.ts 的 readGlobeCubeFaces）。
  */
 export const GLOBE_CUBE_FACES = ['px', 'nx', 'py', 'ny', 'pz', 'nz']
 

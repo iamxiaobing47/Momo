@@ -12,6 +12,7 @@ import {
   VIEW_TYPE_MOMO,
   type AddLocationsResult,
   type AddTagsResult,
+  type GlobeEarth,
   type RemoveLocationsResult,
   type RemoveTagsResult,
 } from '../types'
@@ -40,6 +41,7 @@ import {
 } from './serviceCloud'
 import {
   GLOBE_PACK_MANIFEST_FILE,
+  globePackCubeNames,
   globePackFileNames,
   globePackUrl,
   isGlobePackFileValid,
@@ -1811,6 +1813,30 @@ export class MomoService {
     const path = normalizePath(`${dir}/${name}`)
     await this.vault.adapter.writeBinary(path, data)
     return path
+  }
+
+  /**
+   * 读回某一档星球贴图六面的字节（v1.0.x）。顺序 = globePackCubeNames（px/nx/py/ny/pz/nz）。
+   *
+   * **为什么不再走资源 URL**（2026-10-13 用户现场，改前的实现）：贴图原先由
+   * `caps.globeCubeUrls` 拼成 `resourcePathPrefix` 形式的 URL 交给 `<img>` 装载，而那个
+   * URL 对文档（`app://obsidian.md`）是**跨源**的。`<img>` 不带 CORS 装载 → canvas 被标成
+   * 「跨源污染」→ `globeTexture` 的 `getImageData` 抛 SecurityError → 六面全部解不出 →
+   * 星球只剩「黑卡 + 说明条 + 下载资源包按钮」，而资源包其实早就装好了（13 件齐、字节
+   * 逐字节对得上）：用户看到的是「下载了也没用」。改自己读字节后由 caps 包成 `blob:` URL
+   * ——blob URL 与创建它的文档**同源**，画布不再被污染，也顺手免掉 Chromium 的资源缓存
+   * （贴图那一路的内容指纹随之退役，`withAssetRev` 只剩 globe3d.js 的 `<script>` 一个消费者）。
+   *
+   * 缺件 / 权限异常一律 reject：调用方（GlobeStage 的 `.catch`）照旧报
+   * `onTextureFailed(true)` 出说明条——那条口径不变。
+   */
+  async readGlobeCubeFaces(earth: GlobeEarth): Promise<ArrayBuffer[]> {
+    const dir = this.pluginDir()
+    const out: ArrayBuffer[] = []
+    for (const name of globePackCubeNames(earth)) {
+      out.push(await this.vault.adapter.readBinary(normalizePath(`${dir}/${name}`)))
+    }
+    return out
   }
 
   /**

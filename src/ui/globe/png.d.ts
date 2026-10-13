@@ -4,8 +4,9 @@
 // ⚠️ 本贴图**不再被 import**（2026-10-02）：它 base64 后有 1.95MB，内联进 main.js
 // 会把 bundle 抬到 2.7MB——插件 onload 的 parse+eval 实测 ~50ms 里它占大头，而它
 // 只在切到星球档时才用得上。现在它是**独立部署产物**（scripts/vault-targets.mjs
-// 的 GLOBE_TEXTURE，随 npm run build 同步进 vault 插件目录），运行期经
-// caps.globeCubeUrls() 拿六个 app:// URL 装载（globeTexture.ts）。这条声明留给将来
+// 的 GLOBE_TEXTURE，随 npm run build 同步进 vault 插件目录），运行期由
+// caps.globeCubeUrls() 读字节包成六个 `blob:` URL 装载（globeTexture.ts；2026-10-13
+// 起——旧实现给的是跨源的资源 URL，画进 canvas 会被判跨源污染）。这条声明留给将来
 // 真正需要内联的小图片；globe-projection.test.mts 的合成贴图不走这里。
 // 谁把它改回 import，tmp/scratch/globe-probe 量得出的启动账就白修了。
 //
