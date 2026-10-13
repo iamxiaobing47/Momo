@@ -1,6 +1,6 @@
 {
   "name": "momo",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Card-style lightweight note layer: one Momo = one Markdown file. Tags, filters, random review, heatmap, soft-delete trash. Local-first: the only network access is an optional, user-triggered download of the 3D globe assets.",
   "main": "main.js",
   "scripts": {
