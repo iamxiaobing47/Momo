@@ -13,14 +13,22 @@
 //   ③ 发布链白名单 SCRIPT_ALWAYS_SYNC：登记在那里的脚本即使 Momo 索引还没跟踪也进面。
 //
 // 常规 `scripts/` 新脚本默认 **dev-only**（测试 / 文档守卫 / 一次性工具都不进公开仓，
-// 跟踪面以 Momo 的 git 索引为权威，见 AGENTS.md §0）；**发布链脚本是例外**：
-// 它要在公开仓检出里直接能跑（`npm run release:publish`），必须进同步面。
+// 跟踪面以 Momo 的 git 索引为权威，见 AGENTS.md §0）；**发布链 / 构建链脚本是例外**：
+// 它们要在公开仓检出里直接能跑或能被 import（`npm run release:publish` 要跑得起来，
+// `esbuild.config.mjs` 要 import 得到），必须进同步面。漏登记不会立刻报错——但公开仓
+// 那条 `npm run build`（**CI 发版资产就是它构建的**）会 import 到不存在的模块，直接红。
 // 要把一个新脚本纳入同步面：登记到下面这张表，并同步 AGENTS.md §0 的口径。
 export const SCRIPT_ALWAYS_SYNC = [
   // 手动发布 GitHub Release：Momo 检出的 package.json 里登记了同名的 npm script
   'scripts/publish-release.mjs',
   // sync-to-momo.mjs import 它；不带过去会让公开仓里那份 sync 脚本 import 到不存在的模块
   'scripts/sync-surface.mjs',
+  // esbuild.config.mjs import 它（装载期中和 react-dom 的运行期 <script>，BUG-233）；
+  // 不带过去，公开仓那条 `npm run build` 会 import 到不存在的模块
+  'scripts/react-dom-script-guard.mjs',
+  // 上面那个模块的类型声明面。公开仓不跑 scripts 层 typecheck，带过去只为两仓 scripts/
+  // 形状一致（先例：vault-targets.d.mts 在 Momo 也是跟踪的）
+  'scripts/react-dom-script-guard.d.mts',
 ]
 
 /** 全量目录面：本仓的这两个目录是唯一真源——本仓有的全搬过去，公开仓多出来的就是退役文件 */

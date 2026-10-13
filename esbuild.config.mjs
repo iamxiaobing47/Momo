@@ -6,6 +6,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { buildCss } from './scripts/build-css.mjs'
 import { ARTIFACTS, STALE_ARTIFACTS, GLOBE_TEXTURES, GLOBE_EARTH_IDS, GLOBE_CUBE_FACES, globeTextureProblems, globeAssetRevOf, vaultPluginDirs } from './scripts/vault-targets.mjs'
+import { neutralizeScriptElements, scriptElementProblems } from './scripts/react-dom-script-guard.mjs'
 
 const production = process.argv[2] === 'production'
 
@@ -73,6 +74,41 @@ if (textureIssues.length > 0) {
 const assetRev = globeAssetRevOf(projectDir)
 console.log(`[build] 运行时资源指纹 globe-asset-rev = ${assetRev}`)
 
+
+// ---- react-dom 的运行期 <script>（2026-10-13 / BUG-233）----------------------------
+//
+// 评审把「运行期建 <script>」列为 Error，判据是**产物里的字面串**。BUG-219 之后我们自己的
+// 代码已经一处不剩，但 react-dom 19 的 client 入口（CJS，树摇不掉）自带三个「资源提升」
+// 分支会 `createElement("script")`——插件从不渲染 `<script>` 子节点、也从不调
+// `ReactDOM.preinit`，那是**死代码**。这里在装载期把它换成惰性的 `<template>`：死代码
+// 永远建不出 `<script>`，且换的是标签名、不是把字面量藏起来（藏字面量才是评审说的代码混淆）。
+// 完整理由、先例与「为什么不是 postinstall」见 scripts/react-dom-script-guard.mjs 的文件头。
+const reactDomScriptNeutralizer = {
+  name: 'react-dom-no-runtime-script-elements',
+  setup(build) {
+    let replaced = 0
+    // 每轮构建从零计：watch 下不重置的话，第一轮之后「本轮一处都没中和」就再也报不出来了
+    build.onStart(() => {
+      replaced = 0
+    })
+    build.onLoad({ filter: /react-dom[\\/]cjs[\\/][^\\/]+\.js$/ }, (args) => {
+      const { code, replaced: n } = neutralizeScriptElements(fs.readFileSync(args.path, 'utf8'))
+      replaced += n
+      return { contents: code, loader: 'js' }
+    })
+    build.onEnd((result) => {
+      if (result.errors.length > 0) return
+      if (replaced === 0) {
+        // 不拦构建：上游哪天自己修了，这是好消息，不该把发版卡住。但也不能静默——
+        // 说明这条补丁的靶子没了，该复核后退役（而不是留一段永远空转的代码）。
+        console.warn(
+          '[build] react-dom 里没找到 createElement("script")：中和补丁已无用武之地' +
+            '（react-dom 升级了 / 换了打包形态）——去 scripts/react-dom-script-guard.mjs 复核后再决定是否退役它',
+        )
+      }
+    })
+  },
+}
 
 // 构建产物同步到各 vault 的插件目录（dev 热更新与 production 都生效）。
 // 目标列表与 verify-deploy 共用 scripts/vault-targets.mjs（单一真源，别在这再抄一份）。
@@ -160,6 +196,15 @@ const deployPlugin = {
           '[deploy] 未配置部署目标（MOMO_VAULTS 没设）→ 跳过部署；产物仍在工程根。多个绝对路径用 `;` 分隔',
         )
       }
+      // 发布阻断自检（2026-10-13 / BUG-233）：产物里不许出现运行期建 <script> 的调用。
+      // 上面的 onLoad 负责中和 react-dom 的死代码，这一条是**兜底门禁**——补丁失效、
+      // react-dom 换了打包形态、新依赖带进来，三种都在这里红，而不是等商店评审打回。
+      // 放在部署循环之外：CI 里没有 vault（deployed / skipped 都是空）时同样要查，
+      // 而发版链（本仓 `npm run build` 与公开仓 CI 的同一条命令）正是靠 exit 1 停下。
+      const mainJs = path.join(projectDir, 'main.js')
+      if (fs.existsSync(mainJs)) {
+        problems.push(...scriptElementProblems(fs.readFileSync(mainJs, 'utf8')))
+      }
       if (process.exitCode === 1 || problems.length > 0) {
         console.error(`[deploy] 校验失败 ${problems.length} 项：\n  ${problems.join('\n  ')}`)
         process.exitCode = 1
@@ -194,7 +239,7 @@ const context = await esbuild.context({
   // 字符串字面量，minify 后形态由 esbuild 决定，拿正则去捞字面量等于把构建器输出细节
   // 钉进门禁；banner 是自己写的稳定标记。
   banner: { js: `/* momo:globe-asset-rev=${assetRev} */` },
-  plugins: [deployPlugin],
+  plugins: [reactDomScriptNeutralizer, deployPlugin],
 })
 
 if (production) {
