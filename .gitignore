@@ -3,9 +3,8 @@ node_modules/
 *.log
 
 # —— 构建产物 ——
-# main.js / globe3d.js 由 esbuild 产出，不入库；styles.css 是部署件，要入库
+# main.js 由 esbuild 产出，不入库；styles.css 是部署件，要入库
 main.js
-globe3d.js
 
 # —— 临时产物 ——
 # 所有运行时临时文件统一进 tmp/（run-tests→tmp/test、run-bench→tmp/bench、

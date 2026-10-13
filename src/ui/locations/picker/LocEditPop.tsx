@@ -61,10 +61,12 @@ export function LocEditPop({ path, x, y, onClose }: { path: string; x: number; y
   // 三态由它决定；右列不显示（showStat=false），组条数用不上。
   // view（locLevel + locRegions）只决定行文字：与分组流同一个档位，用户在
   // 组头上看的前缀这里也看得见。
-  const rows = useMemo(
-    (): LocRow[] => (entry ? candidateLocRows(entries, [entry], false, query, { level: locLevel, regions: locRegions }) : []),
-    [entries, entry, query, locLevel, locRegions, lang],
-  )
+  const rows = useMemo((): LocRow[] => {
+    // lang 只作「行文字换语言要重算」的信号（locGroupOf 的 label 走 displayLocName），
+    // 显式读一次它才算真依赖（BUG-221 口径；见上面 lang 的注释）。
+    void lang
+    return entry ? candidateLocRows(entries, [entry], false, query, { level: locLevel, regions: locRegions }) : []
+  }, [entries, entry, query, locLevel, locRegions, lang])
 
   const typed = query.trim()
   const typedValid = typed !== '' && charLength(typed) <= LOCATION_MAX_CHARS

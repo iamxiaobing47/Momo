@@ -1,9 +1,10 @@
-import { MarkdownRenderer, Modal, Notice } from 'obsidian'
+import { Component, MarkdownRenderer, Modal, Notice } from 'obsidian'
 import { useUi, type MomoCaps } from '../ui/store'
 import type { MomoService } from '../momo/service'
 import { copy } from '../momo/i18n'
 import { dayMoment, localDay } from '../momo/dates'
 import { errMsg } from '../momo/core'
+import { applyFontVars } from '../ui/shared/fontStyle'
 import type { GlobeEarth } from '../momo/types'
 
 // `MomoCaps` 的组装：ui/ 与 service 之间**唯一**的通道。
@@ -54,9 +55,15 @@ function openConfirmModal(
     const modal = new Modal(app)
     modal.modalEl.addClass('momo-confirm')
     modal.modalEl.addClass(`momo-theme-${colorScheme}`)
+    // 遮罩父节点挂显式类（BUG-227，与 pickDay 同一行、同一理由）。
+    modal.containerEl.addClass('momo-confirm-container')
+    // 弹窗挂在 body 下、不在 .momo-app 里，而令牌块在 .momo-confirm 上自己声明了一份
+    // --momo-sans 本体——要让用户的字体选择压过它，只能把内联变量写在这个**新宿主**上
+    // （BUG-217：全局 <style> 退役后，每个新宿主自己领一次）。
+    applyFontVars(modal.modalEl)
     modal.contentEl.createEl('p', { text: options.message, cls: 'momo-confirm-message' })
     const actions = modal.contentEl.createDiv('momo-confirm-actions')
-    if (options.danger) actions.createEl('span', { cls: 'momo-confirm-hint', text: copy.dialog.irreversible })
+    if (options.danger) actions.createSpan({ cls: 'momo-confirm-hint', text: copy.dialog.irreversible })
     const acts = actions.createDiv('momo-confirm-acts')
     const cancel = acts.createEl('button', { text: copy.common.cancel })
     cancel.addClass('momo-pop-btn')
@@ -87,6 +94,30 @@ function openConfirmModal(
  */
 function notice(message: string): void {
   new Notice(message)
+}
+
+/**
+ * 正文渲染的 Component：**每个容器一个**（BUG-218）。
+ *
+ * `MarkdownRenderer.render(app, md, el, path, component)` 的第 5 参会被拿来登记渲染期
+ * 产生的子组件（嵌入笔记、块级插件视图…），所以它的寿命必须**跟着容器**：
+ * 旧实现传 `service.pluginOf()`（主插件实例），登记的东西全挂在插件寿命上，
+ * 卡片滚出视野 / 切密度重挂之后一个都不释放——正是 Obsidian 评审
+ * `obsidianmd/no-plugin-as-component` 要拦的内存泄漏形状。
+ *
+ * 同一个容器再渲染一次时先把上一个 unload（一个容器只留一个）；容器被 React 摘掉 /
+ * 预热容器用完即弃时由 `releaseMarkdown` 收尾。**不能**在渲染 Promise 落定后立刻
+ * unload：`Component.unload()` 会连带 `MarkdownRenderChild.onUnload`（嵌入内容会把自己
+ * 从 DOM 里摘掉），那时候正文刚上屏。
+ */
+const markdownComponents = new WeakMap<HTMLElement, Component>()
+
+function componentFor(container: HTMLElement): Component {
+  markdownComponents.get(container)?.unload()
+  const component = new Component()
+  component.load()
+  markdownComponents.set(container, component)
+  return component
 }
 
 // ---- 时间位移建档（2026-09-28 刀 2）：选一天 → 建空白 Momo 到那天 → 开原生编辑器 ----
@@ -134,6 +165,12 @@ function pickDay(app: import('obsidian').App, colorScheme: string, spec: DayPick
     const modal = new Modal(app)
     modal.modalEl.addClass('momo-confirm')
     modal.modalEl.addClass(`momo-theme-${colorScheme}`)
+    // 遮罩的父节点是 containerEl（不是 modalEl）——BUG-227：`:has()` 那条约
+    // `.modal-container:has(.momo-confirm) .modal-bg` 的性能告警改成显式类，类只能挂在这里
+    // （60-trash.css 的 `.modal-container.momo-confirm-container .modal-bg`）。
+    modal.containerEl.addClass('momo-confirm-container')
+    // 与 openConfirmModal 同款：新宿主自己领字体变量（BUG-217）。
+    applyFontVars(modal.modalEl)
     modal.contentEl.createEl('p', { text: spec.hint, cls: 'momo-confirm-message' })
     const row = modal.contentEl.createDiv('momo-backfill-row')
     const input = row.createEl('input', { type: 'date', cls: 'momo-backfill-date' })
@@ -242,7 +279,11 @@ export function buildCaps(service: MomoService): MomoCaps {
   const cubeUrls = new Map<GlobeEarth, Promise<string[]>>()
   return {
     renderMarkdown: (container, markdown) =>
-      MarkdownRenderer.render(service.app, markdown, container, service.rootPath(), service.pluginOf()),
+      MarkdownRenderer.render(service.app, markdown, container, service.rootPath(), componentFor(container)),
+    releaseMarkdown: (container) => {
+      markdownComponents.get(container)?.unload()
+      markdownComponents.delete(container)
+    },
     // 发布 Momo：创建失败必须让调用方知道（别让「点了一下，什么都没发生」）
     publish: async (content, tags) => {
       try {
@@ -409,9 +450,7 @@ export function buildCaps(service: MomoService): MomoCaps {
     // 为什么不是资源 URL（旧实现）：`resourcePathPrefix` 形式的 URL 对文档
     // （app://obsidian.md）是**跨源**的，`<img>` 不带 CORS 装载会把 canvas 污染成
     // 跨源 → getImageData 抛 SecurityError → 六面全解不出（现场见
-    // service.readGlobeCubeFaces）。自己读字节再包 `blob:` URL 从根上免掉这条；
-    // 也因此不再需要 `?v=` 内容指纹——那一套现在只服务 globe3d.js 的 <script>
-    // （见 ui/globe/globe3dLoader.ts）。
+    // service.readGlobeCubeFaces）。自己读字节再包 `blob:` URL 从根上免掉这条。
     //
     // ⚠️ 它必须是**异步**的：读盘是异步的。调用方（GlobeStage / globePrewarm）
     // 在拿到六面之前不许画球，也不许把「还没读」当成「读失败」。
@@ -427,22 +466,14 @@ export function buildCaps(service: MomoService): MomoCaps {
       })
       return pending
     },
-    // 星球三维渲染库（three.js 档，2026-10-04）：同为**独立部署产物**，esbuild 的
-    // 第二产物 globe3d.js（three 全量 ~600KB 不许进 main.js，onload parse 账同上）。
-    // 运行期经 globe3dLoader 注入 <script> 惰性加载，失败回退 canvas 软渲染。文件名
-    // 与 scripts/vault-targets.mjs 的 GLOBE3D 同一份真源（部署 + verify 都走那里）。
-    // ⚠️ 这里**不加**内容指纹：globe3d.js 的 <script> 注入只有 globe3dLoader 一处
-    // 发起点，指纹统一在那里加（withAssetRev，2026-10-05「球有贴图但不转」的根因，
-    // 见 src/ui/globe/globeAssetRev.ts）。贴图那条路相反：<img> 由
-    // globeTexture 直接发起，中间没有别的环节，所以指纹加在这里。
-    globe3dUrl: () =>
-      service.app.vault.adapter.getResourcePath(
-        `${service.vault.configDir}/plugins/${service.pluginId}/globe3d.js`,
-      ),
-    // 星球资源包（v1.0.0）：globe3d.js 与两套贴图是**可选下载**——商店 / BRAT 只下发
+    // 星球资源包（v1.0.0）：两套 cube 贴图（12 张）是**可选下载**——商店 / BRAT 只下发
     // main.js / manifest.json / styles.css，重资产到不了自动安装的用户手里。这两条是
     // 下载入口的能力面；网络与写盘在 service.downloadGlobePack，这里只把「当前插件
     // 版本」顶进去当记账口径（release 的 tag = 版本号）。
+    //
+    // 2026-10-13（BUG-219）：包里的三维库 globe3d.js 退役——three 随 main.js 静态发布，
+    // `MomoCaps.globe3dUrl` 与运行期 <script> 注入整条契约一并删掉（评审把
+    // createElement('script') 列为 Error）。
     globePackStatus: async () => ({ ...(await service.globePackStatus()), current: service.pluginVersion }),
     downloadGlobePack: async (onProgress) => {
       const res = await service.downloadGlobePack(service.pluginVersion, onProgress)

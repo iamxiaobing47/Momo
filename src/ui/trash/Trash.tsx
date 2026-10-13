@@ -66,10 +66,12 @@ export function Trash() {
   const todayKey = useTodayKey()
   const trashEntries = useMemo(() => trash.map((t) => t.entry), [trash])
 
-  const list = useMemo(
-    () => sortEntries(matchEntries(matchedInputs, trashEntries), sortMode),
-    [matchedInputs, trashEntries, sortMode, todayKey],
-  )
+  const list = useMemo(() => {
+    // todayKey 只作「跨零点要重算」的信号：`matchEntries` 按调用时刻折算 recent7/30
+    // 窗口，body 里不直接读它 → 显式读一次，规则才认它是真依赖（BUG-221 口径）。
+    void todayKey
+    return sortEntries(matchEntries(matchedInputs, trashEntries), sortMode)
+  }, [matchedInputs, trashEntries, sortMode, todayKey])
   // 日期分组：恒定列表视图，永远分组（不再看 `prefs.density`——见 TRASH_DENSITY）。
   const dateGroups = useMemo(() => groupByDate(list), [list])
 

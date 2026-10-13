@@ -253,7 +253,7 @@ export function StatsPage() {
         const flushDist = () => {
           if (distRun.length === 0) return
           body.push(
-            <section className="momo-row momo-row-dist" key={`dist-${distRun[0]!.id}`}>
+            <section className="momo-row momo-row-dist" key={`dist-${distRun[0].id}`}>
               {distRun.map((c) => (
                 <Fragment key={c.id}>{c.render(ctx)}</Fragment>
               ))}

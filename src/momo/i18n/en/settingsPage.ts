@@ -599,12 +599,14 @@ export const settingsPage = {
         day: 'Day earth',
       } satisfies Record<GlobeEarth, string>,
     },
-    /** Globe asset pack (v1.0.0): the 3D globe renderer and two sets of Earth textures
-     *  are an optional download — the store installer and BRAT only ship the three core
-     *  files. This is the plugin's only network access, and only on an explicit click. */
+    /** Globe asset pack (v1.0.0): the two sets of Earth textures (12 files) are an
+     *  optional download — the store installer and BRAT only ship the three core
+     *  files. This is the plugin's only network access, and only on an explicit click.
+     *  2026-10-13 (BUG-219): the 3D renderer is no longer part of the pack — three
+     *  is bundled into main.js now. */
     pack: {
       name: 'Globe asset pack',
-      desc: 'The 3D globe renderer and two sets of Earth textures (~7MB) are not shipped with the plugin — “Download” fetches them from this repo’s release. It is the plugin’s only network access.',
+      desc: 'The two sets of Earth textures (~7MB) are not shipped with the plugin — “Download” fetches them from this repo’s release. It is the plugin’s only network access.',
       download: 'Download',
       downloading: (done: number, total: number): string => `Downloading ${done}/${total}…`,
       notInstalled: 'Not installed — the globe view falls back to a simpler rendering (dots still work).',
@@ -670,7 +672,7 @@ export const settingsPage = {
    *  verdict and the fix live in momo/tagHealth.ts). One card, one action: list
    *  the tags that **contain whitespace** and strip it. Why those are “invalid”:
    *  Obsidian tags cannot contain whitespace, so
-   *  `Chapter Seven　No More Crying at Funerals` in frontmatter is not recognized
+   *  `Chapter Seven\u3000No More Crying at Funerals` in frontmatter is not recognized
    *  as a tag at all
    *  (it is just text in the properties panel) — yet the Momo sidebar still shows
    *  it and lets you click it, so the two sides stop agreeing. */

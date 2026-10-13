@@ -170,7 +170,7 @@ export function sanitizeSections(value: unknown): SidebarSections {
   const raw = value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
   const out = { ...DEFAULT_SECTIONS }
   for (const key of Object.keys(DEFAULT_SECTIONS) as Array<keyof SidebarSections>) {
-    if (typeof raw[key] === 'boolean') out[key] = raw[key] as boolean
+    if (typeof raw[key] === 'boolean') out[key] = raw[key]
   }
   return out
 }
@@ -180,7 +180,7 @@ export function sanitizeStatsSections(value: unknown): StatsSections {
   const raw = value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
   const out = { ...DEFAULT_STATS_SECTIONS }
   for (const key of Object.keys(DEFAULT_STATS_SECTIONS) as Array<keyof StatsSections>) {
-    if (typeof raw[key] === 'boolean') out[key] = raw[key] as boolean
+    if (typeof raw[key] === 'boolean') out[key] = raw[key]
   }
   return out
 }
@@ -392,14 +392,24 @@ function readCssUrl(css: string, i: number): { raw: string; next: number } {
   return { raw, next: k < css.length ? k + 1 : k }
 }
 
+/**
+ * 剥掉首尾的 ASCII 控制（C0）与空格。逐字符扫而**不写成正则字面量**：
+ * `\u0000` / `\x00` 这类控制转义会被 `no-control-regex` 拦下（BUG-224），
+ * 而本函数的判定区间就是字面上的 0x00–0x20。
+ */
+function stripEdgeAsciiControls(value: string): string {
+  let from = 0
+  let to = value.length
+  while (from < to && value.charCodeAt(from) <= 0x20) from += 1
+  while (to > from && value.charCodeAt(to - 1) <= 0x20) to -= 1
+  return value.slice(from, to)
+}
+
 /** 还原后的 URL 值是否指向远程（`http:` / `https:` / 协议相对 `//`，大小写不敏感）。
  *  先按 URL 标准预处理：移除全部 ASCII tab / 换行，再剥首尾 C0 控制与空格——
  *  不这么做，`"ht\ntp://…"` 这类（浏览器会拼接成 http://）就能绕过前缀比对。 */
 function isRemoteUrlValue(value: string): boolean {
-  const cleaned = value
-    .replace(/[\t\n\r]/g, '')
-    .replace(/^[\u0000-\u0020]+/, '')
-    .replace(/[\u0000-\u0020]+$/, '')
+  const cleaned = stripEdgeAsciiControls(value.replace(/[\t\n\r]/g, ''))
   const lower = cleaned.toLowerCase()
   return lower.startsWith('http:') || lower.startsWith('https:') || lower.startsWith('//')
 }
@@ -486,7 +496,7 @@ export function sanitizeFontPref(value: unknown): string {
   }
   if (s.startsWith('bundled:')) return ''
   const safe = s.replace(/\s+/g, ' ')
-  if (!/^[A-Za-z0-9\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af \-]+$/.test(safe)) return ''
+  if (!/^[A-Za-z0-9\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af -]+$/.test(safe)) return ''
   return truncateChars(safe, FONT_VALUE_MAX)
 }
 
@@ -819,5 +829,5 @@ export function sanitizeIconOverrides(value: unknown): IconOverrides {
     if (!ICON_OVERRIDE_KEYS.has(name)) return null
     if (typeof id !== 'string' || !LUCIDE_ID_SET.has(id)) return null
     return [name, id]
-  }) as IconOverrides
+  })
 }

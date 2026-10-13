@@ -156,7 +156,11 @@
 .momo-habit-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 28px;
+  /* 行距保持默认的 normal（=0），只给列距 28px——写成 `gap: 0 28px` 而不是
+     `gap: 28px`，后者会把行距一起改成 28px。BUG-227：`column-gap` 会被评审当成
+     multicolumn 特性（「only partially supported」）报出来，`gap` 是同一语义的
+     现代写法、不再踩那条判据。 */
+  gap: 0 28px;
 }
 
 .momo-habit-cell {

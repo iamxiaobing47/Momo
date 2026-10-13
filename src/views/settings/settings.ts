@@ -11,6 +11,7 @@ import {
   type MomoSettings,
 } from '../../momo/types'
 import { h, iconSvg, arrowNav } from './dom'
+import { applyFontVars, syncFontStyle } from '../../ui/shared/fontStyle'
 import { SECTION_TABS } from './tabs'
 import { SECTION_IDS, type MomoHost, type SectionId } from './sections'
 import type { DirCommit, DirHooks, SettingsCtx } from './context'
@@ -275,6 +276,14 @@ export class MomoSettingTab extends PluginSettingTab {
     // 视图偏好（prefs）的初值以 service.data 为准（store 在面板没开时可能是旧值）
     const prefs = service.data.prefs
 
+    // 字体变量（BUG-217）：设置页根是四类宿主之一，而令牌块在 .momo-settings 上自己
+    // 声明了 --momo-sans 本体——用户的字体选择必须写成这个宿主上的**内联**变量才压得过。
+    // 两件事一起做：① syncFontStyle 把盘上的值记成模块级当前值（面板可能压根没开过，
+    // currentVars 还是空的）并穿给所有已在文档里的宿主；② 本容器无论挂没挂上文档都领
+    // 一份，别指望 ① 的 querySelectorAll 找得到它（设置页 DOM 测试里就不在文档里）。
+    syncFontStyle({ uiFont: prefs.uiFont, cardFont: prefs.cardFont })
+    applyFontVars(containerEl)
+
     /** 偏好改动的订阅表（v0.9.32 可视化预览）：setPref / setPrefLive 落库后各通知一遍。
      *  预览块与控件解耦——它只认「偏好变了」，不认是哪个控件改的（见 context.ts）。 */
     const prefSubs = new Set<() => void>()
@@ -444,12 +453,12 @@ export class MomoSettingTab extends PluginSettingTab {
     const visibleTabs = SECTION_TABS.filter((t) => !t.visible || t.visible())
     // activeSection 是单例且活得比本页久（关掉再开不重置）：当前页被 entitlement
     // 隐藏时重新指向第一个可见页——否则 paintTab 每回合都在兜底，行为不可预期。
-    if (!visibleTabs.some((t) => t.id === this.activeSection)) this.activeSection = visibleTabs[0]!.id
+    if (!visibleTabs.some((t) => t.id === this.activeSection)) this.activeSection = visibleTabs[0].id
 
     const paintTab = (active: string): void => {
       // 兜底：给的 id 不在页面里（将来区段增删不同步、或当前页被隐藏）时退回第一个
       // 可见页，而不是整片空白
-      const target = cards.has(active as SectionId) ? active : visibleTabs[0]!.id
+      const target = cards.has(active as SectionId) ? active : visibleTabs[0].id
       for (const chip of navChips) {
         const on = chip.dataset.target === target
         chip.classList.toggle('is-on', on)
@@ -577,12 +586,14 @@ export class MomoSettingTab extends PluginSettingTab {
         // 两道都上：重建期间摘掉滚动锚定（把会被替换掉的锚点清掉，那一笔无从算起），
         // 再把 scrollTop 原样写回（兜住重建途中任何一次强制布局可能造成的钳位）。
         // try/finally：display() 万一抛了，也别把 overflow-anchor:none 留在容器上。
+        // BUG-217：摘锚定走类（`.momo-no-anchor`，规则在 80-settings/001-page.css）——
+        // 旧实现写内联 overflowAnchor，那是 Obsidian 评审的 no-static-styles-assignment。
         const top = containerEl.scrollTop
-        containerEl.style.overflowAnchor = 'none'
+        containerEl.classList.add('momo-no-anchor')
         try {
           this.display()
         } finally {
-          containerEl.style.overflowAnchor = ''
+          containerEl.classList.remove('momo-no-anchor')
           containerEl.scrollTop = top
         }
       },

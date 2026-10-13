@@ -42,13 +42,13 @@ function WindowSlotInner({ path, index, children }: WindowSlotProps): React.JSX.
   }
   const info = infoRef.current
 
+  // info 首帧创建后不再变（estimate 已快照），所以这个 effect 实际只跑一次；写进依赖表
+  // 是诚实表达，不是「多跑几次」——挂载状态由 IO 回调经 setMounted 翻转，与订阅无关。
   useEffect(() => {
     const el = ref.current
     if (!el) return
     return observeSlot(el, info)
-    // info 首帧创建后不再变（estimate 已快照）；挂载状态由 IO 回调经 setMounted 翻转
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [info])
 
   return (
     <div

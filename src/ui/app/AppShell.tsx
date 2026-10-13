@@ -6,10 +6,12 @@
 // 文本匹配），逐字不动；prop 顺序也保持原样——DOM 快照（dom-snapshot.test.mts）
 // 按 outerHTML 逐字节比对，属性顺序变了照样红。
 import type { CSSProperties, KeyboardEvent, ReactNode, RefObject } from 'react'
+import { useEffect } from 'react'
 import type { LangPref } from '../../momo/types'
 import type { MainMode } from '../store'
 import { CustomCss } from '../shell/CustomCss'
 import { clearAnchor } from '../shared/viewAnchor'
+import { applyFontVars } from '../shared/fontStyle'
 import type { AppearancePrefs, SidebarChrome } from '../hooks/useChromePrefs'
 
 export interface AppShellProps {
@@ -51,8 +53,16 @@ export function scrollAppToTop(app: HTMLDivElement | null): void {
 
 export function AppShell(props: AppShellProps) {
   const { lang, appearance, chrome, mode, selectMode, rootRef, onKeyDown, children } = props
-  const { colorScheme, customCss, cardGap, cardFontSize, cardTitleSize, cardRadius } = appearance
+  const { colorScheme, customCss, cardGap, cardFontSize, cardTitleSize, cardRadius, uiFont, cardFont } = appearance
   const { sidebar, sidebarWidth, sidebarSide } = chrome
+  // 字体偏好（--momo-sans / --momo-font-card）是**命令式**写到根节点上的（BUG-217：
+  // 旧实现靠往 head 塞一份全局 <style>，换成 setCssProps 后新宿主得自己领）。
+  // 必须是 effect 而不是把它并进下面的 style 对象：根 div 带 key={lang}，切语言时
+  // 整棵重挂、旧节点连同内联变量一起消失，而 React 只管它自己 style 里那几个键。
+  // 依赖三个值：lang（重挂）、两个字体槽位（改设置当场生效）。
+  useEffect(() => {
+    if (rootRef.current) applyFontVars(rootRef.current)
+  }, [lang, uiFont, cardFont, rootRef])
   return (
     <div
       key={lang}

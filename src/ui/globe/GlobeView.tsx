@@ -112,6 +112,10 @@ export function GlobeView({
   // 的话任何与球无关的 store 变化（搜索键入、entries 刷新经 CardFlow 传导）都会
   // 把这份账重算一遍。
   const anchors = useMemo<GlobeAnchorItem[]>(() => {
+    // lang 只作「label 换语言要重算」的信号（atName.label 走 displayLocName，语言
+    // 切换时 copy 字典换引用、label 得跟着换），body 里不直接读它 → 显式读一次，
+    // 规则才认它是真依赖（BUG-221 口径）。
+    void lang
     const out: GlobeAnchorItem[] = []
     for (const t of tallies) {
       const coord = coordOfLocation(t.location, locCoords)
@@ -137,11 +141,13 @@ export function GlobeView({
    * （件数）直接写在按钮上——不跳页、不弹窗。
    */
   const runPackDownload = async (): Promise<void> => {
-    const fn = caps?.downloadGlobePack
-    if (!fn) return
+    // ⚠️ 调用点上**不把方法摘出来**（旧写法 `const fn = caps?.downloadGlobePack`）：
+    // 那正是 @typescript-eslint/unbound-method 的形状（BUG-223 的第 78 处）。这里
+    // 直接挂在 caps 上调，判定与调用都不离开宿主对象。
+    if (!caps?.downloadGlobePack) return
     setPack({ phase: 'busy', done: 0, total: 0, failed: 0, reason: 'network' })
     try {
-      const res = await fn((done, total) => setPack({ phase: 'busy', done, total, failed: 0, reason: 'network' }))
+      const res = await caps.downloadGlobePack((done, total) => setPack({ phase: 'busy', done, total, failed: 0, reason: 'network' }))
       if (!res.ok) {
         setPack({ phase: 'failed', done: 0, total: 0, failed: res.failed.length, reason: res.reason })
         return

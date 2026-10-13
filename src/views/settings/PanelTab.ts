@@ -95,18 +95,19 @@ export function buildPanelTab(ctx: SettingsCtx): void {
     // sidebarToggle 的条目只剩 name，这里也不再建 .momo-set-desc（判法同 row() 对
     // 空 desc 不建元素）。
     info.append(h('div', 'momo-set-tile-name', item.name))
-    cell.append(
-      info,
+    // 开关的状态镜像到卡上（`momo-set-tile-on`，见 fields.ts buildSwitch 的 owner）：
+    // BUG-227 去 :has 后「哪张卡里有开着的开关」由渲染时现算，不再让 CSS 反查后代。
+    const sw = ctx.field.buildSwitch(
       // patch 从 **service 现读**的 sections 展开，不是 display() 时的 prefs 快照：
       // 快照会让同一轮设置里连点两个开关时，前一次改动被整块回写覆盖（v0.7.6 修复）
-      ctx.field.buildSwitch(
-        () => ctx.service.data.prefs.sections[key],
-        (v) =>
-          ctx.setPref({
-            sections: { ...ctx.service.data.prefs.sections, [key]: v },
-          }),
-      ),
+      () => ctx.service.data.prefs.sections[key],
+      (v) =>
+        ctx.setPref({
+          sections: { ...ctx.service.data.prefs.sections, [key]: v },
+        }),
+      cell,
     )
+    cell.append(info, sw)
     grid.append(cell)
   }
   block.append(blockHead, grid)
@@ -221,8 +222,8 @@ export function buildPanelTab(ctx: SettingsCtx): void {
     let j = i + dir
     while (j >= 0 && j < list.length && list[j]?.on !== true) j += dir
     if (j < 0 || j >= list.length) return
-    const tmp = list[i] as DensityViewPref
-    list[i] = list[j] as DensityViewPref
+    const tmp = list[i]
+    list[i] = list[j]
     list[j] = tmp
     applyViews(list)
     paintViews()
@@ -258,6 +259,8 @@ export function buildPanelTab(ctx: SettingsCtx): void {
         applyViews(viewsNow().map((v) => (v.id === id ? { ...v, on } : v)))
         paintViews()
       },
+      // 视图行同样把状态镜像到行上（tile 的选中态语言，见 fields.ts buildSwitch）
+      row,
     )
     row.append(info, group, sw)
     viewRows.set(id, { el: row, up, down, sw })

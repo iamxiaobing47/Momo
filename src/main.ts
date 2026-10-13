@@ -78,7 +78,7 @@ export default class MomoPlugin extends Plugin {
               try {
                 await this.service.create(selection, parseInlineTags(selection))
                 await useUi.getState().refresh()
-              } catch (e) {
+              } catch {
                 // 静默失败：不再弹出黑底白字提醒
               }
             }),
@@ -125,8 +125,8 @@ export default class MomoPlugin extends Plugin {
     this.unsubscribe?.()
     // N07：撤掉还没跑的空白草稿清扫，卸载后 3s 内不再动 vault
     this.service.dispose()
-    // 运行期注入的字体变量 <style>（id=momo-fonts）随手撤掉：styles.css 那份由
-    // Obsidian 撤，这份是我们自己 append 的（禁用插件后不应再占着字体）。
+    // 运行期写进四类宿主内联样式的字体变量随手撤掉：styles.css 那份由 Obsidian 撤，
+    // 这份是我们自己 setCssProps 写的（禁用插件后不应再占着字体）。
     removeFontVars()
     // N10：setPrefLive 的 400ms 防抖窗口内重载，最后改动只活在内存里——卸载时补一次
     // persist。prefs 已经并进 service.data（persist 就够）；设置页还排着的普通输入
@@ -159,7 +159,8 @@ export default class MomoPlugin extends Plugin {
    * ensureSideLeaf(split: false)：落在侧栏既有 Tab 列表里，与 文件 / 大纲 / 反向链接
    * 并列成列表之一；split: true 才会把侧栏拆成上下两窗、让插件独占一整块
    * （旧实现 getRightLeaf(true) 就是踩了这个坑）。
-   * 旧版 Obsidian（< 1.7.2，无此 API）退回「不拆栏」的取格方式。
+   * 声明面是 1.8.7（BUG-216），`ensureSideLeaf` 一定有；`typeof` 兜底留作**防御**
+   * （宿主 API 被改 / 被 polyfill 掉时仍能开面板），不再是支持面承诺。
    */
   private async createPanelLeaf(side: 'left' | 'right'): Promise<WorkspaceLeaf | null> {
     const { workspace } = this.app
@@ -230,7 +231,7 @@ export default class MomoPlugin extends Plugin {
   private rememberPanelSide(): void {
     const leaves = this.app.workspace.getLeavesOfType(VIEW_MOMO)
     if (leaves.length !== 1) return
-    const side = this.sideOf(leaves[0]!)
+    const side = this.sideOf(leaves[0])
     if (side)
       void this.service.savePanelSide(side).catch((e) => {
         // BUG-133f：rememberPanelSide 同款 void——补 catch，别留 unhandled rejection

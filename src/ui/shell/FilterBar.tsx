@@ -70,44 +70,45 @@ export function FilterBar() {
     window.setTimeout(() => root.removeEventListener('click', onCap), REPEAT_WATCH_MS)
   }
 
-  const activeFilters = useMemo(
-    () =>
-      collectActiveFilters({
-        filterDates,
-        filterTags,
-        filterLocations,
-        untaggedOnly,
-        filterHours,
-        filterWeekdays,
-        filterLength,
-        filterTagCount,
-        filterReviewed,
-        tagByKey,
-        toggleFilterDate,
-        toggleTag,
-        toggleLocation,
-        setUntaggedOnly,
-        clearDrill,
-      }),
-    [
+  const activeFilters = useMemo(() => {
+    // lang 只作「胶囊文案换语言要重算」的信号（collectActiveFilters 的 label 走 copy
+    // 字典），显式读一次它才算真依赖（BUG-221 口径）。
+    void lang
+    return collectActiveFilters({
       filterDates,
       filterTags,
       filterLocations,
       untaggedOnly,
-      lang,
-      tagByKey,
       filterHours,
       filterWeekdays,
       filterLength,
       filterTagCount,
       filterReviewed,
+      tagByKey,
       toggleFilterDate,
       toggleTag,
       toggleLocation,
       setUntaggedOnly,
       clearDrill,
-    ],
-  )
+    })
+  }, [
+    filterDates,
+    filterTags,
+    filterLocations,
+    untaggedOnly,
+    lang,
+    tagByKey,
+    filterHours,
+    filterWeekdays,
+    filterLength,
+    filterTagCount,
+    filterReviewed,
+    toggleFilterDate,
+    toggleTag,
+    toggleLocation,
+    setUntaggedOnly,
+    clearDrill,
+  ])
 
   if (activeFilters.length === 0) return null
   // ⑤ 补记入口之二：日期筛选**只剩一天**时，在胶囊后面出一枚「补记到 X」。

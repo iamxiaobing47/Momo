@@ -11,7 +11,8 @@ import {
 } from './globeRender'
 import { loadGlobeCube } from './globeTexture'
 import { globeLightFor } from './globeLight'
-import { loadGlobe3D, createBackendSafe } from './globe3dLoader'
+import { createBackendSafe } from './globe3dBackend'
+import { globe3dFactory } from './globe3dStage'
 import type { Globe3DInstance } from './globe3dTypes'
 import { GlobeSurface, frameSizeFor } from './globeSurface'
 import {
@@ -35,16 +36,18 @@ import { GlobeOverlay } from './GlobeOverlay'
 //   globeSurface   表缓存与「运动档 / 静止档」两套分辨率（无 React、无 DOM；软渲染档）
 //   globeGesture   指针序列 → 位姿 / 命中（无 React、无 DOM 事件）
 //   globeTexture   贴图解码（唯一碰 DOM 的一环）
-//   globe3d*       GPU 档：位姿映射（globe3dMath）、独立 chunk 舞台（globe3dStage，
-//                  three.js，不进 main.js）、script 装载器（globe3dLoader）
+//   globe3d*       GPU 档：位姿映射（globe3dMath）、随 main.js 一起发布的 three
+//                  舞台（globe3dStage，静态模块）、守梯创建（globe3dBackend）
 // 剩下必须住在这里的：store 读写、后端定档与 paint 分发、canvas 尺寸与
 // putImageData（软渲染档）、React 事件、rAF。
 //
-// **双后端**（2026-10-04 起）：globe3d.js（three.js）装载成功且 WebGL 可用 →
+// **双后端**（2026-10-04 起）：globe3dStage 的工厂建得出实例（WebGL 可用）→
 // GPU 档（paint 全量转发给 Globe3DInstance.render，运动档降分辨率 / 签名跳帧 /
-// mip 那套都不需要——一帧一个球的 GPU 成本≈0）；装载失败 / WebGL 拿不到 / 没有
-// caps 的测试环境 → 原软渲染档，一行行为不变。两条路共用位姿（store）、手势、
-// 叠层与贴图解码管线，切换只发生在 paint 一处。
+// mip 那套都不需要——一帧一个球的 GPU 成本≈0）；建不出（WebGL 拿不到 / 抛错，
+// BUG-183b 的守梯）/ 没有 canvas 的测试环境 → 原软渲染档，一行行为不变。两条路
+// 共用位姿（store）、手势、叠层与贴图解码管线，切换只发生在 paint 一处。
+// （2026-10-13 / BUG-219：three 从「二产物 + 运行期 <script> 注入」改成静态 import，
+// 工厂随 main.js 同在内存里，装载器与全局交接一起退役。）
 //
 // **每帧渲染怎么走**（2026-10-02 性能重排）：
 //   拖拽与转向的每一帧都在 rAF 回调里**先 paint（建表 + 采样 + putImageData）
@@ -126,10 +129,11 @@ function GlobeStageInner({
    */
   const texRef = useRef<GlobeCube | null>(null)
   /**
-   * 三维后端（three.js 档，globe3d.js 惰性装载）：undefined = 未决（脚本装载中）；
-   * null = 不可用（装载失败 / WebGL 上下文拿不到）→ 走下面的软渲染路径；
-   * 实例 = GPU 档。未决期间 paint 是空操作——**不许**先在 canvas 上建 2d context：
+   * 三维后端（three.js 档，静态模块）：undefined = 未定档（本组件的贴图 effect 还没跑）；
+   * null = 不可用（WebGL 上下文拿不到 / create 抛错）→ 走下面的软渲染路径；
+   * 实例 = GPU 档。未定档期间 paint 是空操作——**不许**先在 canvas 上建 2d context：
    * 2d 与 webgl2 上下文互斥，抢先画 2d 会把 3D 档永久堵死，回退判定只有一次机会。
+   * BUG-219 之后工厂随 main.js 静态进来，定档是同步的，「未定档」只活在同一次提交内。
    */
   const backend3dRef = useRef<Globe3DInstance | null | undefined>(undefined)
   /** 运动档贴图（每面降一半尺寸）：400² 画布配 1024²/面 的 cube 是 5.12 texel/px，
@@ -261,7 +265,9 @@ function GlobeStageInner({
   // 换档，不重画就还是旧分辨率——「放大后变糊」。
   useEffect(() => {
     if (active) paint(rotLat, rotLng, moving)
-  }, [rotLat, rotLng, moving, zoom, active])
+    // paint 是 `useCallback([])` 钉住的稳定引用（见它的注释），写进依赖表是诚实表达，
+    // 不会让这条兜底 effect 多跑（BUG-231）。
+  }, [rotLat, rotLng, moving, zoom, active, paint])
 
   // 贴图与光照**都按档走**（`prefs.globeEarth`）：贴图只解码一次（切进星球视图 →
   // 拖拽 → 切走再回来都不重解码；换档则是另一套 URL，自然另解码一次）。六面 URL 由
@@ -269,12 +275,10 @@ function GlobeStageInner({
   // 抬到 2.7MB，插件 onload 的 parse+eval 实测 ~50ms 里它占大头）；没有 caps 的
   // 环境（jsdom 测试）拿不到 URL，直接不画球，只留 SVG 叠层。
   //
-  // 三维后端（globe3d.js）与贴图**并行**装载，但第一帧要等两边都就绪：后端未决时
-  // paint 是空操作（2d / webgl2 上下文互斥，回退判定只有一次机会，见
-  // backend3dRef）。GPU 档首帧因此比软渲染晚一次 idle（贴图要过 putImageData 上
-  // GPU），换来的是零 CPU 光栅化；首装的 script 装载（几百 ms）与解码重叠，实际
-  // 到球时间由两者较慢者决定。后端定档失败 / WebGL 拿不到 → 本会话内软渲染兜底，
-  // 用户无感。
+  // 三维后端（globe3dStage 的工厂，随 main.js 静态进来）在同一个 effect 里**同步**
+  // 定档：没有装载期可供与贴图解码重叠，也就没有「后端未决期间只能看黑卡」的那段
+  // 等待（BUG-122 记的 15s 死线场景随之消失）。定档失败 / WebGL 拿不到 → 本会话内
+  // 软渲染兜底，用户无感。
   useEffect(() => {
     let alive = true
     let idleHandle: number | null = null
@@ -291,28 +295,22 @@ function GlobeStageInner({
     // 换档时旧档的半尺寸 mip 必须作废：软渲染运动档会拿 `mipRef ?? tex`，
     // 留着就是拿上一档的半尺寸图去画这一档（脏得看不出来源）。
     mipRef.current = null
-    const backendReady = loadGlobe3D(st.caps?.globe3dUrl?.() ?? '').then((factory) => {
-      if (!alive) return
-      // ⚠️ **只在未决时 create**：本 effect 的依赖里有档位，换档会重跑，而同一个
-      //    canvas 上的 webgl2 上下文只有一个（getContext 按类型幂等、返回同一个），
-      //    再包一层 WebGLRenderer 就是两个渲染器管同一份上下文，dispose 谁都错。
-      if (backend3dRef.current === undefined) {
-        // create 内部兜 WebGL 失败返回 null（jsdom / 禁 GPU 等）；装载失败 factory
-        // 本身就是 null——两条路都落到软渲染档。
-        // BUG-183b：create **抛错**（而非按契约返回 null）也要走同一条回退——旧实现
-        // 让它冒成 rejection：Promise.all 进 .catch 报「贴图解码失败」（口径不符，
-        // 解码其实成功）、backend3dRef 永远停在 undefined → 连软渲染球都出不来，
-        // 只剩黑卡 + 说明条。守梯创建见 globe3dLoader.createBackendSafe。
-        const inst = createBackendSafe(factory, canvasRef.current)
-        // 档位初值必须由这里顶进去：globe3dStage 的初值是**恒等光照**（不猜用户想
-        // 要哪档，见那边的 uNight/uDay 注释），不叫 setLight 就只是「没补光照的原图」。
-        inst?.setLight(globeEarth)
-        backend3dRef.current = inst
-      }
-    })
+    // ⚠️ **只在未定档时 create**：本 effect 的依赖里有档位，换档会重跑，而同一个
+    //    canvas 上的 webgl2 上下文只有一个（getContext 按类型幂等、返回同一个），
+    //    再包一层 WebGLRenderer 就是两个渲染器管同一份上下文，dispose 谁都错。
+    //    建失败（create 返回 null，或抛错——守梯见 globe3dBackend.createBackendSafe）
+    //    也只判这一次：此后 backend3dRef 是 null，本会话内不再试（2d / webgl2 互斥，
+    //    回退判定只有一次机会）。
+    if (backend3dRef.current === undefined) {
+      const inst = createBackendSafe(globe3dFactory, canvasRef.current)
+      // 档位初值必须由这里顶进去：globe3dStage 的初值是**恒等光照**（不猜用户想
+      // 要哪档，见那边的 uNight/uDay 注释），不叫 setLight 就只是「没补光照的原图」。
+      inst?.setLight(globeEarth)
+      backend3dRef.current = inst
+    }
     const cubeReady = urlsP.then((urls) => (urls.length === 6 ? loadGlobeCube(urls) : null))
-    void Promise.all([cubeReady, backendReady])
-      .then(([t]) => {
+    void cubeReady
+      .then((t) => {
         if (!alive || t === null) return
         texRef.current = t
         onTextureFailedRef.current?.(false)
@@ -426,6 +424,17 @@ function GlobeStageInner({
   const skipFirst = useRef(true)
   /** 上一次转向 effect 看到的筛选集合：判「这一跳是不是取消」（BUG-122a） */
   const prevFiltersRef = useRef<readonly string[]>(useUi.getState().filterLocations)
+  /**
+   * 锚点表的 ref 镜像（BUG-231）：转向 effect 的**触发信号**仍然只有 `locJumpSeq`
+   * （序号是跳转意图的唯一载体）——`anchors` 一变就重跑会打断用户正在看的转向
+   * （筛选刷新 / 层级切换都会换锚点表）。但读到的必须是**这一次提交**的那份表，
+   * 所以镜像 effect 声明在转向 effect 之前，同一次提交里先跑（BUG-221 的 `groupsRef`
+   * 同一手法：把「不稳定但需要在场」的值移出依赖，而不是靠 disable 压）。
+   */
+  const anchorsRef = useRef<readonly GlobeAnchorItem[]>(anchors)
+  useEffect(() => {
+    anchorsRef.current = anchors
+  }, [anchors])
   useEffect(() => {
     // BUG-122a：取消不是跳转意图。toggleLocation 取消时照样顶序号（分组流的「✕ 掉最后
     // 一枚 = 回流顶」靠它），旧实现于是在已选 ≥2 枚时取消任意一枚，球自己转向插入序
@@ -474,7 +483,8 @@ function GlobeStageInner({
     const target =
       focus !== null
         ? { lat: focus.lat, lon: focus.lon }
-        : (anchors.find((a) => a.key === filter) ?? anchors.find((a) => locNodeCovers(filter, a.full)))
+        : (anchorsRef.current.find((a) => a.key === filter) ??
+          anchorsRef.current.find((a) => locNodeCovers(filter, a.full)))
     if (!target) return
     const from = { lat: st.locGlobeLat, lng: st.locGlobeLng }
     const to = focusPoseFor(target.lon)
@@ -523,8 +533,14 @@ function GlobeStageInner({
       }
       if (!dragRef.current) setMovingBoth(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 序号是跳转的唯一信号，见上
-  }, [locJumpSeq])
+    // **触发信号**只认 locJumpSeq（序号是跳转的唯一意图载体，见上）：`anchors` 走
+    // 上面的 ref 镜像（变了不该重启 tween），`paint` / `setGlobePose` 都是稳定引用
+    // （前者 `useCallback([])`、后者是 store action），列进依赖表是诚实表达、不会让
+    // 这条 effect 多跑（BUG-231）。⚠️ 这里原先挂着一行
+    // `eslint-disable-next-line react-hooks/exhaustive-deps`，而本仓 lint:obsidian 的
+    // 配置里没有 react-hooks 插件 → 那条 disable 自己成了「Definition for rule not
+    // found」的 error（BUG-219 顺手清掉；插件于 BUG-231 装上，本行即完整裁决）。
+  }, [locJumpSeq, paint, setGlobePose])
 
   // 缩放上限 = 取景框夹取（见 globeGesture.zoomCapFor）。取景框取**滚动区**
   // （.momo-content，与列表共用同一颗，locScrollerOf 是它的唯一真源），

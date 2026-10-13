@@ -30,9 +30,9 @@ export function stripInlineMd(s: string): string {
 export function splitFirstLine(content: string, maxChars: number = TITLE_MAX_DEFAULT): { title: string; body: string } | null {
   const lines = content.split('\n')
   let i = 0
-  while (i < lines.length && lines[i]!.trim() === '') i++
+  while (i < lines.length && lines[i].trim() === '') i++
   if (i >= lines.length) return null
-  const raw = lines[i]!.trim()
+  const raw = lines[i].trim()
   const hasMore = lines.slice(i + 1).some((l) => l.trim() !== '')
   if (!hasMore) return null
   if (/^(?:[-*+]|\d+[.)])\s/.test(raw)) return null

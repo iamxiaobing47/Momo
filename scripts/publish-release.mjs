@@ -11,9 +11,15 @@
 //     （AGENTS.md §10）。tag 必须等于 manifest.json 的 version（Obsidian 商店按这个匹配，
 //     不许带 v 前缀）、指向 HEAD，且工作区干净：发布资产必须逐字节等于那个 commit 的内容。
 //   · **不重新发明资产清单**：铺包复用 vault-targets.releaseManifest() / stageRelease()
-//     ——手列文件名漏过 globe3d.js 与 12 张贴图（BUG-117b），CI 与本命令共用同一条链。
-//   · **发布前必须 build 过**：构建产物（main.js / styles.css / globe3d.js）比 src/**、
+//     ——手列文件名漏过 12 张贴图（BUG-117b：当时还漏了 globe3d.js，它已随 BUG-219 退役），
+//     CI 与本命令共用同一条链。
+//   · **发布前必须 build 过**：构建产物（main.js / styles.css）比 src/**、
 //     styles.src/** 旧就红（「改了没构建」正是发布链最容易漏、也最长在用户眼里的错）。
+//   · **provenance（attestation）只走 CI 那条路**：GitHub artifact attestation 用
+//     workflow 的 OIDC 身份签名，本地手动发布**没有**这个身份，gh CLI 也没有
+//     「本地造 attestation」的子命令（gh attestation 只有 verify / download 一侧）。
+//     所以本命令发完只打印一条提示，让用户知道手动路不带 provenance、要它就回 CI 重跑
+//     （见 MANUAL_PROVENANCE_NOTE；BUG-220 的落地记录写了这条裁决）。
 //   · **依赖 gh CLI**：缺 gh / 没登录都 fail-loud 并给安装与登录指引（不自造 HTTP 上传）。
 //   · 与 CI 的关系：tag push 会触发 release.yml 自动发版；它已经发了的话本命令默认拒绝，
 //     要重传资产用 `--force`。两条路径共用「一个 tag 一份 Release」的语义。
@@ -131,6 +137,23 @@ export function ghArgs({ tag, files, draft = false, force = false }) {
   if (force) return ['release', 'upload', tag, '--clobber', ...files]
   return ['release', 'create', tag, '--title', tag, '--generate-notes', '--verify-tag', ...(draft ? ['--draft'] : []), ...files]
 }
+
+/**
+ * 手动路发完之后打的 provenance 提示（BUG-220）。
+ *
+ * **为什么手动路不签名**：GitHub artifact attestation 由 `actions/attest-build-provenance`
+ * 在 workflow 里用 OIDC 身份签（subject = 那些资产，issuer = GitHub Actions）；本命令在
+ * 用户自己的机器上跑，没有这个身份，gh CLI 也没有「本地造 attestation」这一侧的子命令
+ * （`gh attestation` 只有 verify / download）。硬造一个自签名的东西只会让「有没有
+ * provenance」这件事更难分辨 —— 所以这里**不假签名**，只把口径说清、把用户引回 CI。
+ *
+ * 测试（publish-release-guard.test.mts）钉住这段文案必须同时提到 attestation 与 CI：
+ * 谁把这条提示删成一句空话，门禁就红。
+ */
+export const MANUAL_PROVENANCE_NOTE =
+  '[release] 注意：手动路不产出 GitHub artifact attestation（它需要 Actions 的 OIDC 身份，' +
+  '本机 gh 做不到）。要 provenance 请在公开仓 push tag 走 CI release.yml（那一步带 ' +
+  'attest-build-provenance），或事后重跑那条 workflow。'
 
 // ─── 纯助手 ───
 
@@ -276,7 +299,7 @@ function main() {
   }
 
   // ④ 构建新鲜度：**构建产物**必须比源新
-  // 只查构建出来的那几件（main.js / styles.css / globe3d.js）：manifest.json 与星球贴图
+  // 只查构建出来的那几件（main.js / styles.css）：manifest.json 与星球贴图
   // 是从源原样拷的、不存在「重新构建」，把它们也拉去跟 src/ 比时间会恒红（贴图自己就在 src/ 下）。
   const sourceList = sourceRels(dir)
   // 路径口径统一成正斜杠：sourceRels 是手写 `/`，releaseManifest 走 path.join（Windows 是 `\`），
@@ -319,6 +342,7 @@ function main() {
     console.log(`[release] dry-run：${entries.length} 件资产已铺到 ${stageDir}`)
     for (const m of entries) console.log(`[release]   ${m.dest}`)
     console.log(`[release] 将执行：gh ${args.map(quote).join(' ')}`)
+    console.log(MANUAL_PROVENANCE_NOTE)
     console.log('[release] dry-run 结束——未调用 gh、未创建 Release')
     return
   }
@@ -338,6 +362,7 @@ function main() {
   }
   fs.rmSync(stageDir, { recursive: true, force: true })
   console.log(`[release] 已发布 tag「${tag}」（${entries.length} 件资产）`)
+  console.log(MANUAL_PROVENANCE_NOTE)
 }
 
 // 只有「被 node 直接执行」时才跑：测试 import 纯判据时不许有副作用。

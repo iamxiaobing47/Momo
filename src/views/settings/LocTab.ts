@@ -34,9 +34,10 @@ import type { SettingsCtx } from './context'
 /**
  * 星球资源包行（v1.0.0）：状态注记 + 一颗「下载」钮。
  *
- * 3D 星球渲染库（globe3d.js）与两套 cube 贴图是**可选下载**——Obsidian 商店安装器与
- * BRAT 都只下发 main.js / manifest.json / styles.css，重资产到不了自动安装的用户手里。
+ * 两套 cube 贴图（12 张）是**可选下载**——Obsidian 商店安装器与 BRAT 都只下发
+ * main.js / manifest.json / styles.css，重资产到不了自动安装的用户手里。
  * 这一行是下载入口，也是「插件唯一的联网动作」的说明。
+ * （2026-10-13 / BUG-219：三维星球渲染库退役——three 随 main.js 发布，包里只剩贴图。）
  *
  * 状态三态：未安装 / 已安装 / 升级后旧版本（记账的是上次下载时的插件版本）。
  * 资源包不是偏好（不落 data.json），所以本卡没有卡片级「恢复默认」。
@@ -115,7 +116,7 @@ export function buildLocTab(ctx: SettingsCtx): void {
   )
 
   // ---- 块零三：星球资源包（v1.0.0）----
-  // 3D 星球渲染库与两套贴图是**可选下载**（Obsidian 商店安装器与 BRAT 都只下发
+  // 两套贴图是**可选下载**（Obsidian 商店安装器与 BRAT 都只下发
   // main.js / manifest.json / styles.css，重资产到不了自动安装的用户手里）。这一行
   // 是下载入口 + 「插件唯一联网动作」的说明。资源包不是偏好（不落 data.json），
   // 所以本卡仍不带卡片级「恢复默认」。
@@ -338,9 +339,19 @@ export function buildLocTab(ctx: SettingsCtx): void {
    * 不限长的话一次粘贴就把整条分组流撑变形），另外**控制字符一律拒绝**——
    * 组键的分隔符是 `\u0000`（locations/locations.ts 的 KEY_SEP），它能出现的前提正是
    * 「用户数据里没有这种字符」，从输入口把它堵死。
+   *
+   * 判据写成逐码点查而不是 `/[\u0000-\u001f\u007f]/`：Obsidian 官方 lint 的
+   * `no-control-regex` 对正则字面量里的控制字符报 Error（2026-10-13 评审，BUG-224），
+   * 而语义完全一样（C0 控制符 + DEL）。用户输入长度有限，逐码点扫没有性能问题。
    */
-  const badRegionPart = (s: string): boolean =>
-    charLength(s) > LOCATION_MAX_CHARS || /[\u0000-\u001f\u007f]/.test(s)
+  const hasControlChar = (s: string): boolean => {
+    for (const ch of s) {
+      const c = ch.codePointAt(0) ?? 0
+      if (c <= 0x1f || c === 0x7f) return true
+    }
+    return false
+  }
+  const badRegionPart = (s: string): boolean => charLength(s) > LOCATION_MAX_CHARS || hasControlChar(s)
 
   // 块二的列表（与上面那张表同形制）
   const regionUse = h('div', 'momo-set-block is-group is-region')

@@ -5,7 +5,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { buildCss } from './scripts/build-css.mjs'
-import { ARTIFACTS, GLOBE_TEXTURES, GLOBE_EARTH_IDS, GLOBE_CUBE_FACES, globeTextureProblems, GLOBE3D, globe3dProblems, globeAssetRevOf, vaultPluginDirs } from './scripts/vault-targets.mjs'
+import { ARTIFACTS, STALE_ARTIFACTS, GLOBE_TEXTURES, GLOBE_EARTH_IDS, GLOBE_CUBE_FACES, globeTextureProblems, globeAssetRevOf, vaultPluginDirs } from './scripts/vault-targets.mjs'
 
 const production = process.argv[2] === 'production'
 
@@ -41,61 +41,37 @@ if (textureIssues.length > 0) {
   process.exit(1)
 }
 
-// 星球三维渲染库（three.js 档，2026-10-04）：**第二产物 globe3d.js**，不进 main.js——
-// three 全量 minified ~600KB，内联会把插件 onload 的 parse 时间抬回贴图内联时代
-// （那笔账见 globeTexture.ts 文件头），而它只在切到星球档时才用得上。运行期经
-// caps.globe3dUrl 的 app:// URL 注入 <script> 惰性加载（globe3dLoader.ts），失败
-// 回退 canvas 软渲染（GlobeStage）。IIFE 是因为插件宿主里没有可用的 ESM 动态
-// import；先于主 bundle 跑——它在 ARTIFACTS 里，部署插件要求产物已存在。
-// 与 buildCss 同款：dev watch 模式下也只在启动时跑一次（改 globe3dStage.ts 要重启
-// dev 或单独 npm run build；CSS 一直就是这个模式）。
-await esbuild.build({
-  entryPoints: [path.join(projectDir, 'src/ui/globe/globe3dStage.ts')],
-  outfile: path.join(projectDir, 'globe3d.js'),
-  bundle: true,
-  format: 'iife',
-  target: 'es2021',
-  platform: 'browser',
-  logLevel: 'info',
-  sourcemap: false,
-  treeShaking: true,
-  minify: production,
-})
-// 产物侧的闸：构建半途而废 / 内容不对（没有工厂全局）在这里 exit，别等运行时
-// 「三维档静默回退」看都看不出原因。
-const globe3dIssues = globe3dProblems()
-if (globe3dIssues.length > 0) {
-  for (const p of globe3dIssues) console.error(`[deploy] 三维渲染库校验失败 ${p}`)
-  process.exit(1)
-}
+// 星球三维渲染库（three.js 档，2026-10-04 起曾是**第二构建产物** globe3d.js）：
+// 2026-10-13（BUG-219）整体退役——Obsidian 提交评审把「运行期 createElement('script')」
+// 列为 Error（代码混淆：分不清「注入自己的本地产物」与「注入远端任意代码」），用户裁决
+// **把 three 打进 main.js**。现在 src/ui/globe/globe3dStage.ts 是普通静态模块，
+// main.ts → GlobeStage → 它这条 import 链让 esbuild 把 three 一起 bundle 进 main.js；
+// 这里不再有第二次 build，也没有 globe3dProblems() 这道产物闸（产物就是 main.js 自己）。
+//
+// 代价（本单唯一被牺牲的东西）：main.js 体积 / onload parse+eval 抬一截，实测数字见
+// docs/tasks/bug/fixing 的 BUG-219「落地记录」。
 
-// ---- 运行时资源的内容指纹（2026-10-05 踩实）------------------------------------
+// ---- 运行时资源的内容指纹（2026-10-05；2026-10-13 收成只算贴图）------------------
 //
-// **为什么需要**：globe3d.js 与 cube 六面都是**固定文件名**的独立产物，经 app://
-// 注入 <script> / <img> 装载。Chromium 的资源缓存按 URL 记账，而 URL 里没有版本——
-// 于是「改了 globe3dStage.ts → npm run build → 重启 Obsidian」这一整套动作拿到的
-// 仍旧是缓存里的旧副本。
+// **为什么需要**：两套 cube 贴图（12 张）是**固定文件名**的独立部署物，运行期由 caps
+// 读字节包 `blob:` URL 装载。指纹值（`momo:globe-asset-rev=<hash>`）编进 main.js 的
+// banner，verify-deploy 靠它判「main.js 与磁盘上的产物是不是同一次构建」：改了贴图却
+// 没重新构建 main.js，banner 里的哈希与磁盘重算的结果就对不上。
 //
-// 现场就是那么怪：球有贴图（上一轮的修复在缓存里），但拖拽不转（这一轮的修复不
-// 在），光源点却动得欢（光点在 main.js 里，main.js 换了 URL 所以是新的）。
-// **代码逐行读过、探针实测过、部署产物逐字节校验过，三处都「对」，用户仍然看到
-// 旧行为** —— 这种不一致只有一个解释：浏览器手里的不是这个文件。
+// 现场原貌（2026-10-05 踩实，那一版指纹还管着 globe3d.js 的 `<script>` URL）：球有贴图
+// （上一轮的修复在缓存里）、拖拽不转（这一轮的不在）、光点动得欢（光点在 main.js 里）
+// ——代码逐行读过、探针实测过、部署产物逐字节校验过，三处都「对」，用户仍看到旧行为。
 //
-// 正解：把内容哈希编进 main.js（下面的 __GLOBE_ASSET_REV__），运行期由
-// ui/globe/globe3dLoader.ts 给 globe3d.js 的 <script> URL 追加成 `?v=<hash>`。
-// 内容变 → URL 变 → 缓存必失效；内容不变 → URL 不变 → 仍然命中缓存（不牺牲正常路径）。
+// 2026-10-13（BUG-219）：globe3d.js 退役、贴图改走 blob: URL，运行期已经没有 URL 需要
+// 加版本 → `define.__GLOBE_ASSET_REV__` 与 ui/globe/globeAssetRev.ts 一起撤掉，**banner
+// 保留**（它是 verify-deploy 判「同一次构建」的唯一依据，且是我们自己写的稳定标记，
+// 不依赖 esbuild 对 define 字面量的输出形态）。
 //
-// ⚠️ 2026-10-13 起**只有 <script> 这一路**还吃指纹：贴图改走「caps 读字节 → blob: URL」
-// （旧实现的资源 URL 对文档是跨源的，`<img>` 装载把 canvas 污染成跨源，getImageData
-// 抛 SecurityError → 六面全解不出）。指纹值仍按下面的口径算全（globe3d.js + 两套十二面）
-// ——它是**构建内容**的指纹，verify-deploy 靠它判断「产物与 main.js 是不是同一次构建」。
-//
-// 指纹取 globe3d.js + **两套**贴图六面（共 12 面）的 sha256 合并哈希：任一产物变了
-// 指纹就变，而产物之间不必同步变化（多算几次哈希的成本可以忽略，构建时一次性）。
+// 指纹取**两套**贴图六面（共 12 面）的 sha256 合并哈希：任一贴图变了指纹就变。
 // **算法在 scripts/vault-targets.mjs 的 globeAssetRevOf 里**（与 verify-deploy 共用
 // 同一份实现）——自检和被自检的东西各算一遍的话，自检本身就成了新的不一致来源。
 const assetRev = globeAssetRevOf(projectDir)
-console.log(`[build] 运行时资源指纹 __GLOBE_ASSET_REV__ = ${assetRev}`)
+console.log(`[build] 运行时资源指纹 globe-asset-rev = ${assetRev}`)
 
 
 // 构建产物同步到各 vault 的插件目录（dev 热更新与 production 都生效）。
@@ -135,6 +111,13 @@ const deployPlugin = {
         for (const name of fs.readdirSync(dest)) {
           if (/^inter-v12-.*\.woff2?$/.test(name)) fs.rmSync(path.join(dest, name))
         }
+        // 同类清理：**已退役的产物**（STALE_ARTIFACTS）留在目标目录里就是死文件——
+        // 2026-10-13（BUG-219）起 globe3d.js 不再产出（three 打进 main.js），老 vault
+        // 里那份必须删掉，否则「部署目录里不许再出现 globe3d.js」永远不成立。
+        for (const name of STALE_ARTIFACTS) {
+          const stale = path.join(dest, name)
+          if (fs.existsSync(stale)) fs.rmSync(stale)
+        }
         // 星球贴图（v0.9.32 / 2026-10-04 起 cube 六面 / 2026-10-05 起**两套**：
         // 夜地球 + 日地球，按 prefs.globeEarth 在运行期挑一档装载）：逐套逐面同一口径
         // 校验。它不在 ARTIFACTS 里是因为源在 src/ 下（不是工程根），单独映射一次。
@@ -157,7 +140,7 @@ const deployPlugin = {
             }
           }
         }
-        // 星球资源包的**记账文件**（v1.0.0）：本地构建把 13 件直接铺进插件目录，
+        // 星球资源包的**记账文件**（v1.0.0）：本地构建把 12 张贴图直接铺进插件目录，
         // 等价于「已下载」——补上同一份记账，设置页才显示「已安装」而不是催用户去下载
         // （商店用户那条路才是真的联网下载，见 service.downloadGlobePack）。
         // 文件名与 src/momo/globe/pack.ts 的 GLOBE_PACK_MANIFEST_FILE 是同一个字面量
@@ -202,15 +185,14 @@ const context = await esbuild.context({
   pure: ['console.debug'],  jsx: 'automatic',
   conditions: ['style', 'browser', 'default'],
   loader: { '.png': 'dataurl', '.svg': 'dataurl' },
-  // 运行时资源的内容指纹（见上面 assetRev 那段）：编进 main.js，运行期由
-  // globe3dLoader 给 globe3d.js 的 <script> URL 追加成 `?v=<hash>`，让
-  // 「改了 globe3d.js 但浏览器拿的还是缓存旧副本」这件事不可能再发生
-  // （贴图那一路 2026-10-13 起读字节 + blob: URL，不再经过资源缓存）。
-  define: { __GLOBE_ASSET_REV__: JSON.stringify(assetRev) },
-  // 同一份指纹再以 banner 形式落在 main.js 最前面：verify-deploy 靠它回读
-  // 「这次构建认为的指纹」，再跟磁盘上的 globe3d.js / 六面实际重算的结果比对。
-  // define 产物是裸字符串字面量、minify 后形态由 esbuild 决定，拿正则去捞字面量
-  // 等于把构建器输出细节钉进门禁；banner 是自己写的稳定标记。
+  // 指纹以 banner 形式落在 main.js 最前面：verify-deploy 靠它回读「这次构建认为的
+  // 指纹」，再跟磁盘上 12 张贴图实际重算的结果比对（见上面 assetRev 那段）。
+  // 曾经还有 `define: { __GLOBE_ASSET_REV__ }` 编给运行期用（给 <script> / <img> 的
+  // URL 加 `?v=`）；2026-10-13（BUG-219）之后运行期没有任何 URL 需要版本号，define
+  // 与 ui/globe/globeAssetRev.ts 一起撤掉，banner 留下。
+  // 为什么要 banner 而不是在 minify 后的 main.js 里搜那段十六进制：define 的产物是裸
+  // 字符串字面量，minify 后形态由 esbuild 决定，拿正则去捞字面量等于把构建器输出细节
+  // 钉进门禁；banner 是自己写的稳定标记。
   banner: { js: `/* momo:globe-asset-rev=${assetRev} */` },
   plugins: [deployPlugin],
 })

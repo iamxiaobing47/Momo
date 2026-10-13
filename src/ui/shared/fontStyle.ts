@@ -1,13 +1,26 @@
 import { FONT_ROLE_PREFIX, type FontRole } from '../../momo/types'
 
-// 字体偏好的运行时注入（v0.9.16）：一份 <style> 挂 document.head，内容只有
-// 两个 CSS 变量（--momo-sans / --momo-font-card）。谁挂类谁生效，与此前自建配色的
-// 注入同一套手法（那个已随功能移除，机制说明还在 docs/howto/styling.md）。
+// 字体偏好的运行时注入（v0.9.16；2026-10-13 换成 setCssProps，见下）。
 //
-// 为什么挂 head 而不是面板根节点的内联 var：确认弹窗（.momo-confirm）与设置页
-// （.momo-settings）都在面板 DOM 之外，够不着 .momo-app 上的内联变量；四类宿主
-// 的规则写在同一段 CSS 里，跟 styles.src/00-tokens.css 的令牌块同一张宿主表。
-// 层叠：本元素是运行期 append 的，排在插件 styles.css 之后，同特异性后来者胜。
+// 内容是两个 CSS 变量（--momo-sans / --momo-font-card），写在**四类宿主元素的内联样式**上
+// （`.momo-app` / `.momo-confirm` / `.momo-settings` / `.momo-set-scheme`，与
+// styles.src/00-tokens.css 的令牌块同一张宿主表）。
+//
+// 为什么必须落到**宿主自身**、不能挂在某个共同祖先上：令牌块在那四个选择器上各自声明了
+// `--momo-sans` 本体，元素自己的声明压过从祖先继承来的值——挂 body 只会被宿主自己盖掉。
+// 内联样式又压过任何选择器，所以这才是「选了就生效」的写法。
+//
+// 为什么不再是 `<style>` 注入（2026-10-13，Obsidian 提交评审）：评审的
+// `obsidianmd/no-forbidden-elements` 把「运行期创建 / 挂载 style 元素」列为 Error
+// ——动态样式表是插件不该走的门（BUG-217）。旧实现往 document.head 塞
+// `<style id="momo-fonts">`、内核里按四类宿主选择器写规则；现在改成 `setCssProps()`
+// 直接写内联变量，选择器那一层整个不需要了。
+//
+// 代价（诚实记录）：新挂载的宿主**不会**自动带上变量（旧实现的全局 `<style>` 是
+// 一挂就全局生效）。所以每个创建宿主的调用点都要调一次 `applyFontVars(el)`——四处：
+// `ui/app/AppShell`（面板根）、`views/caps`（确认 / 补记弹窗）、
+// `views/settings/settings`（设置页根）、`views/settings/fields`（配色方案卡）。
+// 漏一处 = 那个宿主回落到 00-tokens 的默认字体，症状是「某个弹窗字体不跟设置走」。
 //
 // v1.0.0：内置开源字体（四套、随插件分发 ~70MB）退役，改用 **Obsidian 自己提供的
 // 字体**——界面 / 正文 / 等宽三个角色，对应宿主变量 --font-interface /
@@ -29,12 +42,13 @@ import { FONT_ROLE_PREFIX, type FontRole } from '../../momo/types'
 // 默认尾栈），卡片栈 = 卡片族 + 面板当前有效栈；两条注入互不引用、也都不引用
 // 任何 momo 自定义属性（唯一的外部引用是宿主主题的 --font-* 三个变量），
 // 结构上不可能再成环。守卫：scripts/font-vars-cycle.test.mts。
-let styleEl: HTMLStyleElement | null = null
 
-/** 变量挂载的四类宿主：与 00-tokens.css 令牌块的选择器同表（含色卡预览 .momo-set-scheme）。
- *  （export 曾给截图脚手架按同一张表注入字体变量，那个工具链 2026-10-13 已移除；
- *  现在只有本模块的 fontVarsBlock 用它。） */
-export const FONT_HOSTS = '.momo-app, .momo-confirm, .momo-settings, .momo-set-scheme'
+/** 变量挂载的四类宿主：与 00-tokens.css 令牌块的选择器同表（含色卡预览 .momo-set-scheme）。 */
+const FONT_HOSTS = '.momo-app, .momo-confirm, .momo-settings, .momo-set-scheme'
+
+/** 运行期注入的两个变量名。撤值 / 重注都只碰这两个，不整条清 `style`。 */
+const FONT_VAR_KEYS = ['--momo-sans', '--momo-font-card'] as const
+type FontVarKey = (typeof FONT_VAR_KEYS)[number]
 
 /** 默认面板字体栈的尾段：与 00-tokens.css 的 --momo-sans 字面量**逐字一致**
  *  （改这里两边一起改；脚本守卫钉住两边都不含 var(--momo-*) 引用）。选中族缺字
@@ -49,7 +63,10 @@ const ROLE_CSS: Record<FontRole, string> = {
   monospace: 'var(--font-monospace, monospace)',
 }
 
-/** Obsidian 字体角色 → 实际 CSS 值。给设置页预览格用（与运行期 fontVarsBlock
+/** 当前生效的变量（模块级）。新宿主挂载时靠它立刻穿上同一份值——见 applyFontVars。 */
+let currentVars: Partial<Record<FontVarKey, string>> = {}
+
+/** Obsidian 字体角色 → 实际 CSS 值。给设置页预览格用（与运行期 fontVars
  *  同一份映射）。 */
 export function fontRoleCss(role: FontRole): string {
   return ROLE_CSS[role]
@@ -69,43 +86,57 @@ export function fontFamilyForPref(value: string): string | null {
 }
 
 /**
- * 两个槽位 → head <style> 的全部内容（'' = 两个都没选，不注入任何变量）。
+ * 两个槽位 → 要写到宿主上的内联变量（空对象 = 两个都没选，一个变量都不注入）。
  * 真源函数：运行期 syncFontStyle 调它，别在两处各拼一遍。
  *
  * 卡片栈把面板的有效栈整条接在后面（卡片族打头）：卡片选了等宽、面板选了界面字体时，
  * 卡片里的汉字由面板那套接住——与 80-settings/040-fonts.css 头注同一意图。
  */
-export function fontVarsBlock(prefs: { uiFont: string; cardFont: string }): string {
+export function fontVars(prefs: { uiFont: string; cardFont: string }): Partial<Record<FontVarKey, string>> {
   const ui = fontFamilyForPref(prefs.uiFont)
   const card = fontFamilyForPref(prefs.cardFont)
-  if (ui === null && card === null) return ''
-  const lines: string[] = []
-  if (ui !== null) lines.push(`  --momo-sans: ${ui}, ${FALLBACK_TAIL};`)
+  const vars: Partial<Record<FontVarKey, string>> = {}
+  if (ui !== null) vars['--momo-sans'] = `${ui}, ${FALLBACK_TAIL}`
   if (card !== null) {
     const tail = ui !== null ? `${ui}, ${FALLBACK_TAIL}` : FALLBACK_TAIL
-    lines.push(`  --momo-font-card: ${card}, ${tail};`)
+    vars['--momo-font-card'] = `${card}, ${tail}`
   }
-  return `${FONT_HOSTS} {\n${lines.join('\n')}\n}`
+  return vars
 }
 
 /**
- * 同步 head 里的字体变量（幂等；两个槽位都空 = 清空内容但保留元素，
- * 免得反复建删）。面板（App 挂载时与字体 prefs 变化时，usePanelUpkeep）与设置页（字体落库的
- * 唯一出口 LookTab 的 applyFonts：格子点击 + 卡头恢复默认，BUG-119b）都调它，
- * 两个宿主改动的是同一份全局规则，谁后调都一样。
+ * 把当前变量穿到**一个**宿主上。两件必做的事：
+ *
+ * 1. 没选的键要**显式撤掉**——用户把字体改回「跟随默认」时，旧的 inline 值不清掉，
+ *    00-tokens 的默认本体就再也压不回来（字体改不回去）。
+ * 2. 新挂载的宿主必须**主动调一次**（全局 `<style>` 时代不需要，这也是那次改动的
+ *    唯一代价，四个调用点在文件头列齐了）。
  */
-export function syncFontStyle(prefs: { uiFont: string; cardFont: string }): void {
-  if (typeof document === 'undefined') return
-  if (!styleEl) {
-    styleEl = document.createElement('style')
-    styleEl.id = 'momo-fonts'
-    document.head.appendChild(styleEl)
+export function applyFontVars(el: HTMLElement): void {
+  for (const key of FONT_VAR_KEYS) {
+    if (currentVars[key] === undefined) el.style.removeProperty(key)
   }
-  styleEl.textContent = fontVarsBlock(prefs)
+  el.setCssProps({ ...currentVars })
 }
 
-/** 卸载时撤掉运行期注入的字体变量 <style>（`#momo-fonts`）；styles.css 那份由 Obsidian 撤。 */
+/**
+ * 同步字体变量（幂等）：记下当前值，再穿到**文档里已存在的**四类宿主上。
+ *
+ * 调用点：面板（App 挂载时与字体 prefs 变化时，usePanelUpkeep）与设置页（字体落库的
+ * 唯一出口 LookTab 的 applyFonts：格子点击 + 卡头恢复默认，BUG-119b）都调它，
+ * 两个宿主改动的是同一份全局值，谁后调都一样。
+ */
+export function syncFontStyle(prefs: { uiFont: string; cardFont: string }): void {
+  currentVars = fontVars(prefs)
+  if (typeof document === 'undefined') return
+  document.querySelectorAll<HTMLElement>(FONT_HOSTS).forEach((el) => applyFontVars(el))
+}
+
+/** 卸载时撤掉运行期注入的字体变量（四类宿主上的两个内联自定义属性）；styles.css 那份由 Obsidian 撤。 */
 export function removeFontVars(): void {
-  styleEl?.remove()
-  styleEl = null
+  currentVars = {}
+  if (typeof document === 'undefined') return
+  document.querySelectorAll<HTMLElement>(FONT_HOSTS).forEach((el) => {
+    for (const key of FONT_VAR_KEYS) el.style.removeProperty(key)
+  })
 }

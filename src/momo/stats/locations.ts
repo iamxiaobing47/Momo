@@ -47,15 +47,15 @@ export function locStatsOf(
     return r
   }
   for (const i of scopedIdx) {
-    const e = entries[i]!
+    const e = entries[i]
     const locs = e.locations
     if (locs.length === 0) {
       noLocCount++
-      buckets[0]! += 1
+      buckets[0] += 1
       continue
     }
     incidences += locs.length
-    buckets[Math.min(STATS_COUNT_BUCKET_MAX, locs.length)]! += 1
+    buckets[Math.min(STATS_COUNT_BUCKET_MAX, locs.length)] += 1
     // 条目级大洲去重：一条笔记的 N 个地点可能同属一洲，该洲只计这条 1 次
     const entryContinents = new Set<string>()
     for (const loc of locs) {
@@ -112,13 +112,13 @@ export function locLifecycleOf(
   const lastSeen = new Map<string, string>()
   let incidences = 0
   for (let i = 0; i < facts.length; i++) {
-    const day = facts[i]!.dayOrNull
+    const day = facts[i].dayOrNull
     // BUG-96：「全库」= 今天及以前，与标签 lifecycle / isFuture 同一把尺子——预写
     // （未来日期）行程不进任何份额（旧实现只在首末次出现处挡了无效日期，未来条目
     // 会把末现推到未来、把地点挤出「冷掉」，也把只活在预写里的地方判成「新开」）。
     // 无效日期维持既有口径：无法归日、不进首末次出现，但照进打点次数与每键计数。
     if (day !== null && day > thresholds.todayStr) continue
-    for (const loc of entries[i]!.locations) {
+    for (const loc of entries[i].locations) {
       incidences++
       counts.set(loc, (counts.get(loc) ?? 0) + 1)
       if (!day) continue

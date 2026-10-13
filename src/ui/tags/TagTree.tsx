@@ -84,7 +84,12 @@ function TagTreeImpl({ nodes, entries }: { nodes: TagNode[]; entries: readonly M
   // 与统计页 / 热力图同一套机制），否则面板常开时「7 天」的窗口终点永远停在挂载那一刻。
   // 有了这个键，`new Date()` 只在挂载与翻页时各构造一次——不在渲染体里反复 new（AGENTS §3.2）。
   const todayKey = useTodayKey()
-  const now = useMemo(() => new Date(), [todayKey])
+  const now = useMemo(() => {
+    // todayKey 只作「跨零点要重构造」的信号（`new Date()` 才是结果），body 里不直接
+    // 读它 → 显式读一次，规则才认它是真依赖（BUG-221 口径）。
+    void todayKey
+    return new Date()
+  }, [todayKey])
 
   const filteredNodes = useMemo(
     () => applyTagFilter(entries, nodes, tagFilter, nameQuery, now),

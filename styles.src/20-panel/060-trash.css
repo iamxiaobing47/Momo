@@ -44,8 +44,12 @@
   overflow: hidden;
 }
 
-/* 遮罩浓度：Obsidian 默认偏亮，压回与面板浮层一致的一档 */
-.modal-container:has(.momo-confirm) .modal-bg {
+/* 遮罩浓度：Obsidian 默认偏亮，压回与面板浮层一致的一档。
+   BUG-227：原先的判据是 `.modal-container:has(.momo-confirm)`——`modal.containerEl`
+   是 Obsidian 自己的元素、拿不到我们的类，只能反查后代。Obsidian 评审判 `:has`
+   是性能隐患，改为建弹窗时**主动往 containerEl 挂类**（四个弹窗各自挂：
+   caps 的 openConfirmModal / pickDay、notesMigration 的两个框）。 */
+.modal-container.momo-confirm-container .modal-bg {
   background-color: rgba(18, 17, 16, 0.32);
 }
 

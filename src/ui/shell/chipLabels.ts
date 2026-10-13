@@ -6,9 +6,9 @@ import { copy } from '../../momo/i18n'
 /** 小时集 → 「22 点」/「0–5 点」/「9/14/20 点」：连续段压缩成区间，零散的就罗列 */
 export function hourChipLabel(hours: readonly number[]): string {
   const hs = [...hours].sort((a, b) => a - b)
-  if (hs.length === 1) return copy.date.hour(hs[0]!)
-  const contiguous = hs.every((h, i) => i === 0 || h === hs[i - 1]! + 1)
-  return contiguous ? copy.date.hourRange(hs[0]!, hs[hs.length - 1]!) : copy.date.hourList(hs.join('/'))
+  if (hs.length === 1) return copy.date.hour(hs[0])
+  const contiguous = hs.every((h, i) => i === 0 || h === hs[i - 1] + 1)
+  return contiguous ? copy.date.hourRange(hs[0], hs[hs.length - 1]) : copy.date.hourList(hs.join('/'))
 }
 
 /** 星期集（0=周一…6=周日）→ 「周二」/「周末」/「周二/周四」 */

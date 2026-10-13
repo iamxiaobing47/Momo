@@ -1,5 +1,6 @@
 // 发布包铺平（BUG-117b）：按 vault-targets.mjs 的 releaseManifest() 把产物拷进一个目录，
-// 布局与 vault 插件目录一致（main.js / manifest.json / styles.css / globe3d.js / 两套贴图六面）。
+// 布局与 vault 插件目录一致（main.js / manifest.json / styles.css / 两套贴图六面共 12 张）。
+// （2026-10-13 / BUG-219：globe3d.js 退役——three 打进 main.js，发布资产只剩 12 张贴图。）
 //
 //   node scripts/stage-release.mjs <输出目录>     # CI 的 release.yml 用这一条
 //   npm run release:publish                      # 手动发布：内部 import 下面的 stageRelease()
@@ -9,7 +10,8 @@
 // 但覆盖的是**完整**清单，而不是 workflow 里手列的那几行。
 //
 // 清单只有一份真源（releaseManifest），铺平逻辑导出成函数好让手动发布复用同一条路径——
-// workflow 里手列文件名漏过 globe3d.js 与 12 张贴图那次事故（BUG-117b）不允许有第二遍。
+// workflow 里手列文件名漏过重资产那次事故（BUG-117b：当时漏的是 globe3d.js 与 12 张贴图，
+// 三维库退役后仍剩这 12 张）不允许有第二遍。
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'

@@ -226,7 +226,12 @@
    四套方案上 ink-5 对 card 都在 3:1 以上（check-contrast 的 ui 组判的就是它），
    看得见但不抢戏；轨道保持透明。
    **不动 `scrollbar-width`**：宽度沿用宿主 / 系统那一档，`scrollbar-gutter: stable`
-   预留的格因此分毫不变（槽位守卫见 scripts/scroll-gutter.test.mts 的第五条）。 */
+   预留的格因此分毫不变（槽位守卫见 scripts/scroll-gutter.test.mts 的第五条）。
+   **BUG-227 裁决（评审豁免，不是漏改）**：Obsidian 官方 CSS lint 会把这行报成
+   「css-scrollbar only partially supported」的 warning。**不为 lint 改设计**——
+   上一条实测已经说明：非 `auto` 的 `scrollbar-color` 是压过宿主 10% 透明拇指的
+   唯一手段，退回「只写伪元素」会在宿主开样式化滚动条（`body.styled-scrollbars`）时
+   整条失效、用户报障「看不到滚动条」原地复发。warning 保留，设计不动。 */
 .momo-app,
 .momo-settings,
 .momo-confirm {

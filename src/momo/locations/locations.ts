@@ -132,7 +132,9 @@ export function locationInputIssue(raw: string, currentVisibleCount: number): Lo
  * 借一次「加/摘地点」把它们从文件里抹掉是另一回事（ADR-003：文件是唯一事实源）。
  */
 export function locListOf(raw: unknown): unknown[] {
-  if (Array.isArray(raw)) return [...raw]
+  // Array.from<unknown> 而不是 `[...raw]`（BUG-224）：前者把 any[] 的元素按 unknown
+  // 接住，后者是把 any 铺进数组（no-unsafe-assignment）。返回值仍是新数组，语义不变。
+  if (Array.isArray(raw)) return Array.from<unknown>(raw)
   if (typeof raw === 'string') return [raw]
   return []
 }

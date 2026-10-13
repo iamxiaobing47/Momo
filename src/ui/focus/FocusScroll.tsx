@@ -405,8 +405,10 @@ export function FocusScroll({ entries }: { entries: MomoEntry[] }) {
     // 会留下约 (视口高 − 卡高)/2 的大段空白。
     for (const el of items) {
       if (!el) continue
-      el.style.marginTop = ''
-      el.style.marginBottom = ''
+      // BUG-217：撤回内联值用 removeProperty，不是写空串——空串会留下一条
+      // 「空声明」把 CSS 里的值一并压住，而这里要的语义是「当它没写过」。
+      el.style.removeProperty('margin-top')
+      el.style.removeProperty('margin-bottom')
     }
     const first = items[0]
     const last = items[items.length - 1]
@@ -467,7 +469,7 @@ export function FocusScroll({ entries }: { entries: MomoEntry[] }) {
     // BUG-182b：还原吸附会让浏览器立刻重吸附并发出 scroll 事件——那是自造滚动，
     // 打开一个静默期让 onScroll 别把它当用户手势（否则溶解导航被掐掉、弹回出发卡）。
     const scroller = scrollerRef.current
-    if (scroller) scroller.style.scrollSnapType = ''
+    if (scroller) scroller.classList.remove('momo-focus-nosnap')
     selfScrollUntilRef.current = performance.now() + 120
   }, [])
 
@@ -492,7 +494,7 @@ export function FocusScroll({ entries }: { entries: MomoEntry[] }) {
     const a = animRef.current
     if (!scroller || !a) return
     scroller.scrollTop = a.to
-    scroller.style.scrollSnapType = ''
+    scroller.classList.remove('momo-focus-nosnap')
     animRef.current = null
     applyDepth()
   }, [applyDepth])
@@ -564,8 +566,10 @@ export function FocusScroll({ entries }: { entries: MomoEntry[] }) {
         start: performance.now(),
         duration: SETTLE_MS,
       }
-      // 滑行中摘掉 mandatory 吸附：它会在我们逐帧写 scrollTop 之间反复重定向
-      scroller.style.scrollSnapType = 'none'
+      // 滑行中摘掉 mandatory 吸附：它会在我们逐帧写 scrollTop 之间反复重定向。
+      // BUG-217：走类（`.momo-focus-nosnap`）而不是内联 scrollSnapType——Obsidian 评审
+      // 的 no-static-styles-assignment；类选择器 (0,2,0) 压得过 .momo-focus 本体 (0,1,0)。
+      scroller.classList.add('momo-focus-nosnap')
       // 兜底：rAF 被暂停（窗口最小化 / 面板隐藏）时补间会卡住，而 snap 已经摘了——
       // 这个定时器保证最慢也会自己收尾，不留「滚动死了」的状态
       if (tweenSafetyRef.current) window.clearTimeout(tweenSafetyRef.current)
@@ -840,12 +844,17 @@ export function FocusScroll({ entries }: { entries: MomoEntry[] }) {
    * 在那儿」的那张卡设为焦点，并把容器送到它的吸附位——**布局阶段**写（早于绘制），
    * 等 passive effect 再写会先画一帧「焦点在第 0 张」再跳过去。
    * 只跑一次：焦点视图每切一次密度都整个卸载重挂（五档外层元素类型互不相同），
-   * 挂着时的焦点变化由滚动 / 点卡自己走，不归位。
+   * 挂着时的焦点变化由滚动 / 点卡自己走，不归位。这条「只跑一次」由下面的
+   * anchorClaimedRef 显式表达——依赖表按事实列全（entries / syncGeometry / applyDepth
+   * 都会被读到），重跑在门口早退，换茬与筛选刷新不会再把用户拽回锚点卡。
    * 落点判定不自己算：写完 scrollTop 后，上面那个换茬 effect 的 recompute()
    * （scanFocus）会按新位置重算焦点——用同一批 offsetTop/offsetHeight 算的吸附位，
    * 中心必然落回这张卡，两边不可能各说各话。
    */
+  const anchorClaimedRef = useRef(false)
   useLayoutEffect(() => {
+    if (anchorClaimedRef.current) return
+    anchorClaimedRef.current = true
     const scroller = scrollerRef.current
     if (!scroller) return
     const path = readAnchor(anchorRootOf(scroller))
@@ -863,8 +872,7 @@ export function FocusScroll({ entries }: { entries: MomoEntry[] }) {
       scroller.scrollTop = snapTop(el.offsetTop, el.offsetHeight, scroller.clientHeight)
       applyDepth()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [applyDepth, entries, syncGeometry])
 
   /** 焦点变了就把当前卡写进视图锚点（别的密度切回来时按它归位）。
    *  写的是 `entries[focus].path`：focus 已夹在 [0, entries.length-1]。
@@ -1067,7 +1075,7 @@ export function FocusScroll({ entries }: { entries: MomoEntry[] }) {
   const onItemClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
     if (selectMode) return
     if ((e.target as HTMLElement).closest?.('button, a[href]')) return
-    const slot = (e.target as HTMLElement).closest?.('.momo-focus-item') as HTMLElement | null
+    const slot = (e.target as HTMLElement).closest?.<HTMLElement>('.momo-focus-item')
     if (!slot) return
     const i = Number(slot.dataset.index)
     if (!Number.isFinite(i) || i === focusIndex) return

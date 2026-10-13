@@ -8,7 +8,6 @@ import {
   DEFAULT_SETTINGS,
   BRAND_ICON_EXTS,
   TrashItem,
-  TrashRecord,
   VIEW_TYPE_MOMO,
   type AddLocationsResult,
   type AddTagsResult,
@@ -22,7 +21,7 @@ import { createInflightGate, errMsg } from '../core'
 import { MomoDiskFile, accountFromDisk, prefsFromDisk, readDiskFile, serializeAccount, type MomoAccount } from './serviceDisk'
 import { CURRENT_SCHEMA } from '../types/migrations'
 import { affectsPath, isMomoMdPath, type MomoLayout } from './serviceLayout'
-import { createdAtOf, emptyTrashEntry, fileStamp, fmTagList, isBlankEntry, projectEntry, tagsOf } from './serviceFiles'
+import { emptyTrashEntry, fileStamp, fmTagList, isBlankEntry, projectEntry, tagsOf } from './serviceFiles'
 import { hasTagSpace, squeezeTagSpace } from '../tags'
 import {
   addLocationsTo,
@@ -773,10 +772,9 @@ export class MomoService {
     await this.persist()
   }
 
-  /** MarkdownRenderer 等需要 app/plugin 的场景由 views 层经此取宿主 */
-  pluginOf(): Plugin {
-    return this.plugin
-  }
+  // `pluginOf(): Plugin`（给 MarkdownRenderer 当 sourceComponent）已于 2026-10-13 删除
+  // （BUG-218）：Obsidian 评审的 `obsidianmd/no-plugin-as-component` 不许把主插件实例
+  // 当 Component 传——渲染的组件寿命要跟着容器，见 views/caps.ts 的 componentFor。
 
   onChange(fn: () => void): () => void {
     this.listeners.add(fn)
@@ -1136,7 +1134,7 @@ export class MomoService {
         const file = this.vault.getAbstractFileByPath(this.trashPath(name))
         return {
           name,
-          record: this.data.trash[name] ?? ({ originalPath: '', deletedAt: '' } as TrashRecord),
+          record: this.data.trash[name] ?? ({ originalPath: '', deletedAt: '' }),
           entry: file instanceof TFile
             ? await this.readTrashEntryCached(name, file)
             : emptyTrashEntry(this.trashPath(name), undefined, this.data.trash[name]?.deletedAt),
@@ -1292,8 +1290,11 @@ export class MomoService {
     }
   }
 
-  /** 单个文件是不是「新建即弃」的空白草稿；是则移进系统回收站并返回 true。
-   *  读-判-移都可能抛（并发删除 / 权限），由调用方统一 try 住。 */
+  /** 单个文件是不是「新建即弃」的空白草稿；是则移进回收站并返回 true。
+   *  读-判-移都可能抛（并发删除 / 权限），由调用方统一 try 住。
+   *  BUG-226：删除经 `app.fileManager.trashFile()`——文件去系统回收站 / vault 的
+   *  `.trash` / 彻底删，是**用户的 Obsidian 删除偏好**说了算；旧实现写死
+   *  `vault.trash(file, true)`（恒进系统回收站），等于替用户改了那个设置。 */
   private async sweepOneDraft(file: TFile): Promise<boolean> {
     if (this.leavesShowing(file.path).length > 0) return false
     const raw = await this.vault.cachedRead(file)
@@ -1308,15 +1309,15 @@ export class MomoService {
     // 补记（backfilled）与预写（scheduled）两条路都放行。
     if (frontmatter.backfilled !== undefined) return false
     if (frontmatter.scheduled !== undefined) return false
-    await this.vault.trash(file, true)
+    await this.app.fileManager.trashFile(file)
     return true
   }
 
   /**
    * 启动清扫空白草稿（时机 A）：「写点什么…」是先建文件再打开编辑器，
    * 用户没写就关掉标签页时文件会留在 vault 里。启动时把这类从未写过的
-   * 空文件移进系统回收站（vault.trash，不进 Momo 回收站列表——那里
-   * 登记的是用户删除的 Momo）；正在打开的文件不动，清了才提示。
+   * 空文件移进回收站（BUG-226 起走 FileManager.trashFile = 用户的删除偏好；
+   * 不进 Momo 回收站列表——那里登记的是用户删除的 Momo）；正在打开的文件不动，清了才提示。
    */
   private async sweepEmptyDrafts(): Promise<number> {
     if (!this.rootExists()) return 0
@@ -1822,10 +1823,12 @@ export class MomoService {
    * `caps.globeCubeUrls` 拼成 `resourcePathPrefix` 形式的 URL 交给 `<img>` 装载，而那个
    * URL 对文档（`app://obsidian.md`）是**跨源**的。`<img>` 不带 CORS 装载 → canvas 被标成
    * 「跨源污染」→ `globeTexture` 的 `getImageData` 抛 SecurityError → 六面全部解不出 →
-   * 星球只剩「黑卡 + 说明条 + 下载资源包按钮」，而资源包其实早就装好了（13 件齐、字节
+   * 星球只剩「黑卡 + 说明条 + 下载资源包按钮」，而资源包其实早就装好了（当时 13 件齐、字节
    * 逐字节对得上）：用户看到的是「下载了也没用」。改自己读字节后由 caps 包成 `blob:` URL
-   * ——blob URL 与创建它的文档**同源**，画布不再被污染，也顺手免掉 Chromium 的资源缓存
-   * （贴图那一路的内容指纹随之退役，`withAssetRev` 只剩 globe3d.js 的 `<script>` 一个消费者）。
+   * ——blob URL 与创建它的文档**同源**，画布不再被污染，也顺手免掉 Chromium 的资源缓存。
+   * 内容指纹那一路到此**整体退役**：三维库已随 main.js 发布，`globe3d.js` 这个第二产物与
+   * 它 `<script>` 注入时的 `withAssetRev` 机制一起下线（2026-10-13，BUG-219）；贴图改读
+   * 字节后本来也不需要指纹，`pluginDir()` 拼出来的路径每次都现读。
    *
    * 缺件 / 权限异常一律 reject：调用方（GlobeStage 的 `.catch`）照旧报
    * `onTextureFailed(true)` 出说明条——那条口径不变。
@@ -1841,9 +1844,11 @@ export class MomoService {
 
   /**
    * 星球资源包的状态（v1.0.0）：装没装、记账的是哪个版本、缺哪些文件。
-   * `installed` 只由「13 件文件齐不齐」判定（本地构建也会把它们直接铺进插件目录，
-   * 那条路不经过下载）；`version` 是记账版本，'' = 没有记账（手动拷进来的完整包）。
-   * `version` ≠ 当前插件版本时调用方提示重下——新 main.js 配旧 globe3d.js 是错配。
+   * `installed` 只由「清单里的文件齐不齐」判定（清单真源 = `globePackFileNames()`，
+   * 件数不在这里手抄；本地构建也会把它们直接铺进插件目录，那条路不经过下载）；
+   * `version` 是记账版本，'' = 没有记账（手动拷进来的完整包）。
+   * `version` ≠ 当前插件版本时调用方提示重下——新版 main.js 配一包旧贴图是错配
+   * （2026-10-13 起三维库随 main.js 发布，`globe3d.js` 已退役，错配只剩贴图这一面）。
    */
   async globePackStatus(): Promise<{ installed: boolean; version: string; missing: string[] }> {
     const dir = this.pluginDir()
@@ -1885,8 +1890,8 @@ export class MomoService {
       }
     }
     for (let i = 0; i < names.length; i++) {
-      const name = names[i]!
-      // 失败口径逐件定，取第一次失败的那档当整包口径（13 件同因时它就是代表）
+      const name = names[i]
+      // 失败口径逐件定，取第一次失败的那档当整包口径（整包同因时它就是代表）
       let kind: GlobePackFailure = 'network'
       try {
         const res = await requestUrl({ url: globePackUrl(version, name), method: 'GET' })
@@ -2163,16 +2168,21 @@ export class MomoService {
     return n
   }
 
-  /** 彻底清除（不可恢复；UI 负责二次确认） */
+  /** 彻底清除（不可恢复；UI 负责二次确认）
+   *
+   *  BUG-226：语义是「用户点了彻底清除」，所以删除经 `app.fileManager.trashFile()`
+   *  跟用户偏好走（系统回收站 / `.trash` / 彻底删）——旧实现 `vault.delete(file, true)`
+   *  绕开那个设置。对插件而言结果不变：登记与列表在下面照常清掉；差别只在文件落到
+   *  哪里（偏好是回收站时用户反而还有一次找回的机会，比不可逆删除更稳）。 */
   async purge(name: string): Promise<void> {
     const path = this.trashPath(name)
     const openLeaves = this.leavesShowing(path)
-    // BUG-68a：同 restore——vault.delete 的事件刷新与 caps 收尾 refresh 会叠成
+    // BUG-68a：同 restore——vault 删除的事件刷新与 caps 收尾 refresh 会叠成
     // 两轮全量；单条彻底删除也进 quiet 窗口，只留 caps 那一次。
     this.beginQuiet()
     try {
       const file = this.vault.getAbstractFileByPath(path)
-      if (file instanceof TFile) await this.vault.delete(file, true)
+      if (file instanceof TFile) await this.app.fileManager.trashFile(file)
     } finally {
       this.endQuiet()
     }
@@ -2182,7 +2192,11 @@ export class MomoService {
     await this.persistBestEffort()
   }
 
-  /** 清空回收站（不可恢复；UI 负责二次确认），返回实际删除的文件数 */
+  /** 清空回收站（不可恢复；UI 负责二次确认），返回实际删除的文件数
+   *
+   *  BUG-226：逐条经 `app.fileManager.trashFile()`（用户的删除偏好），与 purge 同口径；
+   *  失败语义也是逐条的——偏好那条路抛错时和旧的 `vault.delete` 一样往外抛，
+   *  下面 B08 的「已删 N 条」计数与登记只清成功条，都不变。 */
   async purgeAll(): Promise<number> {
     const names = this.trashNames()
     const openLeaves = names.flatMap((name) => this.leavesShowing(this.trashPath(name)))
@@ -2194,7 +2208,7 @@ export class MomoService {
     try {
       for (const name of names) {
         const file = this.vault.getAbstractFileByPath(this.trashPath(name))
-        if (file instanceof TFile) await this.vault.delete(file, true)
+        if (file instanceof TFile) await this.app.fileManager.trashFile(file)
         delete this.data.trash[name]
         done++
       }

@@ -69,7 +69,6 @@ import {
   sanitizeUiScale,
   sanitizeWarmRatio,
   type MomoData,
-  type UiScale,
   type MomoSettings,
 } from '../types'
 
@@ -168,7 +167,7 @@ export const DEFAULT_DATA: MomoData = {
     // 「短首行作为标题」的字号（v0.9.12 新增）：默认 = 升级前卡片标题实际用的字阶
     cardTitleSize: CARD_TITLE_SIZE.default,
     cardRadius: CARD_RADIUS.default,
-    cardGap: 'md' as UiScale,
+    cardGap: 'md',
     cardStamp: 'auto',
     showCharCount: true,
     // 卡片右上角操作按钮显隐（v0.9.22）：默认全开 = 升级前写死的行为
@@ -242,8 +241,8 @@ export function prefsFromDisk(raw: Record<string, unknown>): MomoData['prefs'] {
   // 进 prefs——合法区间会把游离键 from/to 写进 data.json（盘上可见的污染），
   // 且注释承诺的「倒挂交换」对真字段从未生效（v0.7.6 修复）。
   const customRange = sanitizeStatsCustomRange(
-    view.statsCustomFrom as string | null | undefined,
-    view.statsCustomTo as string | null | undefined,
+    view.statsCustomFrom,
+    view.statsCustomTo,
   )
   // 上传的左上角图标（v0.9.12 起多图）：老盘上只有 brandIconImage 一张图、
   // 没有清单键，把那张路径补进清单第一格——升级后图不丢。盘上**有**清单键就
@@ -269,7 +268,7 @@ export function prefsFromDisk(raw: Record<string, unknown>): MomoData['prefs'] {
     // 脏数据剃掉非字符串项、按路径去重但**保留先后**（顺序即展示顺序）
     pinnedNotes: sanitizePinnedNotes(view.pinnedNotes),
     // 回顾展示记录：只保留「路径 → 字符串时间」的合法项
-    reviewSeen: sanitizeSeen(view.reviewSeen as Record<string, string> | undefined),
+    reviewSeen: sanitizeSeen(view.reviewSeen),
     // 排序模式（v0.9.15 起四值枚举）：合法 sortMode 直接用；旧 data.json 只有
     // sortAsc 布尔，按方向无损迁移（sanitizeSortMode 的第二参数）
     sortMode: sanitizeSortMode(view.sortMode, view.sortAsc),
@@ -278,7 +277,7 @@ export function prefsFromDisk(raw: Record<string, unknown>): MomoData['prefs'] {
     // 多选标签组合方式（2026-10-12）：旧 data.json 无此键 → 回「并集」（= 升级前行为）
     tagMatchMode: sanitizeTagMatch(view.tagMatchMode),
     // 内部侧栏宽度：旧 data.json 无此字段 → 默认；脏数据夹回合法区间
-    sidebarWidth: clampSidebarWidth(view.sidebarWidth as number | undefined),
+    sidebarWidth: clampSidebarWidth(view.sidebarWidth),
     // 内部侧栏停靠侧（v0.4.6）：非 'right' 一律回左
     sidebarSide: view.sidebarSide === 'right' ? 'right' : 'left',
     // 侧栏功能显隐（v0.4.6）：非布尔脏值回默认（开）。漏了这一条的话，手改 /
@@ -287,20 +286,20 @@ export function prefsFromDisk(raw: Record<string, unknown>): MomoData['prefs'] {
     // 而且用户改任何别的偏好都会把这个脏值再写一遍，永远不自愈。
     sidebar: boolOf(view.sidebar, true),
     // 侧栏功能显隐 / 回顾数量 / 热力图月数（v0.4.6）：结构化兜底
-    sections: sanitizeSections(view.sections as unknown),
+    sections: sanitizeSections(view.sections),
     // 统计页区块显隐（v0.5.3）：旧 data.json 无此字段 → 全开
-    statsSections: sanitizeStatsSections(view.statsSections as unknown),
-    reviewCount: clampReviewCount(view.reviewCount as number | undefined),
-    heatmapMonths: clampHeatmapMonths(view.heatmapMonths as number | undefined),
+    statsSections: sanitizeStatsSections(view.statsSections),
+    reviewCount: clampReviewCount(view.reviewCount),
+    heatmapMonths: clampHeatmapMonths(view.heatmapMonths),
     // 统计页时间范围（v0.4.17）：只认合法枚举，脏数据回「全部」
-    statsRange: sanitizeStatsRange(view.statsRange as string | undefined),
+    statsRange: sanitizeStatsRange(view.statsRange),
     // 统计页自定义范围（v0.5.4）：两端都合法才生效，倒挂交换；缺端 → 未设置
     statsCustomFrom: customRange?.from ?? null,
     statsCustomTo: customRange?.to ?? null,
     // 配色方案 / 自定义 CSS（v0.5.1）：只认合法枚举 + 字符串上限；
     // 自定义 CSS 还要按语法拦网络原语（@import / 远程 url()，BUG-102）
-    colorScheme: sanitizeColorScheme(view.colorScheme as string | undefined),
-    customCss: sanitizeCustomCss(view.customCss as string | undefined),
+    colorScheme: sanitizeColorScheme(view.colorScheme),
+    customCss: sanitizeCustomCss(view.customCss),
     // 面板 / 卡片字体（v0.9.16）：三段取值空间的兜底见 sanitizeFontPref——
     // 空 = 跟随默认；bundled:<id> 必须在 BUNDLED_FONTS 里；手输字体名收白名单
     uiFont: sanitizeFontPref(view.uiFont),
@@ -311,11 +310,11 @@ export function prefsFromDisk(raw: Record<string, unknown>): MomoData['prefs'] {
     titleMaxChars: clampTitleMaxChars(view.titleMaxChars),
     readOnly: boolOf(view.readOnly, true),
     // 品牌图标 / 名称 / 标签位置（v0.7.4）：脏数据回默认
-    brandIcon: sanitizeBrandIcon(view.brandIcon as string | undefined),
-    brandName: sanitizeBrandName(view.brandName as string | undefined),
-    tagPosition: sanitizeTagPosition(view.tagPosition as string | undefined),
+    brandIcon: sanitizeBrandIcon(view.brandIcon),
+    brandName: sanitizeBrandName(view.brandName),
+    tagPosition: sanitizeTagPosition(view.tagPosition),
     // 地点标签位置（2026-10-01 拆出）：旧 data.json 无此键 → 'meta'（拆分前的位置）
-    locPosition: sanitizeLocPosition(view.locPosition as string | undefined),
+    locPosition: sanitizeLocPosition(view.locPosition),
     // 正文字号 / 卡片圆角（v0.9.12 起连续滑杆，旧三档枚举无损迁移）与卡片
     // 间距（仍是三档）；卡片时间粒度 / 字数开关（v0.9.1）：旧 data.json 无这些
     // 字段 → 默认值（版面与升级前一致）
@@ -420,7 +419,7 @@ export function accountFromDisk(raw: unknown): MomoAccount | null {
     refreshToken: str(view.refreshToken, TOKEN_MAX),
     entitlements: sanitizeEntitlements(view.entitlements),
     quota: sanitizeQuotas(view.quota),
-    cachedAt: isIso(view.cachedAt) ? (view.cachedAt as string) : null,
+    cachedAt: isIso(view.cachedAt) ? view.cachedAt : null,
   }
   // 全空段（手改把字段清了 / 半截写入）视为未登录，而不是带着空串 token 的假登录态
   if (!userId || !account.accessToken || !account.refreshToken) return null
@@ -490,7 +489,7 @@ export function readDiskFile(loaded: MomoDiskFile | null): DiskReadResult {
   const diskData = legacy ? { trash: migrated.trash, prefs: migrated.prefs } : migrated.data
   const data: MomoData = {
     trash: sanitizeTrash(diskData?.trash),
-    prefs: prefsFromDisk((diskData?.prefs ?? {}) as Record<string, unknown>),
+    prefs: prefsFromDisk((diskData?.prefs ?? {})),
   }
   // settings 也读**迁移后**视图（R0c 修读盘不对称）：此前这里读的是未迁移的
   // `loaded.settings`，而 data / account 读的是 migrated——将来任何 settings 段的

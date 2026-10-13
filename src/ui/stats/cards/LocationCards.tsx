@@ -132,7 +132,7 @@ export function LocDistCard({ stats }: { stats: MomoStats }) {
         {stats.loc.locCountBuckets.map((count, i) => (
           <DistRow
             key={i}
-            label={copy.meta.locCountBin[i]!}
+            label={copy.meta.locCountBin[i]}
             count={count}
             width={binWidth(count, stats.loc.locCountBuckets)}
           />

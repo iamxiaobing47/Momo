@@ -20,9 +20,13 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
-    # 创建 Release 需要写权限；仓库默认 token 权限不足时必须显式声明
+    # 创建 Release 需要写权限；仓库默认 token 权限不足时必须显式声明。
+    # id-token / attestations 是 artifact attestations 要的（BUG-220）：
+    # 没有它们 actions/attest-build-provenance 会直接失败（OIDC 拿不到 token）。
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -56,6 +60,15 @@ jobs:
           name: momo-${{ github.ref_name }}
           if-no-files-found: error
           path: ${{ runner.temp }}/momo-release/
+
+      # Artifact attestations（BUG-220，Obsidian 提交评审的 Recommendation）：
+      # 让用户能**密码学地**验证发布资产确实由本仓源码构建（SLSA build provenance）。
+      # 签名对象 = 铺平目录里的每一件资产，清单仍是 stage-release 那一份真源——
+      # 这里用 glob 而不是手列文件名（手列就是第二份真源，BUG-117b 的教训）。
+      # 验证方式（用户侧）：gh attestation verify <asset> --repo iamxiaobing47/Momo
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ runner.temp }}/momo-release/*
 
       - name: Create GitHub Release
         env:

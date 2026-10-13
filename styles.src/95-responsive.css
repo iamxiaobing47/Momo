@@ -372,7 +372,10 @@
      去掉文字后一行就够，省下的高度直接还给列表。
      语义由文字本身兜住——这里转 sr-only（不出视觉、仍在无障碍树）；aria-label
      不传（BUG-197：与可见文字同键会被部分 Electron 漏成黑底气泡）；加 / 去标签
-     的形状本身可分（tag / tag-off）。 */
+     的形状本身可分（tag / tag-off）。
+     BUG-227：不再写 `clip-path: inset(50%)`（Obsidian 评审判 css-clip-path
+     「only partially supported」）——`position:absolute` + 1px 盒 + overflow:hidden
+     + `clip: rect(0 0 0 0)` 已是标准 sr-only，视觉与无障碍行为不变。 */
   .momo-fab-text {
     position: absolute;
     width: 1px;
@@ -381,7 +384,6 @@
     margin: -1px;
     overflow: hidden;
     clip: rect(0 0 0 0);
-    clip-path: inset(50%);
     white-space: nowrap;
   }
 

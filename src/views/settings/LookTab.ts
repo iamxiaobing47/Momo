@@ -148,8 +148,10 @@ function buildScaleRow(
  * tabindex 落回「默认」格（BUG-82c 的兜底），点任一格即换成新选择。
  */
 /**
- * 字体槽位落库的**唯一出口**：落盘 + 重注 head 里的 `#momo-fonts` 变量（BUG-119b）。
- * head `<style>` 是全局单例，谁改字体谁负责重注——格子点击与卡头「恢复默认」都走这里；
+ * 字体槽位落库的**唯一出口**：落盘 + 重注四类宿主上的字体变量（BUG-119b）。
+ * 变量是写在宿主**内联样式**上的（旧实现是 head 里那份全局 `<style>`，2026-10-13
+ * 按 Obsidian 评审口径改成 `setCssProps`，见 BUG-217）——所以这里除了记下新值，
+ * 还要把值穿给当前在文档里的每个宿主；格子点击与卡头「恢复默认」都走这里，
  * 旧实现只有格子点击调了 syncFontStyle，面板关着时恢复默认后整页仍是旧字体。
  */
 function applyFonts(ctx: SettingsCtx, patch: { uiFont?: string; cardFont?: string }): void {
@@ -262,14 +264,16 @@ function buildIconRow(ctx: SettingsCtx, card: HTMLElement): void {
   grid.setAttribute('role', 'radiogroup')
   grid.setAttribute('aria-label', bi.name)
   const err = h('div', 'momo-set-icons-err')
-  err.style.display = 'none'
+  // BUG-217：默认隐藏由 CSS 给（`.momo-set-icons-err { display: none }` +
+  // `.is-on { display: block }`），不再写内联 display——那是 Obsidian 评审的
+  // no-static-styles-assignment。
   const file = h('input', 'momo-set-icons-file')
   file.type = 'file'
   file.accept = BRAND_ICON_EXTS.map((ext) => `.${ext}`).join(',')
 
   const showErr = (msg: string): void => {
     err.textContent = msg
-    err.style.display = msg === '' ? 'none' : ''
+    err.classList.toggle('is-on', msg !== '')
   }
   const prefs = (): MomoData['prefs'] => ctx.service.data.prefs
 
@@ -400,7 +404,7 @@ function buildIconRow(ctx: SettingsCtx, card: HTMLElement): void {
       // BUG-82c：同上——自定义图片生效时预设组一格都不选中（aria-checked 全
       // false），Tab 会跳过整组。兜底把第一枚（leaf）设 0，方向键仍可走遍全组。
       const isFallback = imagePath !== ''
-      t.el.tabIndex = on || (isFallback && t.id === BRAND_ICONS[0]!.id) ? 0 : -1
+      t.el.tabIndex = on || (isFallback && t.id === BRAND_ICONS[0].id) ? 0 : -1
     }
     for (const t of imageTiles) {
       const on = t.path === imagePath
@@ -610,7 +614,9 @@ export function buildLookTab(ctx: SettingsCtx): void {
       if (next === v) return
       input.value = next
     })
-    const input = ctx.field.textInput(ctx.prefs.brandName, DEFAULT_BRAND_NAME, save.push)
+    // save.push 不能光传引用：DeferredRun 的方法是**带 this 语义的对象方法**
+    // （unbound-method 会红，且真被拆出去调会丢 this）——包一层箭头保住绑定。
+    const input = ctx.field.textInput(ctx.prefs.brandName, DEFAULT_BRAND_NAME, (v) => save.push(v))
     input.addEventListener('blur', () => save.flush())
     ctrl.append(input)
   }

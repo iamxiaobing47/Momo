@@ -51,7 +51,7 @@ function decodeOne(url: string): Promise<Uint8ClampedArray<ArrayBuffer>> {
         const h = img.naturalHeight
         if (!w || !h) throw new Error('globe cube: zero size')
         if (w !== h) throw new Error(`globe cube: face not square (${w}x${h})`)
-        const cv = document.createElement('canvas')
+        const cv = createEl('canvas')
         cv.width = w
         cv.height = h
         const cx = cv.getContext('2d')
@@ -59,7 +59,9 @@ function decodeOne(url: string): Promise<Uint8ClampedArray<ArrayBuffer>> {
         cx.drawImage(img, 0, 0)
         resolve(cx.getImageData(0, 0, w, h).data)
       } catch (err) {
-        reject(err)
+        // 拒绝理由必须是 Error（prefer-promise-reject-errors）：catch 到的是 unknown，
+        // 原样 reject 会让 `.catch` 侧拿到字符串 / 任意值，两条失败口径就分不开了。
+        reject(err instanceof Error ? err : new Error(String(err)))
       }
     }
     img.onerror = () => reject(new Error('globe cube: decode failed'))

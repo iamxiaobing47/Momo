@@ -633,12 +633,13 @@ export const settingsPage = {
         day: '日地球',
       } satisfies Record<GlobeEarth, string>,
     },
-    /** 星球资源包（v1.0.0）：3D 星球渲染库与两套地球贴图是**可选下载**——商店安装器
+    /** 星球资源包（v1.0.0）：两套地球贴图（12 张）是**可选下载**——商店安装器
      *  与 BRAT 都只下发三件套，重资产到不了自动安装的用户手里。这是插件**唯一**的
-     *  联网动作，只在用户点「下载」时发生。 */
+     *  联网动作，只在用户点「下载」时发生。
+     *  2026-10-13（BUG-219）：三维星球渲染库不再在包里——three 随 main.js 发布。 */
     pack: {
       name: '星球资源包',
-      desc: '三维星球渲染库与两套地球贴图（约 7MB）不随插件自动下载——点「下载」从本仓的 release 取回，这是插件唯一的联网动作。',
+      desc: '两套地球贴图（约 7MB）不随插件自动下载——点「下载」从本仓的 release 取回，这是插件唯一的联网动作。',
       download: '下载',
       downloading: (done: number, total: number): string => `正在下载 ${done}/${total}…`,
       notInstalled: '未安装——星球档会用简易画法（球面较简，光点照常）。',
@@ -699,7 +700,7 @@ export const settingsPage = {
   /** ⑦ 标签（失效标签体检；组件 src/views/settings/TagsTab.ts，判定与修法在
    *  momo/tagHealth.ts）。一张卡一个动作：找出**含空白**的标签，清掉空格。
    *  这一类之所以叫「失效」：Obsidian 的标签不能含空白，frontmatter 里写了
-   *  `第七章　不再在葬礼上哭泣` 它整个不当标签（属性面板里只是文本），而 Momo
+   *  `第七章\u3000不再在葬礼上哭泣` 它整个不当标签（属性面板里只是文本），而 Momo
    *  侧栏照样看得见、点得动——两边对不上账。 */
   tags: {
     title: '标签',

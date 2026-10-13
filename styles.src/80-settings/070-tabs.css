@@ -72,8 +72,10 @@
 }
 /* 开关合上时**整块卡**跟着进选中态（全局统一那条语言的放大版）。只靠右侧那颗
    38×22 的开关表达状态，扫一遍六张卡要在列里来回找小白点；卡片自己变色 + 描边，
-   才是一眼能扫完的。:has() 已在 20-panel.css 的 modal 容器上用过。 */
-.momo-settings .momo-set-tile:has(.momo-set-switch.is-on) {
+   才是一眼能扫完的。状态类由 fields.ts 的 buildSwitch 挂在自己的 owner 卡上
+   （BUG-227：旧实现是 `.momo-set-tile:has(.momo-set-switch.is-on)`，Obsidian
+   官方评审判 `:has` 是性能隐患——它让「后代一变就重算整条祖先链」成为常态）。 */
+.momo-settings .momo-set-tile.momo-set-tile-on {
   background: var(--momo-accent-soft);
   box-shadow: inset 0 0 0 1px var(--momo-accent-line);
 }
@@ -82,9 +84,9 @@
   font-weight: 500;
   color: var(--momo-ink);
 }
-.momo-settings .momo-set-tile:has(.is-on) .momo-set-tile-name {
-  /* 只写 :has(.is-on) 不写 :has(.momo-set-switch.is-on)：后者算进去是 (0,4,0)，
-     越 stylelint 的 selector-max-specificity 上限。卡里会带 is-on 的只有那颗开关。 */
+.momo-settings .momo-set-tile.momo-set-tile-on .momo-set-tile-name {
+  /* 同一个合成类管两件事（卡底 + 名称色）：卡里会带 is-on 的只有那颗开关，
+     owner 类表达的就是「本格里有开着的开关」，不需要第二个状态类。 */
   color: var(--momo-accent);
 }
 .momo-settings .momo-set-tile .momo-set-desc {

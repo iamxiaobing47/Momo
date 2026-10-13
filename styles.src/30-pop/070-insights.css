@@ -4,8 +4,10 @@
       720px 容器查询把两列合回一列，标签侧不再挤成竖排。 */
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 24px;
-  row-gap: 6px;
+  /* 行 6 / 列 24（BUG-227：`column-gap` + `row-gap` 两行合成 `gap` 简写——
+     原先的 `column-gap` 会被评审当成 multicolumn 特性报「only partially supported」，
+     值逐项不变：第一个是行距、第二个是列距）。 */
+  gap: 6px 24px;
 }
 
 .momo-insight-row {

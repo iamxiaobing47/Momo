@@ -68,7 +68,7 @@ export function useHeatTip(): HeatTipApi {
     // 宿主跟着格子现找（closest）：不新增容器节点，也不留「首帧 anchor 不存在、
     //     effect 空依赖只跑一次」的坑——CardContextMenu 是开菜单时才挂组件，
     //     HeatTip 常驻在热力图里，那种拿法永远拿不到宿主。
-    const host = el.closest('.momo-app') as HTMLElement | null
+    const host = el.closest<HTMLElement>('.momo-app')
     setTip({ text: heatTipText(key, count), host, cx: r.left + r.width / 2, top: r.top, bottom: r.bottom })
   }, [])
 

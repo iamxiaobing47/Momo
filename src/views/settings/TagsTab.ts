@@ -145,7 +145,7 @@ export function buildTagsTab(ctx: SettingsCtx): void {
       new Notice(
         keys === undefined
           ? tc.repaired({ tags: targets.length, notes, failed: r.failed }, brand())
-          : tc.repairedOne({ tag: targets[0]!.tag, notes, failed: r.failed }),
+          : tc.repairedOne({ tag: targets[0].tag, notes, failed: r.failed }),
       )
     } catch (e) {
       console.error('[Momo] 修复失效标签失败', e)

@@ -54,6 +54,9 @@ export function ReviewFilters(): React.JSX.Element | null {
     )
 
   const chips = useMemo(() => {
+    // lang 只作「胶囊文案换语言要重算」的信号（collectActiveFilters 的 label 走
+    // copy 字典），显式读一次它才算真依赖（BUG-221 口径）。
+    void lang
     // 只要 id + label：remove 那一半在只读行上没有消费者
     const out = collectActiveFilters({
       filterDates,

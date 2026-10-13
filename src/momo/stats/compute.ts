@@ -71,7 +71,7 @@ export function computeStats(
   // 被 trend 与 allDayCounts 排除——activeDayRatio = activeDays / windowDays 会 > 1
   // （分母收敛到 [最早, 今天]），bestDay 还可能报一个未来的日期。
   const isFuture = (i: number): boolean => {
-    const day = facts[i]!.dayOrNull
+    const day = facts[i].dayOrNull
     return day !== null && day > todayStr
   }
   if (range === 'all' || !win) {
@@ -81,11 +81,11 @@ export function computeStats(
     }
   } else {
     for (let i = 0; i < facts.length; i++) {
-      const day = facts[i]!.dayOrNull
+      const day = facts[i].dayOrNull
       if (day !== null && day >= win.from && day <= win.to && !isFuture(i)) scopedIdx.push(i)
     }
   }
-  const scopedFacts: EntryFact[] = scopedIdx.map((i) => facts[i]!)
+  const scopedFacts: EntryFact[] = scopedIdx.map((i) => facts[i])
 
   // 条数里程碑与「累计」同口径（BUG-96）：数**今天及以前**的全库条数——预写
   // （未来日期）条目不算，无效日期照数（与 total 同款：它们是真实条目，只是
@@ -151,8 +151,8 @@ export function computeStats(
   for (let i = 0; i < 30; i++) daily30Index.set(shiftDay(last30Start, i), i)
 
   for (const i of scopedIdx) {
-    const e = entries[i]!
-    const f = facts[i]!
+    const e = entries[i]
+    const f = facts[i]
     const len = f.len
     if (len > maxLength) maxLength = len
 
@@ -162,12 +162,12 @@ export function computeStats(
     // 两处脱钩，数字一改就静默漂移（CHAR_BIN_UPPER 被 import 进来却只活在注释里）。
     let cb: number = CHAR_BIN_UPPER.length
     for (let k = 0; k < CHAR_BIN_UPPER.length; k++) {
-      if (len <= CHAR_BIN_UPPER[k]!) {
+      if (len <= CHAR_BIN_UPPER[k]) {
         cb = k
         break
       }
     }
-    charBins[cb]! += 1
+    charBins[cb] += 1
 
     // 最长笔记 Top N（§4.3 capped 线性维护，N = STATS_LONGEST_TOP；BUG-126e 起
     // 从裸 3 起名的常量）：只在**可能进前 N** 时才收这一条——
@@ -176,9 +176,9 @@ export function computeStats(
     // 维护用**插入排序**（§4.3：Top-K 不每次 push 都 sort）：长度直接用 facts 里
     // 折算好的 f.len，不在比较函数里再 trim() 一遍全文。等长时跳过上面的门槛
     // （稳定序下后来的本就在同等长度项之后），与旧「push 完 sort」输出一致。
-    if (len > 0 && (longest.length < STATS_LONGEST_TOP || len > longestLens[STATS_LONGEST_TOP - 1]!)) {
+    if (len > 0 && (longest.length < STATS_LONGEST_TOP || len > longestLens[STATS_LONGEST_TOP - 1])) {
       let at = longest.length
-      while (at > 0 && longestLens[at - 1]! < len) at--
+      while (at > 0 && longestLens[at - 1] < len) at--
       longest.splice(at, 0, e)
       longestLens.splice(at, 0, len)
       if (longest.length > STATS_LONGEST_TOP) {
@@ -278,7 +278,7 @@ export function computeStats(
   // 算进断更——看 6 月的区间却报「已断更 N 个月」是误导（审计 #3）。
   const gapAnchor = win ? (win.to < todayStr ? win.to : todayStr) : todayStr
   const currentGapDays =
-    sortedDays.length > 0 ? Math.max(0, dayDiff(gapAnchor, sortedDays[sortedDays.length - 1]!)) : 0
+    sortedDays.length > 0 ? Math.max(0, dayDiff(gapAnchor, sortedDays[sortedDays.length - 1])) : 0
 
   // 最近 30 天活跃率：有记录的天数（不含今天也能数出来，分子分母都 deterministic）。
   // 与 daily30 同一张窗口表——「30 天活跃 21 天」与曲线里的非零天数永远对得上。
@@ -481,9 +481,9 @@ export function computeStats(
   let top3SubtreeTotal = 0
   for (let i = 0; i < facts.length; i++) {
     if (isFuture(i)) continue
-    const tags = facts[i]!.tags
+    const tags = facts[i].tags
     for (let r = 0; r < top3Roots.length; r++) {
-      if (tags.some((t) => t.key === top3Roots[r]!.key || t.key.startsWith(top3Prefixes[r]!))) {
+      if (tags.some((t) => t.key === top3Roots[r].key || t.key.startsWith(top3Prefixes[r]))) {
         top3SubtreeTotal++
       }
     }

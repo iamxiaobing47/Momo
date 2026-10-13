@@ -18,10 +18,26 @@ import { projectRoot } from './project-root.mjs'
 
 const projectDir = projectRoot(import.meta.url)
 
-/** 要同步进 vault 的产物（顺序即校验顺序）。Obsidian 只认 main/manifest/styles，
- *  globe3d.js 是星球三维档的独立产物（惰性加载），tex-earth-cube_*.png（六面）因源在
- *  src/ 下单独映射（见 deployPlugin / verify-deploy）。别把 src/ 加进来。 */
-export const ARTIFACTS = ['main.js', 'manifest.json', 'styles.css', 'globe3d.js']
+/** 要同步进 vault 的产物（顺序即校验顺序）。Obsidian 只认 main/manifest/styles；
+ *  tex-earth-cube_*.png / tex-day-cube_*.png（两套各六面）因源在 src/ 下单独映射
+ *  （见 deployPlugin / verify-deploy）。别把 src/ 加进来。
+ *
+ *  2026-10-13（BUG-219）：`globe3d.js`（three.js 档的第二产物）退役——three 打进
+ *  main.js，产物清单只剩三件套。部署侧会把历史遗留的 globe3d.js 从目标目录删掉。 */
+export const ARTIFACTS = ['main.js', 'manifest.json', 'styles.css']
+
+/**
+ * **历史产物名**（曾经在 ARTIFACTS / releaseManifest 里，现在不再产出）：部署时从目标
+ * 目录删掉，verify 时若还在就报问题——留在插件目录里的死文件既骗不过「部署目录里不再
+ * 出现 globe3d.js」这条验收，也容易被当成「插件还带这个产物」。
+ *
+ * 与 `inter-v12-*.woff2`（CodeMirror 迁移前不再产出的字体）同一套清理纪律，区别只是
+ * 这里用固定的完整文件名。
+ *
+ * 2026-10-13（BUG-219）：`globe3d.js`（three.js 档第二产物）退役——three 打进 main.js，
+ * 运行期不再有 <script> 注入，部署与发布链里都不再出现它。
+ */
+export const STALE_ARTIFACTS = ['globe3d.js']
 
 // v1.0.0：内置开源字体（`fonts/` 目录 + FONT_DIR / isFontFileSync / fontFiles /
 // fontProblems 这一整套 下载 → 部署 → 校验 链）退役——改用 Obsidian 自带的字体
@@ -109,15 +125,17 @@ export const GLOBE_EARTH_IDS = Object.keys(GLOBE_TEXTURES)
  * 发布包清单（BUG-117b）：`{ src, dest }` 对，src 相对工程根、dest 相对包根（= vault 插件目录
  * 的平铺布局）。与 vault 部署**同一份**产物口径：ARTIFACTS + 每套贴图六面。
  *
- * 为什么不在 release.yml 的 `path:` 里手列：那是第二份真源（v0.9.36 的 globe3d.js 与两套贴图
- * 加进 ARTIFACTS / GLOBE_TEXTURES 后没人回头补 workflow，发出去的包缺 13 件，恒绿）；而且贴图
+ * 为什么不在 release.yml 的 `path:` 里手列：那是第二份真源（v0.9.36 把两套贴图加进
+ * GLOBE_TEXTURES 后没人回头补 workflow，发出去的包缺 12 件，恒绿；当时还多缺一件
+ * globe3d.js——它已随 BUG-219 退役）；而且贴图
  * 的源在 `src/ui/globe/` 下，upload-artifact 按最近公共祖先保留目录结构，手列也拼不出平铺布局。
  * 所以 workflow 只跑 `node scripts/stage-release.mjs <目录>` 按本清单铺平再整目录上传，
  * 守卫 `scripts/release-assets-guard.test.mts` 钉住两头。
  *
  * v1.0.0：fonts/ 退出清单（内置字体退役，改用 Obsidian 自己的字体角色）。
- * v1.0.0+：globe3d.js 与两套贴图仍是发布资产——社区商店安装器不会下发它们，
+ * v1.0.0+：两套贴图（12 张）仍是发布资产——社区商店安装器不会下发它们，
  * 由插件在设置页按需从本仓 release 下载（可选资源包）。
+ * 2026-10-13（BUG-219）：globe3d.js 退出清单（three 随 main.js 发布）。
  */
 export function releaseManifest(dir = projectDir) {
   const out = ARTIFACTS.map((f) => ({ src: f, dest: f }))
@@ -202,50 +220,17 @@ export function pluginProjectDir() {
   return projectDir
 }
 
-/**
- * 星球三维渲染库（three.js 档，2026-10-04 起是**第二构建产物**，esbuild.config.mjs
- * 在主 bundle 之前单独打包 src/ui/globe/globe3dStage.ts）：three 全量 minified
- * ~600KB，不许进 main.js（onload parse 账见 GLOBE_TEXTURE 注释），构建时随产物
- * 同步进 vault 插件目录（在 ARTIFACTS 里），运行期经 caps.globe3dUrl（app://）
- * 注入 <script> 惰性加载，失败回退 canvas 软渲染。文件名是 caps.ts 拼的路径与
- * esbuild 产物名共用的同一份真源。
- */
-export const GLOBE3D = {
-  /** 落进 vault 插件目录的文件名（= 工程根的构建产物名） */
-  name: 'globe3d.js',
-}
-
-/**
- * 三维渲染库的部署前置校验（贴图那套的镜像）：产物必须在（esbuild 已跑过）、且带
- * 工厂全局标记——半截产物 / 空文件在运行时只表现为「三维档静默回退」，现场看不出
- * 原因，所以在构建时拦住。返回问题列表（空 = 通过）。
- */
-export function globe3dProblems() {
-  const bad = []
-  const file = path.join(projectDir, GLOBE3D.name)
-  if (!fs.existsSync(file)) {
-    bad.push(`${GLOBE3D.name} 不在——三维档装载会失败，星球回退软渲染`)
-    return bad
-  }
-  const body = fs.readFileSync(file, 'utf8')
-  if (!body.includes('__momoGlobe3D')) {
-    bad.push(`${GLOBE3D.name} 内容不对（没有工厂全局 __momoGlobe3D）——构建入口或产物被换过`)
-  }
-  return bad
-}
-
-/* ── 运行时资源指纹（2026-10-05） ─────────────────────────────────────────
+/* ── 运行时资源指纹 ───────────────────────────────────────────────────────
  *
- * globe3d.js 与 cube 六面是**固定文件名**的独立部署物，运行期经 app:// 注入
- * <script> / <img>。Chromium 的资源缓存按 URL 记账，而 URL 里原本没有版本——于是
- * 「改了 globe3dStage.ts → 构建 → 部署 → 重启 Obsidian」这一整套动作，浏览器仍然
- * 拿缓存里的旧副本，且**不报错、不留痕**。现场：球有贴图（上一轮 shader 修复在缓存
- * 里）、拖拽不转（这一轮的不在）、光点动得欢（光点在 main.js 里，main.js 换过 URL）。
- * 代码读过、探针实测过、部署产物逐字节校验过，三处都「对」，用户仍看到旧行为。
+ * cube 六面是**固定文件名**的独立部署物，运行期经 caps 读字节包 `blob:` URL 装载
+ * （2026-10-13 起，见 service.readGlobeCubeFaces）。指纹值本身（banner 里的
+ * `momo:globe-asset-rev=<hash>`）编进 main.js，是 verify-deploy 判「main.js 与磁盘上
+ * 的产物是不是同一次构建」的依据：改了贴图却没重新构建 main.js，banner 里的哈希与
+ * 磁盘重算的结果就对不上。
  *
- * 解法 = 指纹编进 main.js（esbuild define `__GLOBE_ASSET_REV__`），运行期由
- * ui/globe/globeAssetRev.ts 追加成 `?v=<hash>`；内容变 → URL 变 → 缓存必失效，
- * 内容不变 → URL 不变 → 仍然命中缓存（正常路径不牺牲性能）。
+ * 2026-10-13（BUG-219）：globe3d.js 退役，指纹口径从「三维库 + 两套十二面」收成
+ * **只算 12 张贴图**；`__GLOBE_ASSET_REV__` 这个 define 随 withAssetRev 一起撤了
+ * （运行期没有 URL 需要加版本），banner 保留。
  */
 
 /**
@@ -262,22 +247,22 @@ function cubeFacePath(dir, setId, face) {
 }
 
 /**
- * 运行时资源的内容指纹：globe3d.js + **两套**贴图的合并 sha256 取前 12 位。
+ * 运行时资源的内容指纹：**两套贴图共 12 面**的合并 sha256 取前 12 位。
  *
- * 顺序固定为「globe3d.js 在先，然后按 GLOBE_EARTH_IDS 的档序、每档按
- * GLOBE_CUBE_FACES 的面序」——哈希拼接对顺序敏感，这里必须与 esbuild.config.mjs
- * 调用时一致，否则自检会报假红。**这个函数就是那里的唯一实现**，别在任何地方再抄。
+ * 顺序固定为「按 GLOBE_EARTH_IDS 的档序、每档按 GLOBE_CUBE_FACES 的面序」——哈希
+ * 拼接对顺序敏感，这里必须与 esbuild.config.mjs 调用时一致，否则自检会报假红。
+ * **这个函数就是那里的唯一实现**，别在任何地方再抄。
  *
  * ⚠️ 两套**都要**进指纹，不能只算当前档：指纹是编进 main.js 的东西，而 main.js
- * 不认识「当前档」（那是用户的 prefs），只算一套会让另一套的改动完全不破缓存
- * ——正是这个机制要治的那个故障。
+ * 不认识「当前档」（那是用户的 prefs），只算一套会让另一套的改动完全不破指纹。
+ *
+ * 2026-10-13（BUG-219）：globe3d.js 退役，合并对象从「三维库 + 十二面」变成十二面。
  *
  * 任一产物字节变了指纹就变；反之逐字节一致则指纹逐位一致（正常路径）。
  * 文件缺失会抛（ENOENT），调用方自己决定是记坏还是跳过——静默给个默认值才是错的。
  */
 export function globeAssetRevOf(dir = projectDir) {
   const h = crypto.createHash('sha256')
-  h.update(fs.readFileSync(path.join(dir, GLOBE3D.name)))
   for (const setId of GLOBE_EARTH_IDS) {
     for (const face of GLOBE_CUBE_FACES) h.update(fs.readFileSync(cubeFacePath(dir, setId, face)))
   }

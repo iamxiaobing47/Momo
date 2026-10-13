@@ -58,6 +58,10 @@ export function askNotesMigration(
     const modal = new Modal(app)
     modal.modalEl.addClass('momo-confirm')
     modal.modalEl.addClass(`momo-theme-${colorScheme}`)
+    // 遮罩浓度规则（20-panel/060-trash.css）判的是 containerEl 上的合成类——
+    // 要改 .modal-bg 而它是 .modal 的兄弟节点，旧实现靠 `:has` 从后代反查祖先，
+    // BUG-227 按评审去 :has 后改为建窗时主动挂类（四个弹窗各自挂）。
+    modal.containerEl.addClass('momo-confirm-container')
     modal.contentEl.createEl('p', { text: c.hint(info), cls: 'momo-confirm-message' })
     const actions = modal.contentEl.createDiv('momo-confirm-actions')
     const acts = actions.createDiv('momo-confirm-acts')
@@ -128,10 +132,11 @@ export function askDirChange(
     const modal = new Modal(app)
     modal.modalEl.addClass('momo-confirm')
     modal.modalEl.addClass(`momo-theme-${colorScheme}`)
+    modal.containerEl.addClass('momo-confirm-container')
     modal.contentEl.createEl('p', { text: c.hint, cls: 'momo-confirm-message' })
     const list = modal.contentEl.createDiv('momo-confirm-rows')
     for (const r of rows) {
-      list.createEl('div', { cls: 'momo-confirm-row', text: c.row(r.name, r.from, r.to) })
+      list.createDiv({ cls: 'momo-confirm-row', text: c.row(r.name, r.from, r.to) })
     }
     const actions = modal.contentEl.createDiv('momo-confirm-actions')
     const acts = actions.createDiv('momo-confirm-acts')

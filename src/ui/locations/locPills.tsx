@@ -75,6 +75,9 @@ export function LocationPills({
   // 每个「别处」算一次组键 / 组名（层级视角）；同一路径键只留第一次出现——
   // 两个地点在「国家」档会同组（北京 / 上海 → 同一颗 pill 说两遍没意义）。
   const all = useMemo(() => {
+    // lang 只作「label 换语言要重算」的信号（locGroupOf 的 label 走 displayLocName），
+    // 显式读一次它才算真依赖（BUG-221 口径）。
+    void lang
     const seen = new Set<string>()
     const out: Array<{ key: string; label: string }> = []
     for (const loc of locations) {

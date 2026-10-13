@@ -45,6 +45,15 @@
   outline: none;
 }
 
+/* 程序化滚动期间摘掉吸附（FocusScroll.tsx 的补间在途 / 位置意图在途时加、收尾时去）：
+   不摘的话浏览器会在我们逐帧写 scrollTop 之间反复重定向。JS 只切这个类、不写内联
+   scroll-snap-type（Obsidian 评审的 no-static-styles-assignment，BUG-217）；
+   `.momo-focus.momo-focus-nosnap` 是 (0,2,0)，压得过上面 `.momo-focus` 的 (0,1,0)，
+   与两条规则的源序无关。 */
+.momo-focus.momo-focus-nosnap {
+  scroll-snap-type: none;
+}
+
 .momo-focus-item {
   position: relative;
   display: flex;

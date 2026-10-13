@@ -29,7 +29,7 @@ export function buildCooccurrence(entries: readonly MomoEntry[]): Map<string, nu
     const sorted = [...keys].sort()
     for (let i = 0; i < sorted.length; i++) {
       for (let j = i + 1; j < sorted.length; j++) {
-        const key = pairKey(sorted[i]!, sorted[j]!)
+        const key = pairKey(sorted[i], sorted[j])
         pairCount.set(key, (pairCount.get(key) ?? 0) + 1)
       }
     }

@@ -43,8 +43,8 @@ export function windowScalars(facts: readonly EntryFact[]): WindowScalars {
   const mid = Math.floor(lengths.length / 2)
   const medianLength = lengths.length
     ? lengths.length % 2 === 1
-      ? lengths[mid]!
-      : Math.round((lengths[mid - 1]! + lengths[mid]!) / 2)
+      ? lengths[mid]
+      : Math.round((lengths[mid - 1] + lengths[mid]) / 2)
     : 0
   return {
     total,

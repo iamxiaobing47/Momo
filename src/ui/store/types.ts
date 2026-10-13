@@ -22,7 +22,6 @@ import type {
   TagMatchMode,
   TagSortKey,
   TrashItem,
-  TrashRecord,
   UiScale,
   WarmRatio,
 } from '../../momo/types'
@@ -118,6 +117,14 @@ export type PrefsPatch = {
 
 export interface MomoCaps {
   renderMarkdown(container: HTMLElement, markdown: string): Promise<void>
+  /**
+   * 释放某个容器的正文渲染生命周期（BUG-218）：渲染时给 `MarkdownRenderer.render`
+   * 传的 Component 是**按容器**建的（评审口径 `obsidianmd/no-plugin-as-component`：
+   * 传主插件实例会让渲染期登记的子组件永不释放）。容器不再用（React 摘掉卡片 /
+   * 预热容器用完即弃）时调它，登记过的子组件才跟着卸载。
+   * 可选：缺省实现（老 mock / 无渲染需求的宿主）不调也不影响正文上屏。
+   */
+  releaseMarkdown?(container: HTMLElement): void
   /** 发布一条 Momo（刷新列表；失败时抛错由调用方恢复文本） */
   publish(content: string, tags: string[]): Promise<void>
   /** 新建 Momo 并打开编辑器 */
@@ -211,23 +218,17 @@ export interface MomoCaps {
    */
   globeCubeUrls?(earth: GlobeEarth): Promise<string[]>
   /**
-   * 星球三维渲染库 globe3d.js（three.js 档）的 app:// URL（可选，先例
-   * globeCubeUrls()）。它是**独立部署产物**（esbuild.config 的第二产物，three
-   * 全量 ~600KB 不许进 main.js——onload parse 账见 globeCubeUrls 注释），运行期
-   * 经这里惰性注入 <script>（<script> 不吃 CORS，跨源照常装载；贴图那条路相反，
-   * 见 globeCubeUrls 的 blob: URL），装载失败 / WebGL 不可用时星球回退 canvas 软渲染。
-   * 没有 caps 的环境返回空串 = 直接软渲染。
-   */
-  globe3dUrl?(): string
-  /**
-   * 星球资源包的状态（v1.0.0）：`installed` = 13 件文件齐全（本地构建也会把它们直接
-   * 铺进插件目录，那条路不经过下载）；`version` = 记账版本（'' = 没有记账，例如手动
-   * 拷进来的完整包）；`current` = 当前插件版本；`missing` = 缺的文件名。
-   * `version !== current` = 升级插件后需重下（新 main.js 配旧 globe3d.js 会错配）。
+   * 星球资源包的状态（v1.0.0）：`installed` = 12 件贴图文件齐全（本地构建也会把它们
+   * 直接铺进插件目录，那条路不经过下载）；`version` = 记账版本（'' = 没有记账，例如
+   * 手动拷进来的完整包）；`current` = 当前插件版本；`missing` = 缺的文件名。
+   * `version !== current` = 升级插件后需重下。
+   *
+   * 2026-10-13（BUG-219）：资源包从 13 件变 12 件——三维库 globe3d.js 退役（three 随
+   * main.js 发布），包里只剩两套 cube 贴图各六面。
    */
   globePackStatus?(): Promise<{ installed: boolean; version: string; current: string; missing: string[] }>
   /**
-   * 下载星球资源包（v1.0.0）：globe3d.js + 两套 cube 贴图 12 张。这是插件**唯一**的
+   * 下载星球资源包（v1.0.0）：两套 cube 贴图共 12 张。这是插件**唯一**的
    * 联网动作，用户显式点击才触发。逐件校验后写盘，全部成功才写记账文件；返回失败件名
    * 清单（空 = 成功）与失败**口径**（`missing` = 这一版还没发资源包 / `corrupt` = 字节
    * 被改写 / `network` = 其余）。`onProgress(done, total)` 供 UI 报进度。
@@ -638,40 +639,40 @@ export interface UiState {
   /** 附件统计（全库口径） */
   attachmentStats: { total: number; totalBytes: number; entriesWithImages: number; monthlyTrend: { month: string; count: number; bytes: number }[] }
 
-  init(caps: MomoCaps): void
-  refresh(): Promise<void>
-  setPrefs(prefs: PrefsPatch): void
+  init(this: void, caps: MomoCaps): void
+  refresh(this: void): Promise<void>
+  setPrefs(this: void, prefs: PrefsPatch): void
   /** 设置排序模式（顶栏「排序依据」分段与方向按钮共用；写偏好，关面板后不丢） */
-  setSortMode(mode: SortMode): void
+  setSortMode(this: void, mode: SortMode): void
   /** 设置侧栏标签区排序键（排序浮层用；写偏好，关面板后不丢） */
-  setTagSort(key: TagSortKey): void
+  setTagSort(this: void, key: TagSortKey): void
   /**
    * 设置多选标签的组合方式（过滤框右侧浮层用；写偏好，关面板后不丢）。
    * `union` = 并集（任一已选标签命中即显示）、`intersection` = 交集（全部命中才显示）。
    */
-  setTagMatchMode(mode: TagMatchMode): void
+  setTagMatchMode(this: void, mode: TagMatchMode): void
   /** 改一组 / 几组标签区筛选（筛选浮层的 chip 用；会话内，不落盘） */
-  setTagFilter(patch: Partial<TagFilterState>): void
+  setTagFilter(this: void, patch: Partial<TagFilterState>): void
   /** 清空两组标签区筛选（筛选浮层「清除全部」与空态按钮用；一次 set 改完） */
-  clearTagFilter(): void
+  clearTagFilter(this: void): void
   /** 切换视图模式并刷新派生（回顾模式顺带重抽一批） */
-  setMode(mode: MainMode): void
+  setMode(this: void, mode: MainMode): void
   /** 进 / 出多选（进出都清空选中集，见 store/selection.ts） */
-  setSelectMode(on: boolean): void
+  setSelectMode(this: void, on: boolean): void
   /** 勾选 / 取消勾选某一条 */
-  toggleSelected(path: string): void
+  toggleSelected(this: void, path: string): void
   /** 整组替换选中集（「与 entries 对账、剔死路径」用） */
-  setSelected(paths: readonly string[]): void
+  setSelected(this: void, paths: readonly string[]): void
   /** 清空选中集 */
-  clearSelected(): void
+  clearSelected(this: void): void
   /** 全选：入参 = 当前可见列表的路径（列表 = 筛选结果，回顾 = 当前批次） */
-  selectAll(paths: readonly string[]): void
+  selectAll(this: void, paths: readonly string[]): void
   /** 卡片操作行「加标签」（单条）：打开批量标签弹层 */
-  openTagPicker(paths: string[], mode: TagPickerMode): void
+  openTagPicker(this: void, paths: string[], mode: TagPickerMode): void
   /** 批量条「加标签 / 去标签」：同模式再点一次 = 收起，换模式按当前选中集重绑 */
-  toggleTagPicker(mode: TagPickerMode): void
+  toggleTagPicker(this: void, mode: TagPickerMode): void
   /** 关闭批量标签弹层 */
-  closeTagPicker(): void
+  closeTagPicker(this: void): void
   /**
    * 切换一个地点筛选节点（侧栏「全部地点」树 / 交叉引用 pill / 星球光点共用）：
    * 已在集合里 = 移除，否则 = 加入（加入时先剔掉它的祖先与后代，与 `toggleTag`
@@ -681,46 +682,46 @@ export interface UiState {
    * `focus`（可选）= 这次要星球转到的那一点：只有星球自己的入口知道用户点的是
    * 哪一枚锚点（粗档下同一组有多枚），其余入口不传 = null → 星球自己挑。
    */
-  toggleLocation(key: string, focus?: { lat: number; lon: number } | null): void
+  toggleLocation(this: void, key: string, focus?: { lat: number; lon: number } | null): void
   /**
    * 侧栏「全部地点」树的层级过滤（标题行那颗漏斗的浮层直调，2026-10-10 起多选）：
    * `'all'` = 回完整三级树；其余档 = 在集合里加上 / 去掉那一级（去掉后一级不剩
    * = 回 `['all']`，同筛选 chip 的常例）。只改侧栏这棵树显示哪几级，
    * **不动 filterLocations**、不碰主区筛选（见 locTreeLevels 注释）。
    */
-  toggleLocTreeLevel(level: LocTreeLevel): void
+  toggleLocTreeLevel(this: void, level: LocTreeLevel): void
   /**
    * 打开单卡地点编辑弹层（F3）：x / y 由调用方按 mappin 按钮相对 .momo-app 的位置
    * 换算好再传进来——弹层自己再也不去摸真实 DOM。
    */
-  openLocEditor(path: string, x: number, y: number): void
+  openLocEditor(this: void, path: string, x: number, y: number): void
   /** 关闭单卡地点编辑弹层（「完成」/ Esc / 点到别处） */
-  closeLocEditor(): void
+  closeLocEditor(this: void): void
   /**
    * 批量条「设地点 / 去地点」（F4，与 toggleTagPicker 同构）：同模式再点一次
    * = 收起，换模式按当前选中集重绑。mode = 'add' 加地点 / 'remove' 摘地点。
    * （单卡编辑走 openLocEditor——它要带按钮落点，弹层形状也不一样。）
    */
-  toggleLocPicker(mode: LocPickerMode): void
+  toggleLocPicker(this: void, mode: LocPickerMode): void
   /** 关闭批量地点弹层（Esc / 写完 / 选中集归零由调用方决定是否调） */
-  closeLocPicker(): void
+  closeLocPicker(this: void): void
   /**
    * 切地点视图档位（2026-10-01，全部笔记视图分段里的星球 / 地点分组两颗图标）：
    * `off` = 回常规卡片流，`globe` = 星球，`group` = 地点分组流。位姿不动——关掉
    * 再开回到离开时的角度。地点视图是「全部笔记」的一种看法，不是新的 MainMode。
    */
-  setLocView(view: LocViewMode): void
+  setLocView(this: void, view: LocViewMode): void
   /** 星球位姿（拖拽 / 回正 tween / 选中转向）：倾角与绕竖轴转角，单位度 */
-  setGlobePose(lat: number, lng: number): void
-  setSearch(search: string): void
+  setGlobePose(this: void, lat: number, lng: number): void
+  setSearch(this: void, search: string): void
   /** 热力图选日（多选，并集）：点一下加入筛选集，再点一下移除；加入时退出「无标签」 */
-  toggleFilterDate(day: string): void
+  toggleFilterDate(this: void, day: string): void
   /** 清空日期筛选（筛选条「清除」/ 空态按钮用） */
-  clearFilterDates(): void
+  clearFilterDates(this: void): void
   /** N06：一次清掉全部筛选（搜索 + 日期 + 无标签 + 标签 + 地点 + v0.7.0 五个下钻维度） */
-  clearFilters(): void
+  clearFilters(this: void): void
   /** 统计页下钻：单标签筛选（含子树）并跳回列表，清掉日期与搜索 */
-  filterByTag(key: string): void
+  filterByTag(this: void, key: string): void
   /**
    * 统计页下钻（v0.9.33 地点维度；2026-10-01 改落回全部笔记）：把该地点设为
    * **唯一的**地点筛选并跳回列表。与上面那些下钻同一条 D-03 纪律——这一次点击
@@ -729,57 +730,57 @@ export interface UiState {
    * `loc` = 地名（或洲名：洲名本身就是顶级节点）；节点键按 `locFullKey` 折算
    * （用户手填的 prefs.locRegions 压过内置字典，与侧栏树同一把尺子）。
    */
-  filterByLocation(loc: string): void
+  filterByLocation(this: void, loc: string): void
   /** 统计页下钻：只看无标签 Momo 并跳回列表，清掉标签 / 日期 / 搜索 */
-  filterUntagged(): void
+  filterUntagged(this: void): void
   /**
    * v0.7.0 统计页下钻：一次打上一组日期（本周 / 本月 / 最近 30 天 / 最高产的一天）
    * 并跳回列表。与 `toggleFilterDate` 的区别：这里是**整组替换**（点一个统计数字
    * 就该看到那一组），不是逐日加减。
    */
-  filterByDates(days: string[]): void
+  filterByDates(this: void, days: string[]): void
   /** 下钻：按小时（并集）跳回列表 */
-  filterByHours(hours: number[]): void
+  filterByHours(this: void, hours: number[]): void
   /** 下钻：按星期（0=周一…6=周日，并集）跳回列表 */
-  filterByWeekdays(days: number[]): void
+  filterByWeekdays(this: void, days: number[]): void
   /** 下钻：按正文字符数闭区间跳回列表 */
-  filterByLength(min: number, max: number): void
+  filterByLength(this: void, min: number, max: number): void
   /** 下钻：按标签个数闭区间跳回列表 */
-  filterByTagCount(min: number, max: number): void
+  filterByTagCount(this: void, min: number, max: number): void
   /**
    * 下钻：按回顾记录跳回列表。v0.9.37 起收四档（`ReviewedFilter`）：
    * 「已回顾 / 未回顾」两格走有无两档，「近 7 天 / 近 30 天回顾」两格走时间窗两档。
    */
-  filterByReviewed(which: ReviewedFilter): void
+  filterByReviewed(this: void, which: ReviewedFilter): void
   /** 清掉某一维下钻筛选（筛选条胶囊的 ✕ 用）：不跳模式、不动其它维度 */
-  clearDrill(dim: 'hours' | 'weekdays' | 'length' | 'tagCount' | 'reviewed'): void
+  clearDrill(this: void, dim: 'hours' | 'weekdays' | 'length' | 'tagCount' | 'reviewed'): void
   /** 退出 / 进入「无标签」模式（顶栏 chip 的 ✕ 用 false） */
-  setUntaggedOnly(value: boolean): void
+  setUntaggedOnly(this: void, value: boolean): void
   /** 统计页时间范围（写偏好，关面板后不丢） */
-  setStatsRange(range: StatsRange): void
+  setStatsRange(this: void, range: StatsRange): void
   /** 自定义范围（v0.5.4）：写两端 + 切到 custom + 收起编辑条，一次落盘 */
-  setStatsCustom(from: string, to: string): void
+  setStatsCustom(this: void, from: string, to: string): void
   /** 展开 / 收起自定义日期编辑条（transient） */
-  setStatsRangeEditing(editing: boolean): void
-  toggleTag(key: string): void
+  setStatsRangeEditing(this: void, editing: boolean): void
+  toggleTag(this: void, key: string): void
   /** 切换回顾模式并立即重抽一批 */
-  setReviewMode(mode: ReviewMode): void
+  setReviewMode(this: void, mode: ReviewMode): void
   /** 置顶**标签**到末尾（标签右键菜单「置顶」）；index 省略即追加 */
-  pin(key: string, index?: number): void
+  pin(this: void, key: string, index?: number): void
   /** 取消置顶**标签**（标签右键菜单「取消置顶」） */
-  unpin(key: string): void
+  unpin(this: void, key: string): void
   /**
    * 置顶 / 取消置顶一条**Momo**（v0.8.3，卡片上的图钉按钮）：已置顶则取消，
    * 否则追加到「置顶」组末尾。与标签那套 `pin` / `unpin` 是两件事，字段也不共用。
    */
-  toggleNotePin(path: string): void
-  newReviewBatch(): void
+  toggleNotePin(this: void, path: string): void
+  newReviewBatch(this: void): void
   /** 回顾 · 下一个（看完并前进；已展示时间在抽批时登记） */
-  reviewNext(): void
+  reviewNext(this: void): void
   /** 回顾 · 上一个 */
-  reviewPrev(): void
+  reviewPrev(this: void): void
   /** 组合筛选（标签之间为并集，与搜索/日期取交集）后的全部匹配 */
-  matched(): MomoEntry[]
+  matched(this: void): MomoEntry[]
   // matchedTrash 已随 Q13 摘除（生产侧零调用）：回收站的真实消费路径是
   // Trash.tsx 自订的 matchEntries(pickMatchedInputs(s), trash.map(t => t.entry))。
 }

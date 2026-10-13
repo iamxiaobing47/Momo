@@ -32,7 +32,9 @@ let runToken = 0
  *  rIC 在滚动 / 连续 hover 下可能长期不回调（没有真正的空闲），整批就永远卡在
  *  第一片；setTimeout 的语义是「下一宏任务」，必定让开一帧，正是这里要的。 */
 function nextFrame(run: () => void): void {
-  setTimeout(run, 0)
+  // BUG-224：`window.setTimeout`（不是裸 `setTimeout`）——popout 窗口里裸调用绑的是
+  // 主窗口的定时器，评审口径 obsidianmd/prefer-window-timers。
+  window.setTimeout(run, 0)
 }
 
 /**

@@ -66,13 +66,19 @@ export function LocationFlow({ groups }: { groups: readonly LocationGroup[] }): 
   const locJumpSeq = useUi((s) => s.locJumpSeq)
   const rootRef = useRef<HTMLDivElement>(null)
 
-  /** 滚动容器：从本组件自己的 DOM 往上找（面板可同时开多份，别用 document） */
-  const scrollerOf = () => locScrollerOf(rootRef.current?.closest<HTMLElement>('.momo-app') ?? null)
+  // groups 的镜像：跳转 effect 只认 `locJumpSeq`（同值重点也要再滚一次），但落点要用
+  // **最新那一份** groups（组键随 locLevel 档位变，见下面 keys 那段）。镜像 effect 声明在
+  // 跳转 effect 之前，同一次提交里先跑，跳转 effect 读到的必是这一帧的值。
+  const groupsRef = useRef(groups)
+  useEffect(() => {
+    groupsRef.current = groups
+  })
 
   // 跳转 effect：依赖只有序号。挂载时也跑一次：带着筛选进入分组档（切模式 /
   // 切视图都不清筛选）就该落回那一组，与侧栏「全部地点」树选中的行一致。
   useEffect(() => {
-    const scroller = scrollerOf()
+    // 滚动容器：从本组件自己的 DOM 往上找（面板可同时开多份，别用 document）
+    const scroller = locScrollerOf(rootRef.current?.closest<HTMLElement>('.momo-app') ?? null)
     if (!scroller) return
     const filters = useUi.getState().filterLocations
     if (filters.length === 0) {
@@ -86,17 +92,16 @@ export function LocationFlow({ groups }: { groups: readonly LocationGroup[] }): 
     // 选「中国」在 name 档下组键是城市路径，精确比对一个都对不上，滚动于是静默
     // 失效（用户点了「亚洲」，筛选生效了，视图却停在原地）。
     // 一个组都不覆盖（筛出来的地名不在流里）时回顶。
-    const keys = groups.map((g) => g.key)
+    const keys = groupsRef.current.map((g) => g.key)
     let target: string | null = null
     for (let i = filters.length - 1; i >= 0 && target === null; i--) {
-      target = firstLocGroupKey(keys, filters[i]!)
+      target = firstLocGroupKey(keys, filters[i])
     }
     if (target === null) {
       scrollLocToTop(scroller)
       return
     }
     scrollToLocGroup(scroller, target)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只认序号，见上
   }, [locJumpSeq])
 
   return (

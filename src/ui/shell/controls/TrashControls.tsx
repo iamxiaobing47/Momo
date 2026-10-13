@@ -19,6 +19,47 @@ export interface TrashControlsProps {
 
 export function TrashControls({ searchInput, searchRef, onSearchInput }: TrashControlsProps): React.JSX.Element {
   const { trash, brandName } = useUi(useShallow((s) => ({ trash: s.trash, brandName: s.brandName })))
+
+  /**
+   * 全部恢复。返回 **void**（内部 async IIFE 交给 `void`）：`onClick` 的签名是
+   * `() => void`，直接挂 async 函数会被 `no-misused-promises` 拦下（BUG-224）。
+   *
+   * N08：restoreAll 失败已在 caps 层提示，catch 只为不当 unhandled rejection。
+   * BUG-83：一次性把全部条目涌回各笔记，与「清空回收站」同属全局动作——
+   * 误触成本必须对上影响面，所以同走 confirmDialog（报条数）。
+   */
+  const onRestoreAll = (): void => {
+    void (async () => {
+      const caps = useUi.getState().caps
+      if (!caps || trash.length === 0) return
+      const ok = await caps.confirmDialog({
+        message: copy.trash.restoreAllConfirm.message({ count: trash.length, brand: brandName }),
+        confirmText: copy.trash.restoreAllConfirm.confirm,
+      })
+      if (!ok) return
+      void caps.restoreAll()?.catch(() => {})
+    })()
+  }
+
+  /** 清空回收站（同样二次确认；N08：失败已在 caps 层提示）。返回 void 的理由同上。 */
+  const onPurgeAll = (): void => {
+    void (async () => {
+      const caps = useUi.getState().caps
+      if (!caps || trash.length === 0) return
+      const ok = await caps.confirmDialog({
+        message: copy.trash.purgeAll.message({ count: trash.length, brand: brandName }),
+        confirmText: copy.trash.purgeAll.confirm,
+        danger: true,
+      })
+      if (!ok) return
+      try {
+        await caps.purgeAll()
+      } catch {
+        // 已提示，无需再处理
+      }
+    })()
+  }
+
   return (
     <>
       <div className="momo-search-wrap">
@@ -36,43 +77,11 @@ export function TrashControls({ searchInput, searchRef, onSearchInput }: TrashCo
         // BUG-133a：回收站为空时按钮不可点。旧实现无条件渲染且永不 disabled——
         // 处理器里 `trash.length === 0` 静默早退，按下去界面一句话不说。
         disabled={trash.length === 0}
-        onClick={async () => {
-          // N08：restoreAll 失败已在 caps 层提示；catch 只为不当 unhandled rejection
-          // BUG-83：一次性把全部条目涌回各笔记，与「清空回收站」同属全局动作——
-          // 误触成本必须对上影响面，所以同走 confirmDialog（报条数）。
-          const caps = useUi.getState().caps
-          if (!caps || trash.length === 0) return
-          const ok = await caps.confirmDialog({
-            message: copy.trash.restoreAllConfirm.message({ count: trash.length, brand: brandName }),
-            confirmText: copy.trash.restoreAllConfirm.confirm,
-          })
-          if (!ok) return
-          void caps.restoreAll()?.catch(() => {})
-        }}
+        onClick={onRestoreAll}
       >
         {copy.trash.restoreAll}
       </TextButton>
-      <TextButton
-        danger
-        disabled={trash.length === 0}
-        onClick={async () => {
-          const caps = useUi.getState().caps
-          if (!caps || trash.length === 0) return
-          const ok = await caps.confirmDialog({
-            message: copy.trash.purgeAll.message({ count: trash.length, brand: brandName }),
-            confirmText: copy.trash.purgeAll.confirm,
-            danger: true,
-          })
-          if (ok) {
-            // N08：同上——失败已在 caps 层提示
-            try {
-              await caps.purgeAll()
-            } catch {
-              // 已提示，无需再处理
-            }
-          }
-        }}
-      >
+      <TextButton danger disabled={trash.length === 0} onClick={onPurgeAll}>
         {copy.trash.purgeAll.button}
       </TextButton>
     </>

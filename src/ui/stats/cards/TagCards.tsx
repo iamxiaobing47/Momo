@@ -94,7 +94,7 @@ export function TagDistCard({ stats, drill }: { stats: MomoStats; drill: StatsDr
           const min = i === 3 ? 3 : i
           const max = i === 3 ? Number.MAX_SAFE_INTEGER : i
           const drillFn = i === 0 ? () => drill.filterUntagged() : () => drill.filterByTagCount(min, max)
-          const label = copy.meta.tagCountBin[i]!
+          const label = copy.meta.tagCountBin[i]
           return (
             <DistRow
               key={label}

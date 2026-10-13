@@ -104,9 +104,11 @@ export interface EntryFact {
 }
 
 export function factsOf(entries: readonly MomoEntry[]): EntryFact[] {
-  const out: EntryFact[] = new Array(entries.length)
+  // `new Array<T>(n)` 而不是 `new Array(n)`（BUG-224）：无泛型参数时推断为 any[]，
+  // 赋给 EntryFact[] 是 no-unsafe-assignment；显式泛型仍走预分配，语义不变。
+  const out = new Array<EntryFact>(entries.length)
   for (let i = 0; i < entries.length; i++) {
-    const e = entries[i]!
+    const e = entries[i]
     const ts = new Date(e.createdAt)
     const valid = !Number.isNaN(ts.getTime())
     const day = valid ? localDay(ts) : e.createdAt.slice(0, 10)
@@ -198,7 +200,7 @@ export function statsDrillDays(
   // 空数组 = 该组整体落在窗口外，格子退化纯展示（调用方据 undefined 回调）
   const within = (days: string[]): string[] => days.filter((d) => d >= c.from && d <= c.to)
   return {
-    weekDays: covers(week[0]!) ? within(week) : [],
-    monthDays: covers(month[0]!) ? within(month) : [],
+    weekDays: covers(week[0]) ? within(week) : [],
+    monthDays: covers(month[0]) ? within(month) : [],
   }
 }

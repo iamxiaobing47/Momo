@@ -58,7 +58,10 @@
    ② 相邻两级色差小的方案（小格子上肉眼分不出级别），描边给每格一道结构边界；
    ③ 与 hover 的 outline 同一视觉语言，不引入第二种边。
    10%  ink 是「看得见但不抢戏」的一档：dark 方案的 ink 是暖白，暗边自动变成
-   亮边，不需要为暗色另写一条。老引擎的降级与 60-design 的毛玻璃同模式。
+   亮边，不需要为暗色另写一条。色值走 color-mix 现算——它前面原有一行
+   `rgba(0,0,0,.08)` 兜底（给不认 color-mix 的老 Chromium），BUG-227 按评审
+   「同块重复 box-shadow」删掉：Obsidian 1.5+ 的 Electron 是 Chromium 111+，
+   color-mix 早已在支持面内，兜底那行只留给 2023 年前的引擎。
    BUG-212：格子另有自建的悬停提示（HeatCellTip，portal 到 .momo-app、跟着
     accent 体系、贴边会翻面），aria-label 与它同文——Obsidian 的原生气泡于是
     每格弹两枚。原生的那枚压制：--no-tooltip: true，自建提示与读屏名不动
@@ -71,7 +74,6 @@
   height: auto;
   border-radius: var(--momo-r-1);
   background: var(--momo-heat-0);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--momo-ink) 10%, transparent);
   cursor: pointer;
 }

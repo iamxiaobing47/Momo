@@ -1,4 +1,5 @@
 import { copy } from '../../momo/i18n'
+import { applyFontVars } from '../../ui/shared/fontStyle'
 import { arrowNav, h, iconSvg, stepfunLogoSvg } from './dom'
 
 /** StepFun 方案的 id：色卡名称行右侧带一枚品牌标（见 schemePicker 内） */
@@ -137,6 +138,9 @@ export function schemePicker(
     card.setAttribute('role', 'radio')
     card.dataset.schemeValue = opt.value
     card.classList.add(`momo-theme-${opt.value}`)
+    // 色卡自持一套令牌（00-tokens.css 的宿主表含 .momo-set-scheme），--momo-sans 也在
+    // 其中——新宿主自己领字体变量，否则这几张卡用的是默认字体而不是用户选的（BUG-217）。
+    applyFontVars(card)
     const preview = h('span', 'momo-set-scheme-preview')
     preview.append(
       h('span', 'momo-set-scheme-chip is-page'),
@@ -181,8 +185,17 @@ export function actionButton(
   return b
 }
 
-/** 开关 40×22 / r999（开 = accent，关 = ink-6），滑块 18 */
-export function buildSwitch(get: () => boolean, set: (v: boolean) => void): HTMLButtonElement {
+/** 开关 40×22 / r999（开 = accent，关 = ink-6），滑块 18。
+ *
+ *  `owner` 给「这颗开关决定其选中态的那张卡」（可选）：给了就把开关状态镜像成
+ *  `momo-set-tile-on` 合成类挂在卡上。旧实现靠 CSS 的
+ *  `.momo-set-tile:has(.momo-set-switch.is-on)` 反查祖先——BUG-227 按 Obsidian
+ *  官方评审去掉 `:has`（大范围失效重算的性能隐患），状态改在渲染时现算。 */
+export function buildSwitch(
+  get: () => boolean,
+  set: (v: boolean) => void,
+  owner?: HTMLElement,
+): HTMLButtonElement {
   const btn = h('button', 'momo-set-switch')
   btn.type = 'button'
   btn.setAttribute('role', 'switch')
@@ -191,6 +204,7 @@ export function buildSwitch(get: () => boolean, set: (v: boolean) => void): HTML
     const on = get()
     btn.classList.toggle('is-on', on)
     btn.setAttribute('aria-checked', String(on))
+    owner?.classList.toggle('momo-set-tile-on', on)
   }
   btn.addEventListener('click', () => {
     set(!get())

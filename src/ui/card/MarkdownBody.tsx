@@ -61,7 +61,7 @@ function observeNearViewport(el: Element, onVisible: () => void): () => void {
  *   换了实例就当 miss；content 会随标题升格开关 / 字数上限变（见 `title.ts` 的
  *   bodyOf），条目对象没变也不行。
  *
- * 缓存的是**子节点 HTML**（不含容器自身类名）：列表卡与回顾大卡的容器类不同，
+ * 缓存的是**渲染产物节点**（不含容器自身类名）：列表卡与回顾大卡的容器类不同，
  * 但 Obsidian 的 MarkdownRenderer 只认 `markdown-rendered`（实时渲染与预热两条路径的游离容器
  * 都经 `detachedHost` 带上它——BUG-120：预热曾裸建 div，缺类容器渲染的 HTML 被缓存成长期值），
  * 其余 momo-* 前缀是自家 CSS 的作用域、渲染器读不到——所以同一条目在两种卡之间
@@ -71,7 +71,19 @@ function observeNearViewport(el: Element, onVisible: () => void): () => void {
 interface RenderedBody {
   caps: MomoCaps
   content: string
-  html: string
+  /**
+   * 渲染出来的子节点，**未高亮的原始副本**（BUG-217）。
+   *
+   * 存节点而非 HTML 字符串：字符串回填必须重新解析（`innerHTML` 或 `template`），
+   * 而 `innerHTML` 赋值是 Obsidian 评审的 Error（`no-unsanitized/property` +
+   * `@microsoft/sdl/no-inner-html`）。节点本来就在手边——存一份、回填时
+   * `cloneNode(true)`，解析这一步整个消失，「解析即执行脚本」的顾虑也就不存在了
+   * （比 BUG-100 那版「挑一个不执行脚本的解析 API」更强）。
+   *
+   * 必须是**未高亮**的：`highlightMatches` 就地改 DOM，而回填路径每次都会重做高亮——
+   * 存下高亮过的节点会在第二次装载时叠加一层。
+   */
+  nodes: Node[]
 }
 const bodyCache = new WeakMap<object, RenderedBody>()
 
@@ -106,9 +118,14 @@ export async function warmBodyCache(
   const box = detachedHost()
   try {
     await caps.renderMarkdown(box, prepareCardBody(content))
-    bodyCache.set(cacheKey, { caps, content, html: box.innerHTML })
+    // box 这一趟就丢，子节点所有权直接转给缓存（不再 clone——预热是性能路径，
+    // 这批节点此后没有别的引用，也不会被高亮碰）。缓存里这份始终是未高亮的原始副本。
+    bodyCache.set(cacheKey, { caps, content, nodes: Array.from(box.childNodes) })
   } catch {
     // 预热失败不影响主路径：点击后 MarkdownBody 照常异步渲染
+  } finally {
+    // BUG-218：这个容器用完即弃，渲染登记的子组件跟着卸载（漏了就是一次泄漏/预热）。
+    caps.releaseMarkdown?.(box)
   }
 }
 
@@ -164,15 +181,14 @@ export function MarkdownBody({
     const hit = cacheKey ? bodyCache.get(cacheKey) : undefined
     if (hit && hit.caps === caps && hit.content === content) {
       // BUG-62：缓存回填与新鲜路径必须同语义——同一份内容两条装载路径，DOM 结果
-      // 逐字节一致（dom-snapshot 基线盯着），脚本执行语义也不许分叉。
-      // BUG-100：旧注释把「谁执行脚本」恰好记反了——`innerHTML` 与 template 都不
-      // 执行 <script>，只有 `createContextualFragment` 会（Range 的片段解析启用
-      // scripting 且不给脚本打 already-started）。所以解析走 template：解析后取
-      // .content 搬节点。真 Chromium 五种装载方式的实测见工单 bug-100，
-      // 写法由 scripts/bodycache-script-guard.test.mts 守。
-      const tpl = document.createElement('template')
-      tpl.innerHTML = hit.html
-      el.replaceChildren(tpl.content.cloneNode(true))
+      // 逐字节一致（dom-snapshot 基线盯着）。
+      // BUG-100 → BUG-217：这里**不再有任何「字符串 → 节点」的解析**。旧实现缓存 HTML
+      // 串、回填时用 template 重解析（当时只要挑一个不执行 <script> 的解析 API 就够）；
+      // 评审把 `innerHTML` 赋值列为 Error（no-unsanitized/property），而节点本来就在
+      // 缓存里——装载那刻存节点、回填这刻 cloneNode，解析这一步整个消失。
+      // 必须 clone：命中路径下 `highlightMatches` 是就地改 DOM 的（见文件顶的缓存注释）。
+      // 守卫 scripts/bodycache-script-guard.test.mts 钉住「回填路径不许出现解析 API」。
+      el.replaceChildren(...hit.nodes.map((n) => n.cloneNode(true)))
       highlightMatches(el, searchRef.current)
       return
     }
@@ -193,19 +209,25 @@ export function MarkdownBody({
       .renderMarkdown(box, prepareCardBody(content))
       .then(() => {
         if (cancelled) return
-        // 先序列化再搬移：replaceChildren 会把子节点从 box 移进 el，搬完再读
-        // box.innerHTML 只会得到空串（缓存存了个空内容，重挂载时正文整段消失）
-        const html = box.innerHTML
-        el.replaceChildren(...Array.from(box.childNodes))
+        // BUG-217：上屏的是**这一趟渲染出来的原节点**（replaceChildren 会把它们从 box
+        // 移进 el，随后被就地高亮）；进缓存的却是它们的**克隆**——两份分开，
+        // 缓存里那份永远保持未高亮的原始形态，否则第二次装载会在高亮上再叠一层
+        // （回填路径每次都会重跑 highlightMatches）。这一条替代了旧的
+        // 「先序列化再搬移」：那时要抢在 replaceChildren 之前读 innerHTML，
+        // 读晚了只剩空串（缓存存了个空内容，重挂载时正文整段消失）。
+        const nodes = Array.from(box.childNodes)
+        if (cacheKey) bodyCache.set(cacheKey, { caps, content, nodes: nodes.map((n) => n.cloneNode(true)) })
+        el.replaceChildren(...nodes)
         highlightMatches(el, searchRef.current)
-        // 写缓存：innerHTML 序列化一次，此后这颗条目在任何卡片里重挂载都同步回填
-        if (cacheKey) bodyCache.set(cacheKey, { caps, content, html })
       })
       // 注释承诺的「吞掉」落实在 catch：void 只丢值不接 rejection，漏出去就是
       // 面板未接住的 unhandled rejection（与 warmBodyCache 的 try/catch 同口径）
       .catch(() => {})
     return () => {
       cancelled = true
+      // BUG-218：容器要走了，正文渲染登记的子组件跟着卸载（MarkdownRenderer 的
+      // component 是按容器建的，见 views/caps.ts 的 componentFor）。
+      caps.releaseMarkdown?.(el)
     }
   }, [caps, content, visible, cacheKey])
 

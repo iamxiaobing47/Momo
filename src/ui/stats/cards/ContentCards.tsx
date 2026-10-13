@@ -16,8 +16,8 @@ export function LengthDistCard({ stats, drill }: { stats: MomoStats; drill: Stat
       <CardHead title={copy.statsPage.cardTitle.lengthDist} />
       <div className="momo-statbars">
         {stats.charBins.map((count, i) => {
-          const min = i === 0 ? 0 : CHAR_BIN_UPPER[i - 1]! + 1
-          const max = i === CHAR_BIN_UPPER.length ? Number.MAX_SAFE_INTEGER : CHAR_BIN_UPPER[i]!
+          const min = i === 0 ? 0 : CHAR_BIN_UPPER[i - 1] + 1
+          const max = i === CHAR_BIN_UPPER.length ? Number.MAX_SAFE_INTEGER : CHAR_BIN_UPPER[i]
           const label = copy.meta.charBin[i] ?? ''
           return (
             <DistRow

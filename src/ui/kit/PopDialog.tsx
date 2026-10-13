@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react'
-import type { CSSProperties, KeyboardEventHandler, ReactNode, Ref, RefObject } from 'react'
+import type { CSSProperties, KeyboardEventHandler, ReactNode, Ref } from 'react'
 
 // 浮层弹壳（.momo-pop-mask + .momo-pop + 头 + 脚）：标签管理弹层
 // （src/ui/tags/TagEditMenu.tsx）与批量标签弹层（src/ui/tags/picker/BatchTagPicker.tsx，
@@ -112,15 +112,19 @@ export function PopDialog({
     const el = document.activeElement
     prevFocusRef.current = el instanceof HTMLElement && !el.closest('.momo-pop') ? el : null
   }
+  // 挂载一次就钉住出栈焦点；returnFocus 是调用方的 inline 回调（每次渲染新引用），
+  // 直接进依赖会让「弹层开着时调用方一次无关重渲」也跑归还判定（cleanup 不跑就不误还，
+  // restore 只在真 unmount 时发生）。这里用 ref 镜像留**最新那一版**，unmount 时才读。
+  const returnFocusRef = useRef(returnFocus)
+  useEffect(() => {
+    returnFocusRef.current = returnFocus
+  })
   useEffect(
     () => () => {
-      const el = returnFocus ? returnFocus() : prevFocusRef.current
+      const ask = returnFocusRef.current
+      const el = ask ? ask() : prevFocusRef.current
       if (el instanceof HTMLElement && el.isConnected === true) el.focus()
     },
-    // 挂载一次就钉住出栈焦点；returnFocus 是调用方的 inline 回调（每次渲染
-    // 新引用），放进依赖会让「弹层开着时调用方一次无关重渲」也跑归还判定
-    // （cleanup 不跑就不误还，restore 只在真 unmount 时发生）——ref 现读即可。
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 见上
     [],
   )
 
@@ -137,7 +141,7 @@ export function PopDialog({
     (el: HTMLDivElement | null): void => {
       dialogElRef.current = el
       if (typeof dialogRef === 'function') dialogRef(el)
-      else if (dialogRef !== null && dialogRef !== undefined) (dialogRef as RefObject<HTMLDivElement | null>).current = el
+      else if (dialogRef !== null && dialogRef !== undefined) dialogRef.current = el
     },
     [dialogRef],
   )
@@ -166,8 +170,8 @@ export function PopDialog({
           e.preventDefault()
           root.focus()
         } else {
-          const first = focusables[0]!
-          const last = focusables[focusables.length - 1]!
+          const first = focusables[0]
+          const last = focusables[focusables.length - 1]
           const active = document.activeElement
           const inside = active instanceof HTMLElement && root.contains(active)
           if (e.shiftKey) {

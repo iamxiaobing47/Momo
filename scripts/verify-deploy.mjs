@@ -11,7 +11,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
-import { ARTIFACTS, GLOBE_TEXTURES, GLOBE_EARTH_IDS, GLOBE_CUBE_FACES, globeTextureProblems, globeAssetRevOf, readGlobeAssetRev, pluginProjectDir, vaultPluginDirs } from './vault-targets.mjs'
+import { ARTIFACTS, STALE_ARTIFACTS, GLOBE_TEXTURES, GLOBE_EARTH_IDS, GLOBE_CUBE_FACES, globeTextureProblems, globeAssetRevOf, readGlobeAssetRev, pluginProjectDir, vaultPluginDirs } from './vault-targets.mjs'
 
 const sha256 = (p) => crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex')
 const projectDir = pluginProjectDir()
@@ -28,12 +28,11 @@ let skippedVaults = 0
 console.log(`verify-deploy: 源 = ${projectDir}`)
 
 // ── 运行时资源指纹自检（工程根侧，2026-10-05） ─────────────────────────────
-// 为什么值得单独一条：globe3d.js 与 cube 六面是固定文件名的独立产物，经 app://
-// 注入，Chromium 按 URL 缓存。URL 里没有版本 → 改了源码、构建了、部署了、重启了，
-// 浏览器仍拿旧副本，**不报错不留痕**。指纹（编进 main.js）就是给这些 URL 加版本。
-// 而指纹一旦与磁盘上的产物脱钩，它就从「保险」变成「更隐蔽的故障源」——所以这里
-// 在部署层面再钉一次：main.js 声称的指纹 == 磁盘上这些产物实际重算出来的指纹。
-// 不一致 = 用户拿到的 URL 版本号与实际字节对不上，缓存该失效时不会失效。
+// 为什么值得单独一条：两套 cube 贴图（12 张）是固定文件名的独立产物，运行期由 caps
+// 读字节上屏。指纹（编进 main.js 的 banner）是 verify-deploy 判「main.js 与磁盘产物
+// 是不是同一次构建」的依据；而它一旦与磁盘上的产物脱钩，就从「保险」变成「更隐蔽的
+// 故障源」——所以这里在部署层面再钉一次：main.js 声称的指纹 == 磁盘上 12 张贴图实际
+// 重算出来的指纹。（2026-10-13 / BUG-219：指纹口径从「三维库 + 十二面」收成只算贴图。）
 {
   const baked = readGlobeAssetRev(projectDir)
   if (baked === '') {
@@ -48,10 +47,10 @@ console.log(`verify-deploy: 源 = ${projectDir}`)
     }
     if (actual !== baked) {
       console.log(`      ✗ 运行时资源指纹对不上：main.js 里是 ${baked}，产物实际是 ${actual}`)
-      console.log('         → globe3d.js / cube 六面变了但 main.js 没重新构建。跑 npm run build')
+      console.log('         → 贴图变了但 main.js 没重新构建。跑 npm run build')
       bad++
     } else {
-      console.log(`      ✓ 运行时资源指纹 ${actual}（main.js 与 globe3d.js + 六面一致）`)
+      console.log(`      ✓ 运行时资源指纹 ${actual}（main.js 与 12 张贴图一致）`)
     }
   }
 }
@@ -68,6 +67,15 @@ for (const dest of vaultPluginDirs()) {
     continue
   }
   console.log(`  - ${dest}`)
+  // 已退役产物（STALE_ARTIFACTS）不许再留在插件目录里：它们不再产出，留着就是死文件
+  // ——2026-10-13（BUG-219）起 globe3d.js 退役（three 打进 main.js），老 vault 里那份
+  // 必须由 deployPlugin 清掉；这里是校验侧的那一问（同步的部署逻辑在 esbuild.config.mjs）。
+  for (const name of STALE_ARTIFACTS) {
+    if (fs.existsSync(path.join(dest, name))) {
+      console.log(`      ✗ ${name}：已退役的产物还在（新版不再产出它）→ 重跑 npm run build 让部署侧清理`)
+      bad++
+    }
+  }
   for (const file of ARTIFACTS) {
     const src = path.join(projectDir, file)
     const dst = path.join(dest, file)
@@ -116,9 +124,9 @@ for (const dest of vaultPluginDirs()) {
   // vault 侧自洽：这里重算的是 **vault 目录里那一份** 产物（平铺布局），跟上面
   // 工程根的读法不同但算法同一份（vault-targets 的 globeAssetRevOf 会先试平铺路径）。
   // 为什么不复用上面「与源逐字节一致」的结论就完事：那些比对是逐文件对的，这里要的是
-  // **组合口径**——万一某次只部署了 main.js 没部署 globe3d.js（两个插件的 build 各自
-  // 拷一遍，中间失败过一次），逐文件比对会各自报不一致却说不清「URL 版本号对不上字节」
-  // 这件事，而这个组合检查会直接把它指出来。
+  // **组合口径**——万一某次只部署了 main.js 没部署贴图（两个插件的 build 各自拷一遍，
+  // 中间失败过一次），逐文件比对会各自报不一致却说不清「banner 指纹对不上字节」这件事，
+  // 而这个组合检查会直接把它指出来。
   {
     const baked = readGlobeAssetRev(dest)
     let actual
@@ -131,8 +139,8 @@ for (const dest of vaultPluginDirs()) {
       console.log('      ✗ vault 里的 main.js 没有指纹 banner——它不是本次构建的产物')
       bad++
     } else if (actual !== baked) {
-      console.log(`      ✗ vault 内指纹对不上：main.js 里是 ${baked}，vault 里的产物实际是 ${actual}`)
-      console.log('         → vault 里是「旧 main.js + 新 globe3d.js」的混搭，缓存会拿错版本。重跑 npm run build')
+      console.log(`      ✗ vault 内指纹对不上：main.js 里是 ${baked}，vault 里的贴图实际是 ${actual}`)
+      console.log('         → vault 里是「旧 main.js + 新贴图」的混搭。重跑 npm run build')
       bad++
     } else {
       console.log(`      ✓ vault 内指纹 ${actual}`)

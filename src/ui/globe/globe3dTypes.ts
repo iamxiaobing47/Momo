@@ -1,8 +1,10 @@
-// main.js 与 globe3d.js（three.js 档）的**边界契约**，只放类型、零运行时：
-// 两侧各自 import 这里，运行期经 window.__momoGlobe3D 全局交接（globe3dLoader 注入
-// script，globe3dStage 挂工厂）。main.js 一侧绝不 import globe3dStage 本体——
-// 那会把整个 three 拖进 main.js，onload 的 parse 账白算（见 globe3dStage 文件头）。
-// scripts/globe3d-deploy.test.mts 钉着这条纪律。
+// 三维舞台（globe3dStage，three.js 档）与调用方（GlobeStage / globe3dBackend）的
+// **边界契约**，只放类型、零运行时：舞台实现与接线各自 import 这里。
+//
+// 2026-10-13（BUG-219）：这条边界曾是「main.js ↔ globe3d.js 二产物」之间的交接面
+// （window.__momoGlobe3D 全局 + 运行期 <script> 注入）。three 打进 main.js 之后没有
+// 第二产物、也没有全局交接，契约只剩「工厂 / 实例长什么样」这一层——把形状留在
+// 这里，globe-projection.test.mts 才能直接喂假工厂测 createBackendSafe 的回退口径。
 
 import type { GlobeEarth } from './globeLight'
 
@@ -41,7 +43,7 @@ export interface Globe3DInstance {
   dispose(): void
 }
 
-/** globe3d.js 暴露在 window.__momoGlobe3D 上的工厂 */
+/** 三维舞台的工厂（globe3dStage 的 `globe3dFactory`）：建实例、失败回退软渲染 */
 export interface Globe3DFactory {
   /**
    * 在给定 canvas 上初始化三维渲染。WebGL 上下文拿不到（禁 GPU / 驱动黑名单 /

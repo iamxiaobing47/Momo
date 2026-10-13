@@ -92,3 +92,25 @@ No. Not a single one of your note files will be touched.
 
 **Do I need a network connection or an account?**
 Not at all. No servers, no user system — everything runs locally.
+
+## Permissions & privacy
+
+Momo is local-first: no account, no telemetry, no upload. Three things the community-plugin
+review flags, and exactly what each one is for:
+
+- **Vault enumeration** (`vault.getFiles` / `getMarkdownFiles`): indexing your notes as cards
+  *is* the feature — tags, locations, the heatmap and review all read that index. The paths
+  stay in memory on your own machine.
+- **Clipboard**: write-only, and only when you click a card's copy button (or paste an image
+  into a note — that is Obsidian's own paste event). Momo never reads the clipboard in the
+  background and never touches it outside those gestures.
+- **Network**: the 3D globe's textures are not inside the install package (Obsidian's installer
+  only downloads `main.js`, `manifest.json` and `styles.css`). The **Download asset pack**
+  button in the plugin's settings fetches them from this repository's release — that is the
+  plugin's only network access, and it happens only when you click it. Without it the globe
+  still renders (canvas fallback).
+
+## License
+
+GNU Affero General Public License v3.0 or later — see [LICENSE](LICENSE).
+Copyright (C) 2026 iamxiaobing47.

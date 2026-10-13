@@ -6,6 +6,9 @@
 /** 要同步进 vault 的工程根产物（顺序即校验顺序） */
 export declare const ARTIFACTS: string[]
 
+/** 历史产物名（曾产出、现已退役）：部署时从目标目录清掉，verify 时还在就报问题 */
+export declare const STALE_ARTIFACTS: string[]
+
 /** cube 六面的面名（顺序 = three.js CubeTexture 的构造顺序） */
 export declare const GLOBE_CUBE_FACES: string[]
 
@@ -46,14 +49,10 @@ export declare function vaultPluginDirs(): string[]
  *  的写法（.mjs 本体不收参、直接返回工程根） */
 export declare function pluginProjectDir(start?: string): string
 
-/** 星球三维渲染库 globe3d.js（three.js 档，2026-10-04 起的第二构建产物，在 ARTIFACTS 里） */
-export declare const GLOBE3D: { name: string }
-
-/** 星球三维渲染库的部署前置校验（缺失 / 缺工厂全局 → 问题列表） */
-export declare function globe3dProblems(): string[]
+/** 星球三维渲染库已退役（BUG-219：three 打进 main.js）——部署与发布链里都不再有它 */
 
 /**
- * 运行时资源（globe3d.js + **两套** cube 六面）的内容指纹：合并 sha256 前 12 位。
+ * 运行时资源（**两套** cube 六面，共 12 面）的内容指纹：合并 sha256 前 12 位。
  * esbuild 与 verify-deploy 共用这一个实现——自检与被自检各算一遍 = 不一致的新来源。
  * 文件缺失会抛（调用方决定怎么报，别静默给默认值）。
  */

@@ -74,12 +74,14 @@ export function buildTagTree(entries: readonly MomoEntry[]): TagNode[] {
   //    @10k 下这是 buildTagTree 19.6ms 的大头之一。
   //    顺带挡掉空身份键（`#/` 之类）：旧实现对空键不拦，会建出一个 name='' 的
   //    幽灵根节点挂在树上；这里整条丢弃，侧栏不会出现空名行。
-  const perEntry: Array<Array<{ key: string; raw: string }>> = new Array(entries.length)
+  // 三处都写 `new Array<T>(n)`（BUG-224）：无泛型参数时返回 any[]，赋给有类型的
+  // 数组是 no-unsafe-assignment。显式泛型同样走预分配，行为不变。
+  const perEntry = new Array<Array<{ key: string; raw: string }>>(entries.length)
   // 附件（v0.9.18）与 perEntry **同遍**产出：这一步本来就要逐条目走一遍，
   // 顺手取走这个标量，不给后面的计数遍再加一次遍历。
-  const entryHasImage: boolean[] = new Array(entries.length)
+  const entryHasImage = new Array<boolean>(entries.length)
   for (let i = 0; i < entries.length; i++) {
-    const e = entries[i]!
+    const e = entries[i]
     const seen = new Set<string>()
     const keys: Array<{ key: string; raw: string }> = []
     for (const raw of e.tags) {
@@ -109,10 +111,10 @@ export function buildTagTree(entries: readonly MomoEntry[]): TagNode[] {
   // 每条目的 createdAt 只解析**一次**，显示遍与下面的聚合遍共用（§3.2：折算一次、
   // 复用到底）。不再「见脏就 break」——聚合遍需要每一颗的时间戳才知道该不该参与
   // max，半份 stamps 逼不出第二种口径。脏库因此与干净库付同样的 N 次解析。
-  const stamps: number[] = new Array(entries.length)
+  const stamps = new Array<number>(entries.length)
   let allParseable = true
   for (let i = 0; i < entries.length; i++) {
-    const t = Date.parse(entries[i]!.createdAt)
+    const t = Date.parse(entries[i].createdAt)
     stamps[i] = t
     if (Number.isNaN(t)) allParseable = false
   }
@@ -127,8 +129,8 @@ export function buildTagTree(entries: readonly MomoEntry[]): TagNode[] {
     const picked: Array<{ key: string; raw: string; t: number; i: number }> = []
     const best = new Map<string, number>()
     for (let i = 0; i < entries.length; i++) {
-      const t = stamps[i]!
-      for (const { key, raw } of perEntry[i]!) {
+      const t = stamps[i]
+      for (const { key, raw } of perEntry[i]) {
         const b = best.get(key)
         if (b === undefined || t < b) {
           best.set(key, t)
@@ -144,9 +146,9 @@ export function buildTagTree(entries: readonly MomoEntry[]): TagNode[] {
     }
   } else {
     // 按 createdAt 稳定排序后的条目顺序走（同旧实现的 sort 副本口径）
-    const order = entries.map((_, i) => i).sort((a, b) => byCreatedAtAsc(entries[a]!, entries[b]!))
+    const order = entries.map((_, i) => i).sort((a, b) => byCreatedAtAsc(entries[a], entries[b]))
     for (const i of order) {
-      for (const { key, raw } of perEntry[i]!) {
+      for (const { key, raw } of perEntry[i]) {
         if (!displayByKey.has(key)) displayByKey.set(key, canonicalTagPath(raw))
       }
     }
@@ -161,7 +163,7 @@ export function buildTagTree(entries: readonly MomoEntry[]): TagNode[] {
     const node: TagNode = {
       key,
       displayPath,
-      name: segs[segs.length - 1]!,
+      name: segs[segs.length - 1],
       depth: segs.length,
       ownCount: 0,
       totalCount: 0,
@@ -179,7 +181,7 @@ export function buildTagTree(entries: readonly MomoEntry[]): TagNode[] {
   // 4) 计数：ownCount = 直属条目数；totalCount = 子树合计，按条目去重
   //    （一条 Momo 同时有 `读书` 与 `读书/小说` 时，祖先只加一次 → 数字与卡片数对齐）。
   for (let i = 0; i < perEntry.length; i++) {
-    const keys = perEntry[i]!
+    const keys = perEntry[i]
     const hit = new Set<string>()
     for (const { key } of keys) {
       byKey.get(key)!.ownCount++
@@ -194,7 +196,7 @@ export function buildTagTree(entries: readonly MomoEntry[]): TagNode[] {
     // 与 totalCount 同口径（一条同时带 `读书` 与 `读书/小说` 的不会被算两回）。
     // 曾经这里还聚合 lastUsedAt（子树最新 createdAt），2026-10-11 删掉（R7）：
     // 全仓零读者，而它用 ISO 字典序取 max 的口径还得配一段「脏值不参与」的注释养着。
-    const img = entryHasImage[i]!
+    const img = entryHasImage[i]
     for (const prefix of hit) {
       const node = byKey.get(prefix)
       if (!node) continue

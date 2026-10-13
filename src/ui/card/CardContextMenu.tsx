@@ -28,9 +28,12 @@ const CardContextMenu: React.FC<CardContextMenuProps> = ({ x, y, path, isPinned,
   if (prevFocusRef.current === null) prevFocusRef.current = document.activeElement
 
   useEffect(() => {
+    // 挂载时抓一次菜单节点：cleanup 里再读 `ref.current`，规则会判「读到的是可能已
+    // 换过的 ref」；本 effect 无依赖表、只跑一次，抓下来的就是同一个节点，语义不变。
+    const menuEl = ref.current
     const handlePointerDown = (event: MouseEvent) => {
       const target = event.target as Node
-      if (ref.current && !ref.current.contains(target)) {
+      if (menuEl && !menuEl.contains(target)) {
         onCloseRef.current()
       }
     }
@@ -47,7 +50,7 @@ const CardContextMenu: React.FC<CardContextMenuProps> = ({ x, y, path, isPinned,
       // 焦点归还：只在「焦点掉到 body / 还悬在将被卸载的菜单里」时才还——
       // 用户点去别的可聚焦元素时那个元素自己会拿焦点，别跟人抢。
       const active = document.activeElement
-      const lost = active === null || active === document.body || (ref.current !== null && ref.current.contains(active))
+      const lost = active === null || active === document.body || (menuEl !== null && menuEl.contains(active))
       const prev = prevFocusRef.current
       if (lost && prev instanceof HTMLElement && prev.isConnected) prev.focus()
     }
@@ -116,10 +119,10 @@ const CardContextMenu: React.FC<CardContextMenuProps> = ({ x, y, path, isPinned,
         const idx = items.indexOf(document.activeElement as HTMLElement)
         if (e.key === 'ArrowDown') {
           e.preventDefault()
-          items[(idx + 1) % items.length]!.focus()
+          items[(idx + 1) % items.length].focus()
         } else if (e.key === 'ArrowUp') {
           e.preventDefault()
-          items[(idx - 1 + items.length) % items.length]!.focus()
+          items[(idx - 1 + items.length) % items.length].focus()
         }
       }}
     >

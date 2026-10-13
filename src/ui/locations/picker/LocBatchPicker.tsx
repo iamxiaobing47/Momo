@@ -63,10 +63,12 @@ export function LocBatchPicker({
   const picked = useMemo(() => pickedLocEntries(entries, selected), [entries, selected])
 
   // 行文字走当前层级视角（与分组流 / 单卡弹层同一个档位）；勾选与写入仍是地名
-  const rows = useMemo(
-    (): LocRow[] => candidateLocRows(entries, picked, isRemove, query, { level: locLevel, regions: locRegions }),
-    [entries, picked, isRemove, query, locLevel, locRegions, lang],
-  )
+  const rows = useMemo((): LocRow[] => {
+    // lang 只作「行文字换语言要重算」的信号（locGroupOf 的 label 走 displayLocName），
+    // 显式读一次它才算真依赖（BUG-221 口径；见上面 lang 的注释）。
+    void lang
+    return candidateLocRows(entries, picked, isRemove, query, { level: locLevel, regions: locRegions })
+  }, [entries, picked, isRemove, query, locLevel, locRegions, lang])
 
   const typed = query.trim()
   // 去模式不新建地点：摘一个库里没有的地点是空操作，输入框只当搜索用

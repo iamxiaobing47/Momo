@@ -67,8 +67,11 @@ export function BatchBar({
   const prevFocusRef = useRef<Element | null>(null)
   if (prevFocusRef.current === null) prevFocusRef.current = document.activeElement
   useEffect(() => {
+    // 挂载时抓一次批量条节点（cleanup 里再读 `fabRef.current` 会被规则判成「读到可能
+    // 已换过的 ref」）；`fabRef` 是父级传下来的稳定 ref 对象，写进依赖表是**诚实表达**，
+    // 不是「多跑几次」——本 effect 仍只在卸载时跑一次（BUG-221 的 WindowSlot 同一口径）。
+    const bar = fabRef.current
     return () => {
-      const bar = fabRef.current
       const active = document.activeElement
       const lost = active === null || active === document.body || (bar !== null && bar.contains(active))
       if (!lost) return
@@ -87,9 +90,9 @@ export function BatchBar({
       ).find((el) => el.offsetParent !== null)
       first?.focus()
     }
-    // 只在卸载时跑一次；fabRef 是调用方稳定 ref
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 见上
-  }, [])
+    // 依赖表写 fabRef（稳定 ref 对象）：本 effect 仍只在挂载 / 卸载跑一次；
+    // prevFocusRef 与 bar 都不需要进表（前者是 ref，后者已在 body 里抓成局部量）。
+  }, [fabRef])
 
   return (
     <div className="momo-fab" ref={fabRef}>

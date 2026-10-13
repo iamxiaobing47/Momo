@@ -12,8 +12,8 @@ function nextMilestone(value: number, levels: readonly number[]): Milestone | nu
   const future = levels.filter((t) => t > value)
   if (future.length === 0) return null
   return {
-    target: future[0]!,
-    remaining: future[0]! - value,
+    target: future[0],
+    remaining: future[0] - value,
     upcoming: future.slice(1, 1 + STATS_MILESTONE_LOOKAHEAD),
   }
 }

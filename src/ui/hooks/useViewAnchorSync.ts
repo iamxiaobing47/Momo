@@ -26,6 +26,10 @@ export function useViewAnchorSync(
   //   · **依赖 lang**：语言切换以 key 重挂整棵子树（.momo-content 是新节点），
   //     监听必须跟着重挂——漏了它，listener 留在被卸载的旧节点上，跟踪静默失效。
   useEffect(() => {
+    // lang 不参与监听逻辑，只标记「整棵子树已按 key 重挂」：`.momo-content` 换成了新
+    // 节点，监听必须重挂到它上面（漏了 = listener 留在被卸载的旧节点上，跟踪静默失效）。
+    // body 里显式读一次，它才算**真依赖**——只写进依赖表会被规则判成多余依赖。
+    void lang
     const app = appRef.current
     const scroller = app?.querySelector<HTMLElement>('.momo-content')
     if (!app || !scroller) return
@@ -52,7 +56,6 @@ export function useViewAnchorSync(
       scroller.removeEventListener('scroll', onScroll)
       if (raf) window.cancelAnimationFrame(raf)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- lang 变 = 子树重挂，监听跟着重挂（见上）
   }, [lang, appRef])
 
   // ② 切密度即落位（layout effect，早于绘制）

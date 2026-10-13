@@ -70,6 +70,14 @@
   --momo-set-gutter: 24px;
 }
 
+/* 整页重建期间摘掉滚动锚定（settings.ts 的 rerender）：不摘的话容器内容被整体替换时
+   Chromium 会按锚点残影白送一笔 scrollTop，用户看到「UI 跳一下」（2026-10-06 报障）。
+   JS 只切这个类、不写内联 overflow-anchor（Obsidian 评审的
+   no-static-styles-assignment，BUG-217）；(0,2,0) 不依赖源序。 */
+.momo-settings.momo-no-anchor {
+  overflow-anchor: none;
+}
+
 /* ---- 控件复位：盖掉 Obsidian 原生 button / input 的底色、边框、阴影、
    最小高度与行高。没有这一层，下面每个组件都得各自跟原生样式打架——
    方案卡文字重叠（原生 button 的行高参与布局）、按钮带多余描边，都是它。 ---- */

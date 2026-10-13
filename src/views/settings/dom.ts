@@ -1,6 +1,13 @@
 import { PATHS, type IconName } from '../../ui/shared/icons'
 
 // 建 DOM 的小工具（不引 React：设置页是原生 DOM，和 Obsidian 的 Setting 同层）。
+//
+// BUG-225：`document.createElement` / `createElementNS` 一律换成 Obsidian 的
+// **全局**助手（obsidian.d.ts 在 `declare global` 里声明的 `createEl` / `createSvg`，
+// 官方 lint `obsidianmd/prefer-create-el` 要的就是这条）。用全局形态而不是
+// `document.createEl`：两个都真实存在，但前者不依赖「谁把方法挂到了 Document 原型上」
+// ——测试环境的 jsdom realm 是每个用例自建的，全局函数按调用时现取 document
+// （scripts/obsidian-stub.ts 里那份最小实现）。
 
 /** 行名 / 图标名等静态文本。BUG-74 起**不再支持**「读取时求值」的函数形态：
  *  此前函数只挂 textContent getter、从不 append 文本节点，浏览器渲染只认
@@ -19,7 +26,7 @@ export function h<K extends keyof HTMLElementTagNameMap>(
   cls?: string,
   text?: TextLike,
 ): HTMLElementTagNameMap[K] {
-  const el = document.createElement(tag)
+  const el = createEl(tag)
   if (cls) el.className = cls
   setTextLike(el, text)
   return el
@@ -30,7 +37,7 @@ export function h<K extends keyof HTMLElementTagNameMap>(
  *  （BUG-74，settings.ts 页头 mark 的做法——thunk 只求值一次，救不了）。 */
 export function iconSvg(name: IconName, size = 16, strokeWidth = 1.6): SVGSVGElement {
   const paths = PATHS[name]
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  const svg = createSvg('svg')
   svg.setAttribute('width', String(size))
   svg.setAttribute('height', String(size))
   svg.setAttribute('viewBox', '0 0 24 24')
@@ -41,7 +48,7 @@ export function iconSvg(name: IconName, size = 16, strokeWidth = 1.6): SVGSVGEle
   svg.setAttribute('stroke-linejoin', 'round')
   svg.setAttribute('aria-hidden', 'true')
   for (const d of paths) {
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+    const path = createSvg('path')
     path.setAttribute('d', d)
     svg.append(path)
   }
@@ -67,13 +74,13 @@ export function iconSvg(name: IconName, size = 16, strokeWidth = 1.6): SVGSVGEle
  * up / down 是**精确镜像**（绕 y=10 翻转），两颗视觉重量相同。
  */
 export function triangleSvg(dir: 'up' | 'down', size = 14): SVGSVGElement {
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  const svg = createSvg('svg')
   svg.setAttribute('width', String(size))
   svg.setAttribute('height', String(size))
   svg.setAttribute('viewBox', '0 0 24 24')
   svg.setAttribute('fill', 'currentColor')
   svg.setAttribute('aria-hidden', 'true')
-  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+  const path = createSvg('path')
   // 实心路径：填色不描边（stroke=none），颜色由 CSS 的 color 经 currentColor 给，
   // 激活 / 悬停换色与线稿图标同一条路。
   path.setAttribute('stroke', 'none')
@@ -97,13 +104,13 @@ export function triangleSvg(dir: 'up' | 'down', size = 14): SVGSVGElement {
  * （fields.ts 的 schemePicker），别处要用了再说。
  */
 export function stepfunLogoSvg(size = 15): SVGSVGElement {
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  const svg = createSvg('svg')
   svg.setAttribute('width', String(size))
   svg.setAttribute('height', String(size))
   svg.setAttribute('viewBox', '0 0 20 20')
   svg.setAttribute('class', 'momo-set-scheme-logo')
   svg.setAttribute('aria-hidden', 'true')
-  const circle = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+  const circle = createSvg('path')
   circle.setAttribute('fill', 'currentColor')
   circle.setAttribute('d', 'M10 0C4.48 0 0 4.48 0 10s4.48 10 10 10 10-4.48 10-10S15.52 0 10 0Z')
   svg.append(circle)
@@ -116,7 +123,7 @@ export function stepfunLogoSvg(size = 15): SVGSVGElement {
     ['12.69', '3.65'],
   ]
   for (const [x, y] of steps) {
-    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+    const rect = createSvg('rect')
     rect.setAttribute('x', x)
     rect.setAttribute('y', y)
     rect.setAttribute('width', '3.65')

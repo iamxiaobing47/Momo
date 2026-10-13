@@ -52,7 +52,7 @@ export function pickedLocEntries(entries: readonly MomoEntry[], selected: Iterab
     idx = new Map(entries.map((e) => [e.path, e]))
     byPathCache.set(entries, idx)
   }
-  return [...selected].map((p) => idx!.get(p)).filter((e): e is MomoEntry => e !== undefined)
+  return [...selected].map((p) => idx.get(p)).filter((e): e is MomoEntry => e !== undefined)
 }
 
 /**

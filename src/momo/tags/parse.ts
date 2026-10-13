@@ -255,7 +255,7 @@ export function splitFrontmatter(raw: string): ParsedFile {
 function stripInlineComment(line: string): string {
   // 值从哪里开始：`- ` / `key: ` 两种前缀都跳过（与 parseSimpleYaml 的两个分支同形）
   const prefix = line.match(/^(\s*(?:-\s*)?(?:[A-Za-z_][\w-]*\s*:\s*)?)/)
-  const valueStart = prefix ? prefix[1]!.length : 0
+  const valueStart = prefix ? prefix[1].length : 0
   let quote: string | null = null
   let bracket = 0
   // BUG-161a：流式数组里「下一项标量的起始位」（`[` 之后与每个 `,` 之后，跳过项前
@@ -265,7 +265,7 @@ function stripInlineComment(line: string): string {
   // 与 PyYAML 同口径：流式上下文里引号只在标量首字符位置生效。
   let atItemStart = false
   for (let i = 0; i < line.length; i++) {
-    const ch = line[i]!
+    const ch = line[i]
     if (quote) {
       // BUG-180a：引号内的转义不消引号——双引号认 `\"`、单引号认 `''`（YAML 的四款引号
       // 转义里与切分相关的一对）。旧实现见到 `\` 原样放过，`"a \" # b"` 会在 `\"` 处
@@ -301,7 +301,7 @@ function stripInlineComment(line: string): string {
       bracket--
       atItemStart = false
     } else if (ch === ',' && bracket > 0) atItemStart = true
-    if (ch === '#' && (i === 0 || /\s/.test(line[i - 1]!))) return line.slice(0, i).replace(/\s+$/, '')
+    if (ch === '#' && (i === 0 || /\s/.test(line[i - 1]))) return line.slice(0, i).replace(/\s+$/, '')
   }
   return line
 }
@@ -352,14 +352,14 @@ function parseSimpleYaml(text: string): Record<string, unknown> {
     const listItem = line2.match(/^\s*-\s*(.+)$/)
     if (listItem && currentKey) {
       const arr = Array.isArray(fm[currentKey]) ? (fm[currentKey] as unknown[]) : []
-      arr.push(unquote(listItem[1]!.trim()))
+      arr.push(unquote(listItem[1].trim()))
       fm[currentKey] = arr
       continue
     }
     const kv = line2.match(/^([A-Za-z_][\w-]*)\s*:\s*(.*)$/)
     if (kv) {
       currentKey = kv[1]!
-      const value = kv[2]!.trim()
+      const value = kv[2].trim()
       if (value === '') {
         fm[currentKey] = []
       } else if (value.startsWith('[') && flowDepth(value) > 0) {
@@ -396,7 +396,7 @@ function flowDepth(s: string): number {
   let quote: string | null = null
   let atItemStart = true
   for (let i = 0; i < s.length; i++) {
-    const ch = s[i]!
+    const ch = s[i]
     if (quote) {
       if (quote === '"' && ch === '\\') {
         i++
@@ -443,11 +443,11 @@ function splitFlowItems(inner: string): string[] {
   let cur = ''
   let atItemStart = true
   for (let i = 0; i < inner.length; i++) {
-    const ch = inner[i]!
+    const ch = inner[i]
     if (quote) {
       cur += ch
       if (quote === '"' && ch === '\\' && i + 1 < inner.length) {
-        cur += inner[i + 1]!
+        cur += inner[i + 1]
         i++
         continue
       }

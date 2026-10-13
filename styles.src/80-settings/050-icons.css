@@ -145,6 +145,12 @@
   font-size: var(--momo-fs-2);
   line-height: 16px;
   color: var(--momo-danger);
+  /* BUG-217：默认隐藏由 CSS 给（旧实现是 JS 写内联 display:none，Obsidian 评审的
+     no-static-styles-assignment），有错时 JS 挂 .is-on。 */
+  display: none;
+}
+.momo-settings .momo-set-icons-err.is-on {
+  display: block;
 }
 /* 上传用的隐藏 file input：**不能写 display:none**——它靠 uploadTile 的 click()
    程序性打开文件选择框，1px + opacity:0 的「可见但看不见」才是在所有渲染器里

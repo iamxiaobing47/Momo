@@ -85,7 +85,7 @@ export function sanitizeEntitlements(raw: unknown): Entitlements {
     if (!(PREMIUM_FEATURES as readonly string[]).includes(id)) return null
     const clean = sanitizeEntitlementEntry(entry)
     return clean ? [id, clean] : null
-  }) as Entitlements
+  })
 }
 
 /** 配额单项的净化：used / limit 夹到非负数，resetAt 必须合法 ISO */
@@ -106,7 +106,7 @@ export function sanitizeQuotas(raw: unknown): Partial<Record<PremiumFeature, Quo
     if (!(PREMIUM_FEATURES as readonly string[]).includes(id)) return null
     const clean = sanitizeQuotaEntry(entry)
     return clean ? [id, clean] : null
-  }) as Partial<Record<PremiumFeature, QuotaEntry>>
+  })
 }
 
 /**

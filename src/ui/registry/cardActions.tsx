@@ -217,10 +217,12 @@ export const CARD_MENU_ACTIONS: readonly CardMenuActionDef[] = _CARD_MENU_ACTION
 
 // R1b 补齐的 cardAction 半边锚定：注册表条目的 feature 必须是 FEATURES 里的真 id
 // （premium 的分享按钮落地时会声明 'plaza.share'；拼错 = 编译不过）。
+//
+// 两个注册表**各锚一次**（BUG-224）：并成 `A | B` 一个联合时，两边含同一个 feature
+// （菜单里的 'notes' 同时也在操作行里）会让那层联合出现重复成员，
+// `no-duplicate-type-constituents` 报错；分开锚还各自说得出「是哪张表漏了」。
 type _AssertNever<T extends never> = T
 type _ActionFeatureOf<T> = T extends { feature: infer F } ? F : never
-type _DeclaredActionFeature =
-  | _ActionFeatureOf<(typeof _CARD_ACTIONS)[number]>
-  | _ActionFeatureOf<(typeof _CARD_MENU_ACTIONS)[number]>
-type _UnknownActionFeature = Exclude<_DeclaredActionFeature, (typeof FEATURES)[number]['id']>
-type _EveryActionFeatureIsReal = _AssertNever<_UnknownActionFeature>
+type _UnknownActionFeatureOf<T> = Exclude<_ActionFeatureOf<T>, (typeof FEATURES)[number]['id']>
+type _EveryActionFeatureIsReal = _AssertNever<_UnknownActionFeatureOf<(typeof _CARD_ACTIONS)[number]>>
+type _EveryMenuActionFeatureIsReal = _AssertNever<_UnknownActionFeatureOf<(typeof _CARD_MENU_ACTIONS)[number]>>

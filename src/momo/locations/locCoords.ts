@@ -50,7 +50,10 @@ export const BUILTIN_LOC_COORDS: Readonly<Record<string, LatLon>> = Object.assig
 /** 一个坐标是否在合法区间内（两位小数、NaN、越界都算脏） */
 export function isValidLatLon(v: unknown): v is LatLon {
   if (!Array.isArray(v) || v.length !== 2) return false
-  const [lat, lon] = v
+  // 解构前先把两项接到 unknown 上（BUG-224）：`Array.isArray` 只收窄到 any[]，
+  // 直接解构得到 any——下面的 typeof 判定才是真正的收窄点。
+  const lat: unknown = v[0]
+  const lon: unknown = v[1]
   if (typeof lat !== 'number' || typeof lon !== 'number') return false
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false
   return lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180

@@ -226,7 +226,12 @@
    四套方案上 ink-5 对 card 都在 3:1 以上（check-contrast 的 ui 组判的就是它），
    看得见但不抢戏；轨道保持透明。
    **不动 `scrollbar-width`**：宽度沿用宿主 / 系统那一档，`scrollbar-gutter: stable`
-   预留的格因此分毫不变（槽位守卫见 scripts/scroll-gutter.test.mts 的第五条）。 */
+   预留的格因此分毫不变（槽位守卫见 scripts/scroll-gutter.test.mts 的第五条）。
+   **BUG-227 裁决（评审豁免，不是漏改）**：Obsidian 官方 CSS lint 会把这行报成
+   「css-scrollbar only partially supported」的 warning。**不为 lint 改设计**——
+   上一条实测已经说明：非 `auto` 的 `scrollbar-color` 是压过宿主 10% 透明拇指的
+   唯一手段，退回「只写伪元素」会在宿主开样式化滚动条（`body.styled-scrollbars`）时
+   整条失效、用户报障「看不到滚动条」原地复发。warning 保留，设计不动。 */
 .momo-app,
 .momo-settings,
 .momo-confirm {
@@ -698,7 +703,10 @@
    ② 相邻两级色差小的方案（小格子上肉眼分不出级别），描边给每格一道结构边界；
    ③ 与 hover 的 outline 同一视觉语言，不引入第二种边。
    10%  ink 是「看得见但不抢戏」的一档：dark 方案的 ink 是暖白，暗边自动变成
-   亮边，不需要为暗色另写一条。老引擎的降级与 60-design 的毛玻璃同模式。
+   亮边，不需要为暗色另写一条。色值走 color-mix 现算——它前面原有一行
+   `rgba(0,0,0,.08)` 兜底（给不认 color-mix 的老 Chromium），BUG-227 按评审
+   「同块重复 box-shadow」删掉：Obsidian 1.5+ 的 Electron 是 Chromium 111+，
+   color-mix 早已在支持面内，兜底那行只留给 2023 年前的引擎。
    BUG-212：格子另有自建的悬停提示（HeatCellTip，portal 到 .momo-app、跟着
     accent 体系、贴边会翻面），aria-label 与它同文——Obsidian 的原生气泡于是
     每格弹两枚。原生的那枚压制：--no-tooltip: true，自建提示与读屏名不动
@@ -711,7 +719,6 @@
   height: auto;
   border-radius: var(--momo-r-1);
   background: var(--momo-heat-0);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--momo-ink) 10%, transparent);
   cursor: pointer;
 }
@@ -879,8 +886,12 @@
   overflow: hidden;
 }
 
-/* 遮罩浓度：Obsidian 默认偏亮，压回与面板浮层一致的一档 */
-.modal-container:has(.momo-confirm) .modal-bg {
+/* 遮罩浓度：Obsidian 默认偏亮，压回与面板浮层一致的一档。
+   BUG-227：原先的判据是 `.modal-container:has(.momo-confirm)`——`modal.containerEl`
+   是 Obsidian 自己的元素、拿不到我们的类，只能反查后代。Obsidian 评审判 `:has`
+   是性能隐患，改为建弹窗时**主动往 containerEl 挂类**（四个弹窗各自挂：
+   caps 的 openConfirmModal / pickDay、notesMigration 的两个框）。 */
+.modal-container.momo-confirm-container .modal-bg {
   background-color: rgba(18, 17, 16, 0.32);
 }
 
@@ -1869,8 +1880,10 @@
       720px 容器查询把两列合回一列，标签侧不再挤成竖排。 */
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 24px;
-  row-gap: 6px;
+  /* 行 6 / 列 24（BUG-227：`column-gap` + `row-gap` 两行合成 `gap` 简写——
+     原先的 `column-gap` 会被评审当成 multicolumn 特性报「only partially supported」，
+     值逐项不变：第一个是行距、第二个是列距）。 */
+  gap: 6px 24px;
 }
 
 .momo-insight-row {
@@ -2825,7 +2838,11 @@
 .momo-habit-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 28px;
+  /* 行距保持默认的 normal（=0），只给列距 28px——写成 `gap: 0 28px` 而不是
+     `gap: 28px`，后者会把行距一起改成 28px。BUG-227：`column-gap` 会被评审当成
+     multicolumn 特性（「only partially supported」）报出来，`gap` 是同一语义的
+     现代写法、不再踩那条判据。 */
+  gap: 0 28px;
 }
 
 .momo-habit-cell {
@@ -5656,6 +5673,15 @@
   outline: none;
 }
 
+/* 程序化滚动期间摘掉吸附（FocusScroll.tsx 的补间在途 / 位置意图在途时加、收尾时去）：
+   不摘的话浏览器会在我们逐帧写 scrollTop 之间反复重定向。JS 只切这个类、不写内联
+   scroll-snap-type（Obsidian 评审的 no-static-styles-assignment，BUG-217）；
+   `.momo-focus.momo-focus-nosnap` 是 (0,2,0)，压得过上面 `.momo-focus` 的 (0,1,0)，
+   与两条规则的源序无关。 */
+.momo-focus.momo-focus-nosnap {
+  scroll-snap-type: none;
+}
+
 .momo-focus-item {
   position: relative;
   display: flex;
@@ -7100,6 +7126,14 @@
   --momo-set-gutter: 24px;
 }
 
+/* 整页重建期间摘掉滚动锚定（settings.ts 的 rerender）：不摘的话容器内容被整体替换时
+   Chromium 会按锚点残影白送一笔 scrollTop，用户看到「UI 跳一下」（2026-10-06 报障）。
+   JS 只切这个类、不写内联 overflow-anchor（Obsidian 评审的
+   no-static-styles-assignment，BUG-217）；(0,2,0) 不依赖源序。 */
+.momo-settings.momo-no-anchor {
+  overflow-anchor: none;
+}
+
 /* ---- 控件复位：盖掉 Obsidian 原生 button / input 的底色、边框、阴影、
    最小高度与行高。没有这一层，下面每个组件都得各自跟原生样式打架——
    方案卡文字重叠（原生 button 的行高参与布局）、按钮带多余描边，都是它。 ---- */
@@ -7859,6 +7893,12 @@
   font-size: var(--momo-fs-2);
   line-height: 16px;
   color: var(--momo-danger);
+  /* BUG-217：默认隐藏由 CSS 给（旧实现是 JS 写内联 display:none，Obsidian 评审的
+     no-static-styles-assignment），有错时 JS 挂 .is-on。 */
+  display: none;
+}
+.momo-settings .momo-set-icons-err.is-on {
+  display: block;
 }
 /* 上传用的隐藏 file input：**不能写 display:none**——它靠 uploadTile 的 click()
    程序性打开文件选择框，1px + opacity:0 的「可见但看不见」才是在所有渲染器里
@@ -8104,8 +8144,10 @@
 }
 /* 开关合上时**整块卡**跟着进选中态（全局统一那条语言的放大版）。只靠右侧那颗
    38×22 的开关表达状态，扫一遍六张卡要在列里来回找小白点；卡片自己变色 + 描边，
-   才是一眼能扫完的。:has() 已在 20-panel.css 的 modal 容器上用过。 */
-.momo-settings .momo-set-tile:has(.momo-set-switch.is-on) {
+   才是一眼能扫完的。状态类由 fields.ts 的 buildSwitch 挂在自己的 owner 卡上
+   （BUG-227：旧实现是 `.momo-set-tile:has(.momo-set-switch.is-on)`，Obsidian
+   官方评审判 `:has` 是性能隐患——它让「后代一变就重算整条祖先链」成为常态）。 */
+.momo-settings .momo-set-tile.momo-set-tile-on {
   background: var(--momo-accent-soft);
   box-shadow: inset 0 0 0 1px var(--momo-accent-line);
 }
@@ -8114,9 +8156,9 @@
   font-weight: 500;
   color: var(--momo-ink);
 }
-.momo-settings .momo-set-tile:has(.is-on) .momo-set-tile-name {
-  /* 只写 :has(.is-on) 不写 :has(.momo-set-switch.is-on)：后者算进去是 (0,4,0)，
-     越 stylelint 的 selector-max-specificity 上限。卡里会带 is-on 的只有那颗开关。 */
+.momo-settings .momo-set-tile.momo-set-tile-on .momo-set-tile-name {
+  /* 同一个合成类管两件事（卡底 + 名称色）：卡里会带 is-on 的只有那颗开关，
+     owner 类表达的就是「本格里有开着的开关」，不需要第二个状态类。 */
   color: var(--momo-accent);
 }
 .momo-settings .momo-set-tile .momo-set-desc {
@@ -9174,7 +9216,10 @@
      去掉文字后一行就够，省下的高度直接还给列表。
      语义由文字本身兜住——这里转 sr-only（不出视觉、仍在无障碍树）；aria-label
      不传（BUG-197：与可见文字同键会被部分 Electron 漏成黑底气泡）；加 / 去标签
-     的形状本身可分（tag / tag-off）。 */
+     的形状本身可分（tag / tag-off）。
+     BUG-227：不再写 `clip-path: inset(50%)`（Obsidian 评审判 css-clip-path
+     「only partially supported」）——`position:absolute` + 1px 盒 + overflow:hidden
+     + `clip: rect(0 0 0 0)` 已是标准 sr-only，视觉与无障碍行为不变。 */
   .momo-fab-text {
     position: absolute;
     width: 1px;
@@ -9183,7 +9228,6 @@
     margin: -1px;
     overflow: hidden;
     clip: rect(0 0 0 0);
-    clip-path: inset(50%);
     white-space: nowrap;
   }
 

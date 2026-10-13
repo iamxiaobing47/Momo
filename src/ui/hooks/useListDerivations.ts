@@ -115,10 +115,13 @@ export function useListDerivations(input: ListDerivationsInput): ListDerivations
 
   // 排序（键 × 方向）与比较器在 momo/core/sort.ts：定宽 ISO 串走 compareTimeKey，
   // 别用 localeCompare——后者每次比较都要起 Intl 排序器，@10k 每次筛选白付几毫秒
-  const entriesSorted = useMemo(
-    () => sortEntries(matchEntries(matchedInputs, entries), sortMode),
-    [matchedInputs, sortMode, entries, todayKey],
-  )
+  const entriesSorted = useMemo(() => {
+    // todayKey 只是「跨零点要重算」的信号：`matchEntries` 在函数层按调用时刻折算
+    // recent7/30 窗口，body 里不直接读它，规则会判「多余依赖」。显式读一次它才算
+    // **真依赖**（BUG-221 同一口径：依赖表里写下的，body 里要看得见）。
+    void todayKey
+    return sortEntries(matchEntries(matchedInputs, entries), sortMode)
+  }, [matchedInputs, sortMode, entries, todayKey])
 
   /**
    * 置顶分组（v0.8.3）：把当前筛选命中里被置顶的条目抽出来，**按置顶先后**排列
@@ -163,10 +166,12 @@ export function useListDerivations(input: ListDerivationsInput): ListDerivations
   // 烘进 memo 结果。语言切换只重挂 AppShell 的 `<div key={lang}>`，本 hook 在它之上、
   // restList 引用不变 → memo 不失效，组头停在旧语言。补 `lang` 依赖（与同文件 locGroups /
   // locTree 对齐——BUG-49 是同一病灶上一次发作）。
-  const dateGroups = useMemo(
-    () => (needsDateGroups ? groupByDate(restList) : []),
-    [needsDateGroups, restList, lang],
-  )
+  const dateGroups = useMemo(() => {
+    // lang 只作「组头文案换语言要重算」的信号（`groupByDate` 按当前语言烘字符串），
+    // body 里不直接读它 → 显式读一次，规则才认它是真依赖（BUG-221 口径）。
+    void lang
+    return needsDateGroups ? groupByDate(restList) : []
+  }, [needsDateGroups, restList, lang])
 
   /**
    * 地点分组（地点视图的「分组流」档，2026-10-01）：同一份 `list`（全部筛选 +
@@ -183,13 +188,14 @@ export function useListDerivations(input: ListDerivationsInput): ListDerivations
    * 与 dateGroups 同一本账：只在需要时算（只有分组流那一档要）。纯函数在
    * momo/locations/locations.ts（不进 stats/）。
    */
-  const locGroups = useMemo(
-    () =>
-      mode === 'list' && locView === 'group'
-        ? groupByLocation(list, { level: locLevel, regions: locRegions, within: filterLocations })
-        : [],
-    [mode, list, locView, locLevel, locRegions, filterLocations, lang],
-  )
+  const locGroups = useMemo(() => {
+    // 同 dateGroups：lang 是「组名换语言要重算」的信号（`groupByLocation` 的组名走
+    // displayLocName），显式读一次它才算真依赖。
+    void lang
+    return mode === 'list' && locView === 'group'
+      ? groupByLocation(list, { level: locLevel, regions: locRegions, within: filterLocations })
+      : []
+  }, [mode, list, locView, locLevel, locRegions, filterLocations, lang])
 
   /**
    * 星球锚点源（F7）：**全库**地点计数表（`entries`，不是筛完的 `list`）。
@@ -213,7 +219,12 @@ export function useListDerivations(input: ListDerivationsInput): ListDerivations
    * 全库有多少条笔记带了它。恒完整三级，不随 locLevel 变形（档位只管分组流与
    * pill，树管从哪儿筛）。
    */
-  const locTree = useMemo(() => buildLocTree(entries, locRegions), [entries, locRegions, lang])
+  const locTree = useMemo(() => {
+    // 同 locGroups：lang 只作「节点名换语言要重建」的信号（buildLocTree 的节点名走
+    // displayLocName），显式读一次它才算真依赖。
+    void lang
+    return buildLocTree(entries, locRegions)
+  }, [entries, locRegions, lang])
 
   /**
    * 密度切换意图期预热：hover 视图分段时把可见列表前 `warmRatio` 比例的正文提前

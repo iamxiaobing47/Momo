@@ -1,12 +1,15 @@
-// 星球三维舞台（three.js 档，F7 的 GPU 后端）——**不进 main.js 的独立 chunk**。
+// 星球三维舞台（three.js 档，F7 的 GPU 后端）——**静态模块，随 main.js 一起发布**。
 //
-// 为什么独立产物：three 全量 minified ~600KB，打进 main.js 会把插件 onload 的
-// parse+eval 时间抬回贴图内联时代（那笔账见 globeTexture.ts 文件头），而它只在
-// 切到星球档时才用得上。构建链：esbuild.config.mjs 把本文件打成 IIFE 产物
-// globe3d.js（与字体 / 贴图同一条部署路，vault-targets 的 GLOBE3D），运行期经
-// caps.globe3dUrl 的 app:// URL 注入 <script> 惰性加载（globe3dLoader.ts），在
-// window.__momoGlobe3D 上交工厂。装载失败 / WebGL 上下文拿不到 → GlobeStage 回退
-// canvas 软渲染（globeRender 那套），用户无感。
+// 2026-10-13 起不再是第二产物：本模块原先被 esbuild 打成 IIFE 产物 globe3d.js，运行期
+// 由 globe3dLoader 注入 `<script>`（app:// URL）惰性装载——Obsidian 提交评审把「运行期
+// createElement('script')」列为 Error（代码混淆：它分不清「注入自己的本地产物」与
+// 「注入远端任意代码」），用户裁决**把 three 打进 main.js、退役 globe3d.js**。
+// 现在 GlobeStage 直接 import 本模块的工厂（`globe3dFactory`），没有装载器、没有全局
+// 交接、没有第二产物；代价是 three 全量 minified 进 main.js（体积 / onload 实测增量见
+// docs/tasks/bug/fixing/bug-219 的「落地记录」）。
+//
+// 装载失败 / WebGL 上下文拿不到 → GlobeStage 回退 canvas 软渲染（globeRender 那套），
+// 用户无感：判据是工厂 create() 返回 null 或抛错（守梯见 globe3dBackend.ts）。
 //
 // 场景（与软渲染逐像素对齐，推导与测试见 globe3dMath.ts 文件头）：
 //   正交相机 + 单位球（SphereGeometry）+ cube map。球几何**一动不动**（恒等变换），
@@ -29,8 +32,9 @@
 // render()（软渲染的「签名跳帧」纪律在这里不必要：一帧一个球的 GPU 成本≈0，
 // 重复画无害，而尺寸/DPR/缩放自检反而需要每次 render 都跑）。静止时零 rAF 零功耗。
 //
-// 本文件运行在 globe3d.js 里，**只许 import three 与纯模块**（globe3dMath /
-// globe3dTypes）；import 任何 main.js 侧模块都会把 React / store 拖进这个 chunk。
+// 本模块的**依赖面刻意收得极窄**：只 import three 与纯模块（globe3dMath / globeLight，
+// 后者只被当作类型与常量表读）。jsdom 测试会把它静态引进主 bundle，拖进 store / React /
+// obsidian 只会让每个测试包多背一圈依赖，且与「舞台只是渲染后端」这件事无关。
 
 import * as THREE from 'three'
 import { tiltRad, yawRad } from './globe3dMath'
@@ -211,8 +215,8 @@ function createInstance(canvas: HTMLCanvasElement): Globe3DInstance | null {
     const r = GLOBE_LIGHT_RECIPE.day
     uniforms.uLightMode.value = 1
     uniforms.uDay.value.set(r.ambient, r.key, r.rimGain, 0)
-    uniforms.uKeyDir.value.fromArray(r.keyDir as unknown as number[])
-    uniforms.uRimDir.value.fromArray(r.rimDir as unknown as number[])
+    uniforms.uKeyDir.value.fromArray(r.keyDir)
+    uniforms.uRimDir.value.fromArray(r.rimDir)
   }
   // 初始 = **恒等光照**（mul ≡ 1、add ≡ 0）：create 与 setLight 之间若落了帧，画出来的
   // 就是未补光照的原图（= 补光照之前的样子），是最安全的中性值。真档位由 GlobeStage 在
@@ -245,7 +249,7 @@ function createInstance(canvas: HTMLCanvasElement): Globe3DInstance | null {
   // 且拖拽路径本来就每帧读一次 clientWidth（dragPose 的分母），同一笔账不新增。
   //
   // ⚠️ **首帧必须能穿过「未布局」这一关**（2026-10-05 踩实）：`create()` 在
-  //    `loadGlobe3D().then` 里跑，那一刻 canvas 可能刚挂上还没 layout
+  //    canvas 刚挂上、可能还没 layout 的时刻跑
   //    （`clientWidth === 0`）——旧实现遇 0 直接 return，于是 **drawing buffer
   //    一直停在 three 的默认 300×150**，而 CSS 把这个小缓冲拉到几百 px，
   //    画面被拉伸 + 大半个球落在缓冲外 → **看起来就是一片黑**。
@@ -354,7 +358,7 @@ function createInstance(canvas: HTMLCanvasElement): Globe3DInstance | null {
         return
       }
       const tiles = tex.faces.map((data) => {
-        const cv = document.createElement('canvas')
+        const cv = createEl('canvas')
         cv.width = tex.size
         cv.height = tex.size
         const ctx = cv.getContext('2d')
@@ -403,8 +407,10 @@ function createInstance(canvas: HTMLCanvasElement): Globe3DInstance | null {
   }
 }
 
-const factory: Globe3DFactory = { create: createInstance }
-
-// IIFE 产物唯一的对外面：main.js 经 globe3dLoader 读这个全局。
-// scripts/globe3d-deploy.test.mts 拿它当产物完整性标记（构建半途而废的文件没有它）。
-;(globalThis as { __momoGlobe3D?: Globe3DFactory }).__momoGlobe3D = factory
+/**
+ * 对本模块唯一的对外面：GlobeStage 静态 import 它，`create` 在给定 canvas 上建实例。
+ *
+ * 曾经的交接面是 `window.__momoGlobe3D`（IIFE 产物唯一能给 main.js 的东西），随
+ * globe3d.js 一起退役——静态 import 不需要运行时全局，也就没有「谁先挂谁后读」的时序。
+ */
+export const globe3dFactory: Globe3DFactory = { create: createInstance }
