@@ -48,8 +48,17 @@ jobs:
       # production 构建（重建 CSS → bundle main.js / globe3d.js → 部署[CI 里跳过] → 自校验）
       - run: npm run build
 
+      # 开源字体包（2026-10-13 按需下载复活）：从上游取四套字体 ttf + 拼接的 OFL.txt
+      # 进 fonts/（gitignore）。三道闸（重定向白名单 / 字节上限 / sha256 固定）在
+      # scripts/fetch-fonts.mjs + fetch-guards.mjs；不过闸即 exit 1，发版链停在这。
+      # 字体是**release 资产**，不进 vault 部署面——运行期由插件在设置页用户显式
+      # 点击时按需下载（src/momo/fonts/pack.ts）。
+      # 补这一步的缘故：a507a50 起 fonts/ 进了 releaseManifest()（stage-release 缺一件
+      # 即红），而本 workflow 没有取件步骤 → 1.0.4 的 CI 必然挂在 stage-release。
+      - run: node scripts/fetch-fonts.mjs
+
       # 按 scripts/vault-targets.mjs 的 releaseManifest() 铺平成 vault 插件目录布局
-      # （main/manifest/styles/globe3d + fonts/ + 两套贴图六面），缺任何一件即红。
+      # （main/manifest/styles + fonts/ 字体包 + 两套贴图六面），缺任何一件即红。
       # 清单只有那一份真源——别在这里手列文件（BUG-117b：手列漏了 globe3d.js 与 12 张
       # 贴图，发出去的包星球档静默退化；守卫 scripts/release-assets-guard.test.mts）
       - run: node scripts/stage-release.mjs "${{ runner.temp }}/momo-release"
