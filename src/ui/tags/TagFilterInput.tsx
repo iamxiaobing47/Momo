@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { copy } from '../../momo/i18n'
-import { useUi } from '../store'
 import { Icon } from '../shared/icons'
 import { TagMatchMenu, MENU_W as MATCH_MENU_W } from './TagMatchMenu'
 
@@ -15,8 +14,11 @@ import { TagMatchMenu, MENU_W as MATCH_MENU_W } from './TagMatchMenu'
 // 标签行」）：一个是筛哪些行，一个是已选中的那些行怎么读，入口贴着输入框才找得到。整块自己
 // 渲染浮层——与 TagTreeToolbar 同款，浮层跟着按钮走，是这一块的私事。
 //
-// 交集时按钮亮灯（momo-tagbtn-on）：主区筛选条不露痕迹（用户裁决），侧栏这枚是
-// 唯一的常驻线索。单标签时两值等价，亮与不亮没有可察差异——那是预期的。
+// 按钮**不随口径变色**（2026-10-14 用户裁决，原话「选中元素后，图标不要变色，保持原样」）：
+// 工具行两颗漏斗 2026-10-13 摘掉亮灯之后，这枚是 `.momo-tagbtn-on` 的最后一处消费者，
+// 现在连它一起摘了——「入口按钮不兼任状态显示器」这条判据对三枚按钮一视同仁。当前口径
+// 只说在浮层里（选中那一行有底色 + 字重 + 文字色三重信号），常驻线索刻意不补：
+// 主区筛选条本来就不露痕迹（用户裁决），侧栏再加一处亮灯只会跟「这按钮在说什么」打架。
 
 export interface TagFilterInputProps {
   /** 当前过滤词 */
@@ -26,8 +28,6 @@ export interface TagFilterInputProps {
 }
 
 export function TagFilterInput({ value, onChange }: TagFilterInputProps): React.JSX.Element {
-  const tagMatchMode = useUi((s) => s.tagMatchMode)
-
   /** 浮层落点（null = 关着；坐标已换算成相对 .momo-app 的偏移）。
    *  BUG-82d：from = 唤起那颗按钮——关浮层后焦点还它（PopDialog.returnFocus） */
   const [matchMenu, setMatchMenu] = useState<{ x: number; y: number; from: HTMLElement } | null>(null)
@@ -36,9 +36,11 @@ export function TagFilterInput({ value, onChange }: TagFilterInputProps): React.
    * 落点算法与 TagTreeToolbar.anchorBelow 逐字同款（地点树 LocTreeSection 也是抄的
    * 这一份）：按钮在**右端**，所以落点按「按钮右缘 - 浮层宽」算——浮层右对齐着按钮
    * 挂在它下面，而不是从按钮左缘往右铺开。浮层是 `position: absolute`、基准是
-   * `.momo-app`，直接写视口坐标会偏出面板。宽从 TagMatchMenu import（MENU_W），
-   * 别在这里另写一份估值。为什么抄第三遍而不抽公共函数：调用点各只有一行，抽出去
-   * 要把「事件 → 元素」的取法（currentTarget）一并搬走，读起来反而远。
+   * `.momo-app`，直接写视口坐标会偏出面板。宽从 TagMatchMenu import（MENU_W）——
+   * 那是浮层的**最大**宽：浮层自身按内容收窄、并把右缘拉回按钮右缘（见那边的
+   * useLayoutEffect），所以这里按上限算就够，别在这里另写一份估值。为什么抄第三遍
+   * 而不抽公共函数：调用点各只有一行，抽出去要把「事件 → 元素」的取法（currentTarget）
+   * 一并搬走，读起来反而远。
    */
   const anchorBelow = (e: ReactMouseEvent<Element>, menuW: number) => {
     const el = e.currentTarget as HTMLElement
@@ -61,17 +63,12 @@ export function TagFilterInput({ value, onChange }: TagFilterInputProps): React.
           onChange={(e) => onChange(e.target.value)}
           onPointerDown={(e) => e.stopPropagation()}
         />
-        {/* 开关语义同工具行那两颗（点一下开、再点一下关）：关着时它只亮交集态。
+        {/* 开关语义同工具行那两颗（点一下开、再点一下关）：长相**不随口径变**
+            （2026-10-14 用户裁决，见文件头），所以这里没有条件类名。
             不挂 title——面板里一律禁用原生 title，名字走 aria-label。 */}
         <button
           type="button"
-          className={[
-            'momo-tagbtn',
-            'momo-tagbtn-match',
-            tagMatchMode === 'intersection' ? 'momo-tagbtn-on' : '',
-          ]
-            .filter(Boolean)
-            .join(' ')}
+          className="momo-tagbtn momo-tagbtn-match"
           aria-haspopup="dialog"
           aria-expanded={matchMenu !== null}
           aria-label={copy.tags.matchAria}

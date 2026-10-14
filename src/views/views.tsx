@@ -48,6 +48,9 @@ abstract class ReactItemView extends ItemView {
     //    `.then()` 里是空操作（老早过点）。所以两条路都放行原生复制：写成功时同一
     //    文本被写两遍（后果良性），写失败时原生复制仍在。保留 catch 只为不让失败
     //    漏成 unhandled rejection。
+    // BUG-235：写入收敛到唯一一个 caps 能力（`MomoCaps.writeClipboard`，契约见
+    // store/types.ts）——这是用户按键手势里的写入，与 CopyButton 的点击写入同一出口；
+    // 全仓不再有第二处 `navigator.clipboard.writeText`。
     const onCopyKey = (e: KeyboardEvent): void => {
       if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'c') return
       const sel = window.getSelection()
@@ -55,11 +58,13 @@ abstract class ReactItemView extends ItemView {
       if (!this.containerEl.contains(sel.anchorNode)) return
       const text = sel.toString()
       if (!text) return
-      void navigator.clipboard
-        ?.writeText(text)
-        .catch(() => {
-          // 写失败（document 失焦 / 权限拒绝）：已有 reject 但只静默——原生复制会兜底
-        })
+      // 视图打开即 init（MomoView 构造函数），caps 必然在位；取不到就什么都不做，
+      // 原生复制照常兜底
+      const caps = useUi.getState().caps
+      if (!caps) return
+      void caps.writeClipboard(text).catch(() => {
+        // 写失败（document 失焦 / 权限拒绝）：已有 reject 但只静默——原生复制会兜底
+      })
     }
     document.addEventListener('keydown', onCopyKey)
     this.onCopyKey = onCopyKey

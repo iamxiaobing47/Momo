@@ -3,8 +3,9 @@
 // 拆文件不改运行次序。
 import { useEffect } from 'react'
 import { useUi } from '../store'
-import type { MomoEntry } from '../../momo/types'
-import { syncFontStyle } from '../shared/fontStyle'
+import type { FontPackId, MomoEntry } from '../../momo/types'
+import { syncFontStyle, registerFontFaces } from '../shared/fontStyle'
+import { fontPackByFamily } from '../../momo/fonts/pack'
 
 export interface PanelUpkeepInput {
   uiFont: string
@@ -24,6 +25,33 @@ export function usePanelUpkeep(input: PanelUpkeepInput): void {
   // 插件侧只剩这份变量 <style>，不再有静态 @font-face。
   useEffect(() => {
     syncFontStyle({ uiFont, cardFont })
+  }, [uiFont, cardFont])
+
+  // 下载的开源字体（2026-10-13）：偏好引用了某套字体包时，把它的字节注册成
+  // FontFace。**为什么必须懒注册**：字体包是按需下载的可选资产，插件启动时
+  // 不该把几十 MB 的 ttf 读进内存；而没注册的家族名在 font-family 栈里静默
+  // 回落，表现是「下载了却没生效」——所以在偏好真用到它的那一刻补注册。
+  // 只读两个槽位当前值命中的包（多数用户一套都没下，直接跳过）。
+  useEffect(() => {
+    const caps = useUi.getState().caps
+    if (!caps) return
+    const packs = new Set<FontPackId>()
+    for (const value of [uiFont, cardFont]) {
+      const pack = fontPackByFamily(value)
+      if (pack) packs.add(pack.id)
+    }
+    if (packs.size === 0) return
+    void (async () => {
+      for (const id of packs) {
+        try {
+          // 逐套读字节 + 注册；缺件（读盘抛错）时这套照旧没注册，字体栈自己回落
+          const faces = await caps.fontPackFontFaces?.(id)
+          if (faces) await registerFontFaces(faces)
+        } catch {
+          // 缺件 / 读盘失败：面板照常显示，只是这一套字回到默认那套
+        }
+      }
+    })()
   }, [uiFont, cardFont])
 
   // 多选集与当前条目对账（B06 修正）：外部删除 / 改名 / 软删入回收站后，entries

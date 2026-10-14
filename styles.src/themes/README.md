@@ -56,7 +56,7 @@ cp styles.src/themes/mist-blue.css styles.src/themes/amber.css
 然后改两处：
 
 1. 文件里 **4 处** `.momo-theme-mist-blue` → `.momo-theme-amber`（选择器末尾，四个宿主各一份）；
-2. 花括号里的 **40 个色值**。令牌清单必须与 `mist-blue.css` **逐项相同**，一个都不能少——
+2. 花括号里的 **41 个色值**。令牌清单必须与 `mist-blue.css` **逐项相同**，一个都不能少——
    少一个，用到它的地方会拿到空值（变透明），而且这种错在界面上很难一眼看出来。
 
 只需要懂「这个令牌是什么」就够了，注释里都写了。不要搬字号 / 圆角 / 字体 / 层级，

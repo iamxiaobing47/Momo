@@ -43,6 +43,27 @@ export const STALE_ARTIFACTS = ['globe3d.js']
 // fontProblems 这一整套 下载 → 部署 → 校验 链）退役——改用 Obsidian 自带的字体
 // 角色（见 types/prefs.ts 的 FONT_ROLES），发布包不再背 fonts/，也不再需要字体侧
 // 的魔数校验。
+//
+// 2026-10-13：字体以**按需下载**复活（用户要求「下载开源字体放 Release、提供字体
+// 卡片」）——fonts/ 由 scripts/fetch-fonts.mjs 从上游取回（gitignore），作为
+// **release 资产**挂上 GitHub Release（不在 vault 部署面：商店安装器只发三件套，
+// 重字体照旧到不了自动安装的用户手里，运行期由插件显式点击时下载，
+// 见 src/momo/fonts/pack.ts）。清单真源 = FONT_PACK_ASSETS（与 pack.ts 的
+// FONT_PACKS 同表，守卫 scripts/fonts-pack.test.mts 钉 parity）。
+
+/** 字体包的 release 资产名（顺序即发布链拼接顺序；与 src/momo/fonts/pack.ts 的
+ *  FONT_PACKS 逐一对应——改一边要一边起看）。许可文本 OFL.txt 跟在后面。 */
+export const FONT_PACK_ASSETS = [
+  'font-lxgw-wenkai-lite-regular.ttf',
+  'font-lxgw-wenkai-lite-medium.ttf',
+  'font-noto-sans-sc.ttf',
+  'font-noto-serif-sc.ttf',
+  'font-jetbrains-mono.ttf',
+  'OFL.txt',
+]
+
+/** 字体包在工程内的源目录（gitignore；由 scripts/fetch-fonts.mjs 铺） */
+export const FONT_PACK_SRC_DIR = 'fonts'
 
 /**
  * 所有 vault 的插件目录（绝对路径）——**唯一来源：环境变量 MOMO_VAULTS**
@@ -133,6 +154,8 @@ export const GLOBE_EARTH_IDS = Object.keys(GLOBE_TEXTURES)
  * 守卫 `scripts/release-assets-guard.test.mts` 钉住两头。
  *
  * v1.0.0：fonts/ 退出清单（内置字体退役，改用 Obsidian 自己的字体角色）。
+ * 2026-10-13：fonts/ 以**按需下载**回来——四套开源字体的 ttf + 拼接的 OFL.txt
+ * 作为 release 资产挂上去（不在 vault 部署面；运行期由插件显式点击时下载）。
  * v1.0.0+：两套贴图（12 张）仍是发布资产——社区商店安装器不会下发它们，
  * 由插件在设置页按需从本仓 release 下载（可选资源包）。
  * 2026-10-13（BUG-219）：globe3d.js 退出清单（three 随 main.js 发布）。
@@ -142,6 +165,9 @@ export function releaseManifest(dir = projectDir) {
   for (const id of GLOBE_EARTH_IDS) {
     const set = GLOBE_TEXTURES[id]
     for (const face of GLOBE_CUBE_FACES) out.push({ src: set.srcOf(face), dest: set.nameOf(face) })
+  }
+  for (const asset of FONT_PACK_ASSETS) {
+    out.push({ src: path.join(FONT_PACK_SRC_DIR, asset), dest: asset })
   }
   return out
 }

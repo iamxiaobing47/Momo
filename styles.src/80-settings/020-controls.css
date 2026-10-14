@@ -167,8 +167,10 @@
   box-shadow: inset 0 0 0 1px var(--momo-ink-6);
   color: var(--momo-ink);
 }
+/* 按压底走 --momo-press（2026-10-13 五套通则，见 080-buttons.css 同段注）：
+   surface-2 在雾蓝里比轨道 surface 还亮，按下去反而更浮。 */
 .momo-settings .momo-set-seg-item:active:not(.is-on) {
-  background: var(--momo-surface-2);
+  background: var(--momo-press);
 }
 /* 选中：与顶栏 .momo-seg-on 同一手法（透明底 + accent 描边 + accent 字），
    两处分段从此同语言。原先吃 card 底，墨夜下等于没换底。 */

@@ -8,7 +8,7 @@ import { useTodayKey } from '../hooks/useTodayKey'
 import { moveDayGridFocus } from './dayGridNav'
 
 // 活跃度热力图（concept-momo-heatmap）：
-// 滚动窗口月数可配（prefs.heatmapMonths，1–12，默认 3）：窗口 = 含当月在内 N 个
+// 滚动窗口月数可配（prefs.heatmapMonths，1–12，默认 1）：窗口 = 含当月在内 N 个
 // **完整的自然月**——起点是 N 个月前的 1 号、终点是当月最后一天（2026-10-09 用户
 // 要求「选 1 个月就完整展示当月的格子」；旧口径终点是今天，月初只画得出几天）。
 // N=1 时副标题写「当前月份」，N≥2 写「最近 N 个月」。

@@ -37,9 +37,12 @@ export interface MomoConfirmOptions {
  * 头部那一行与 BUG-157 / 158 去掉的面板浮层标题同一条判据——确认框的标题（「删除
  * 标签」/「彻底删除」…）和底栏主动作按钮是同一句话的第二遍。`MomoConfirmOptions`
  * 的 `title` 字段随之删除；`.momo-confirm .modal-title` 由 CSS 隐藏，正文的上内距
- * 补到与无头浮层（.momo-pop-nohead）相称的一刀。
+ * 补到与浮层骨架（`.momo-pop` 的 8px 上内距）相称的一刀。
+ *
+ * **导出**给设置页用（2026-10-13 字体包下载确认）：caps 自己只用 confirmDialog
+ * 一个口子，设置页（views 层）直接复用时不必绕道 store。
  */
-function openConfirmModal(
+export function openConfirmModal(
   app: import('obsidian').App,
   options: MomoConfirmOptions,
   colorScheme: string,
@@ -284,6 +287,39 @@ export function buildCaps(service: MomoService): MomoCaps {
       markdownComponents.get(container)?.unload()
       markdownComponents.delete(container)
     },
+    // 宿主 DOM 工厂（BUG-235）：Obsidian 的**全局**助手 `createEl` /
+    // `createFragment`（obsidian.d.ts 的 `declare global`，官方 lint
+    // `obsidianmd/prefer-create-el` 要的就是这条；同 settings/dom.ts 的路子）。
+    // 用全局形态而不是 `document.createEl`：前者不依赖「谁把方法挂到 Document
+    // 原型上」。ui/ 不 import obsidian 也不碰宿主全局，这里包一层白手套经
+    // `caps.dom` 递过去——`markdown.ts` 的 highlightMatches 与 `MarkdownBody.tsx`
+    // 的 detachedHost 从此只认注入的工厂。
+    //
+    // DOM 结果逐字不变：`createEl('div')` 与 `document.createElement('div')`
+    // 产出同一个 HTMLDivElement，类名照旧由调用方整体赋 `className`。
+    // 注意 `el(tag)` 的 tag 是入参不是字面量，prefer-create-el 的
+    // `createEl('div') → createDiv()` 速记规则不会命中这里。
+    dom: {
+      el: (tag, cls) => {
+        const el = createEl(tag)
+        if (cls) el.className = cls
+        return el
+      },
+      fragment: () => createFragment(),
+    },
+    // 剪贴板写入的唯一出口（BUG-235，契约写在 store/types.ts 的 MomoCaps.writeClipboard）：
+    // 只在用户手势里写、永不读、失败静默（reject 交给调用方）。两个写入点——
+    // CopyButton 的点击与 views.tsx 的 Ctrl+C 兜底——都经这里，全仓不再有第二处
+    // `navigator.clipboard.writeText`。
+    //
+    // 「未取到方法」按失败算（B12：旧写法 Promise.resolve(undefined) 是假成功）：
+    // 老 Electron / 非安全上下文里 `navigator.clipboard` 不存在，这时 reject，
+    // CopyButton 显示失败态、Ctrl+C 兜底静默吞掉让原生复制兜底。
+    writeClipboard: (text) => {
+      const write = navigator.clipboard?.writeText?.bind(navigator.clipboard)
+      if (!write) return Promise.reject(new Error('clipboard unavailable'))
+      return write(text)
+    },
     // 发布 Momo：创建失败必须让调用方知道（别让「点了一下，什么都没发生」）
     publish: async (content, tags) => {
       try {
@@ -482,6 +518,13 @@ export function buildCaps(service: MomoService): MomoCaps {
       if (res.ok) cubeUrls.clear()
       return res
     },
+    // 开源字体包（2026-10-13）：与星球资源包同一条按需下载路。这三条是 ui 侧的
+    // 能力面——面板挂载时的懒注册（偏好引用了某套字体才读字节）走它们；设置页
+    // （views 层）直接用 service，不绕道 caps。
+    fontPackStatus: async () => service.fontPackStatus(),
+    downloadFontPack: async (id, onProgress) =>
+      service.downloadFontPack(id, onProgress),
+    fontPackFontFaces: (id) => service.readFontPackFiles(id),
     // N08：签名 Promise<void>——data.json 写失败（只读分区/磁盘满）时调用方能接住，
     // 不再「UI 显示已改、重载后回退」地静默丢偏好。分工与其它写操作一致：
     // caps 层 Notice + rethrow，调用方 catch 后决定是否回退。

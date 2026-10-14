@@ -7,6 +7,7 @@ import type {
   MomoEntry,
   Density,
   DensityViewPref,
+  FontPackId,
   GlobeEarth,
   LangPref,
   LocLevel,
@@ -34,6 +35,8 @@ import type { LocRegion } from '../../momo/locations'
 import type { LocTreeLevel, LocTreeLevels } from '../../momo/locations'
 import type { IconOverrides } from '../../momo/icons'
 import type { GlobePackFailure } from '../../momo/globe/pack'
+import type { FontPackFailure } from '../../momo/fonts/pack'
+import type { FontFaceSpec } from '../../momo/fonts/pack'
 import type { LocPickerMode } from '../locations/picker/rows'
 import type { TagPickerMode } from '../tags/picker/rows'
 
@@ -115,6 +118,24 @@ export type PrefsPatch = {
   icons?: IconOverrides
 }
 
+/**
+ * 宿主 DOM 工厂面（BUG-235）：`src/ui/` 不许 import obsidian、也不许直接
+ * `document.createElement` / `createDocumentFragment`——Obsidian 评审
+ * `obsidianmd/prefer-create-el` 要的是宿主的 `createEl` / `createFragment`，
+ * 而它们是**宿主全局**（jsdom 里没有），这一层的契约是「能脱离 Obsidian 单测」。
+ * 于是「建元素」下沉到 views 侧，经这里注入：`src/views/caps.ts` 用 Obsidian 的
+ * 全局助手实现它，测试侧的 mock 用 jsdom 的 document 实现它。
+ *
+ * 只管「建」：`document.createTextNode` / `createTreeWalker` 不在 prefer-create-el
+ * 管辖内，仍由 ui/ 直接调。
+ */
+export interface MomoDomFactory {
+  /** 建一个元素；`cls` 非空时**整体**设为 className（与旧的 `el.className = cls` 等价） */
+  el<T extends keyof HTMLElementTagNameMap>(tag: T, cls?: string): HTMLElementTagNameMap[T]
+  /** 建一个文档片段（`highlightMatches` 包 `<mark>` 时的中转容器） */
+  fragment(): DocumentFragment
+}
+
 export interface MomoCaps {
   renderMarkdown(container: HTMLElement, markdown: string): Promise<void>
   /**
@@ -125,6 +146,25 @@ export interface MomoCaps {
    * 可选：缺省实现（老 mock / 无渲染需求的宿主）不调也不影响正文上屏。
    */
   releaseMarkdown?(container: HTMLElement): void
+  /** 宿主 DOM 工厂（BUG-235，理由见 MomoDomFactory）：渲染路径建游离容器 / 高亮 `<mark>` 用 */
+  dom: MomoDomFactory
+  /**
+   * 剪贴板**写入**的唯一出口（BUG-235，评审 Recommendation「Clipboard Access」的
+   * 收敛落点）。全仓只有两个写入点，都走它：卡片操作行的「复制」按钮
+   * （`ui/card/CopyButton.tsx`）与 `views.tsx` 的 document 级 Ctrl/Cmd+C 兜底。
+   * `attachmentPaste.ts` 读的是用户自己粘贴事件的 `clipboardData`，不是剪贴板
+   * 读取，与这里无关。
+   *
+   * 契约（三条，写死在这里）：
+   * ① **只在用户手势里写**——点击复制按钮、按下 Ctrl/Cmd+C；不在 effect /
+   *    定时器 / 渲染路径里调；
+   * ② **永不读剪贴板**——本能力只有 write 一个方向；
+   * ③ **失败静默**——写失败（document 失焦 / 权限拒绝 / 环境没有 clipboard API）
+   *    时 reject 由调用方处理：Ctrl+C 兜底整条吞掉、让原生复制兜底（同一文本被
+   *    写两遍，后果良性），CopyButton 照常显示失败态（B12 / BUG-155 的语义）。
+   *    两处都不弹 Notice、不重试。
+   */
+  writeClipboard(text: string): Promise<void>
   /** 发布一条 Momo（刷新列表；失败时抛错由调用方恢复文本） */
   publish(content: string, tags: string[]): Promise<void>
   /** 新建 Momo 并打开编辑器 */
@@ -236,6 +276,27 @@ export interface MomoCaps {
   downloadGlobePack?(
     onProgress?: (done: number, total: number) => void,
   ): Promise<{ ok: boolean; failed: string[]; reason: GlobePackFailure }>
+  /**
+   * 开源字体包（2026-10-13，按需下载复活的内置字体）的状态：每套装没装
+   * （`<插件目录>/fonts/` 里文件齐不齐；没有记账版本——字体资产名与内容不随
+   * 插件版本变）。设置页的字体格子据此分「已下载 / 未下载」两态。
+   */
+  fontPackStatus?(): Promise<{ packs: Record<FontPackId, boolean> }>
+  /**
+   * 下载一套字体包（2026-10-13）：用户显式点击才触发（与星球资源包同为白名单内
+   * 的联网动作）。逐件校验后写盘，全部成功这套才算装上；返回失败件名清单与失败
+   * 口径（`missing` = 这一版还没发字体资产 / `corrupt` = 字节被改写 / `network` =
+   * 其余）。`onProgress(done, total)` 供 UI 报进度。
+   */
+  downloadFontPack?(
+    id: FontPackId,
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<{ ok: boolean; failed: string[]; reason: FontPackFailure }>
+  /**
+   * 读回一套字体包的全部字节（供 `fontStyle.registerFontFaces` 注册 FontFace）。
+   * 缺件即 reject——调用方按「没装上」处理，字体栈自己回落。
+   */
+  fontPackFontFaces?(id: FontPackId): Promise<FontFaceSpec[]>
   savePrefs(prefs: PrefsPatch): Promise<void>
   listEntries(): Promise<MomoEntry[]>
   /** 回收站行（文件名 + 软删登记 + 完整索引投影，见 `TrashItem`） */
@@ -464,8 +525,16 @@ export interface UiState {
   /**
    * 批量标签弹层（卡片操作行与底部批量条共用一份）：null = 关闭；否则 = 作用在
    * 这批路径上、用哪种模式（add / remove）。会话内 transient，不入 data.json。
+   *
+   * `at`（2026-10-14 起）= 唤起它的那颗卡片操作按钮相对 `.momo-app` 的落点，
+   * **只有单卡那一路给**：弹层据此改走 free 变体、portal 到 `.momo-app` 根，
+   * 开在卡片自己的按钮旁边（与单卡地点弹层同一路数）。不给（批量条那一路）=
+   * 旧的 below 锚点变体，挂在 `.momo-batchtag-wrap` 下方。
+   * 为什么单卡必须带落点：below 锚点在**顶栏**，而按钮在卡片上——两者隔着半屏，
+   * 点下面的卡、弹层却开在面板顶端（窄面板更像一张贴底整宽面板）；用户报
+   * 「dialog 出现的位置，偶尔距离卡片很远」。
    */
-  tagPicker: { paths: string[]; mode: TagPickerMode } | null
+  tagPicker: { paths: string[]; mode: TagPickerMode; at?: { x: number; y: number } } | null
   /**
    * 侧栏「全部地点」树的**层级过滤档位集合**（2026-10-01 单选，2026-10-10 起
    * **多选**；会话内 transient，不入 data.json）：`['all']`（缺省）= 完整三级树；
@@ -667,8 +736,12 @@ export interface UiState {
   clearSelected(this: void): void
   /** 全选：入参 = 当前可见列表的路径（列表 = 筛选结果，回顾 = 当前批次） */
   selectAll(this: void, paths: readonly string[]): void
-  /** 卡片操作行「加标签」（单条）：打开批量标签弹层 */
-  openTagPicker(this: void, paths: string[], mode: TagPickerMode): void
+  /**
+   * 卡片操作行「加标签」（单条）：打开批量标签弹层。
+   * `at` = 那颗按钮相对 `.momo-app` 的落点（调用方在按钮的 click 里量好）——
+   * 给了弹层就开在按钮旁边（free 变体），不给就是 below 锚点（批量条那一路）。
+   */
+  openTagPicker(this: void, paths: string[], mode: TagPickerMode, at?: { x: number; y: number }): void
   /** 批量条「加标签 / 去标签」：同模式再点一次 = 收起，换模式按当前选中集重绑 */
   toggleTagPicker(this: void, mode: TagPickerMode): void
   /** 关闭批量标签弹层 */

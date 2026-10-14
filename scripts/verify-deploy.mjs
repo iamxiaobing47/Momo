@@ -11,7 +11,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
-import { ARTIFACTS, STALE_ARTIFACTS, GLOBE_TEXTURES, GLOBE_EARTH_IDS, GLOBE_CUBE_FACES, globeTextureProblems, globeAssetRevOf, readGlobeAssetRev, pluginProjectDir, vaultPluginDirs } from './vault-targets.mjs'
+import { ARTIFACTS, STALE_ARTIFACTS, GLOBE_TEXTURES, GLOBE_EARTH_IDS, GLOBE_CUBE_FACES, globeTextureProblems, globeAssetRevOf, readGlobeAssetRev, pluginProjectDir, vaultPluginDirs, FONT_PACK_ASSETS, FONT_PACK_SRC_DIR } from './vault-targets.mjs'
 
 const sha256 = (p) => crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex')
 const projectDir = pluginProjectDir()
@@ -120,6 +120,31 @@ for (const dest of vaultPluginDirs()) {
         console.log(`      ✓ ${name} ${fs.statSync(dst).size} B`)
       }
     }
+  }
+  // 开源字体包（2026-10-13）：**可选资产**——本地 fonts/ 在（跑过 fetch-fonts）
+  // 才逐件校验；不在就只提示（contributor 没取字体照样能构建，真实用户走运行期
+  // 从 release 下载）。落点是插件目录的 fonts/ 子目录，与运行期下载的布局一致。
+  const fontSrcDir = path.join(projectDir, FONT_PACK_SRC_DIR)
+  if (fs.existsSync(fontSrcDir)) {
+    for (const name of FONT_PACK_ASSETS) {
+      const src = path.join(fontSrcDir, name)
+      const dst = path.join(dest, 'fonts', name)
+      checked++
+      if (!fs.existsSync(src)) {
+        console.log(`      ✗ fonts/${name}：本地没有源文件（先 node scripts/fetch-fonts.mjs）`)
+        bad++
+      } else if (!fs.existsSync(dst)) {
+        console.log(`      ✗ fonts/${name}：vault 里没有（未部署）`)
+        bad++
+      } else if (sha256(src) !== sha256(dst)) {
+        console.log(`      ✗ fonts/${name}：与源不一致（vault 里是旧的）`)
+        bad++
+      } else {
+        console.log(`      ✓ fonts/${name} ${fs.statSync(dst).size} B`)
+      }
+    }
+  } else {
+    console.log('      - fonts/ 不在（没取字体包）→ 跳过字体校验；字体格在设置页是「未下载」态')
   }
   // vault 侧自洽：这里重算的是 **vault 目录里那一份** 产物（平铺布局），跟上面
   // 工程根的读法不同但算法同一份（vault-targets 的 globeAssetRevOf 会先试平铺路径）。

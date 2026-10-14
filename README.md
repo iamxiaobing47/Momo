@@ -64,7 +64,7 @@
 - **People keeping diaries or journals**: relive your days as a stream of dates; the heatmap is the trace of your persistence.
 - **Travelers and life recorders**: tag notes with places, then revisit old days by city or country — with a globe to look back on.
 - **Readers, filmgoers and parents**: sort things with tags, and use "review" to make sure what you wrote actually gets read again.
-- **People who care about data ownership**: no account, no telemetry — your notes are only ever your own files. The only network access is an optional, user-triggered download of the 3D globe assets.
+- **People who care about data ownership**: no account, no telemetry — your notes are only ever your own files. The only network access is an optional, user-triggered download of the 3D globe assets and the open-source font packs.
 
 ## Get started
 
@@ -98,17 +98,22 @@ Not at all. No servers, no user system — everything runs locally.
 Momo is local-first: no account, no telemetry, no upload. Three things the community-plugin
 review flags, and exactly what each one is for:
 
-- **Vault enumeration** (`vault.getFiles` / `getMarkdownFiles`): indexing your notes as cards
+- **Vault enumeration** (`vault.getMarkdownFiles`): indexing every note in your vault as cards
   *is* the feature — tags, locations, the heatmap and review all read that index. The paths
   stay in memory on your own machine.
-- **Clipboard**: write-only, and only when you click a card's copy button (or paste an image
-  into a note — that is Obsidian's own paste event). Momo never reads the clipboard in the
-  background and never touches it outside those gestures.
-- **Network**: the 3D globe's textures are not inside the install package (Obsidian's installer
-  only downloads `main.js`, `manifest.json` and `styles.css`). The **Download asset pack**
-  button in the plugin's settings fetches them from this repository's release — that is the
-  plugin's only network access, and it happens only when you click it. Without it the globe
-  still renders (canvas fallback).
+- **Clipboard**: write-only, and only inside a user gesture — when you click a card's copy
+  button, or press Ctrl/Cmd+C in the panel; the only thing ever written is the text you
+  selected (pasting an image into a note is Obsidian's own paste event). Momo never reads the
+  clipboard in the background and never touches it outside those gestures.
+- **Network**: two optional, user-triggered downloads, and nothing else. The 3D globe's
+  textures are not inside the install package (Obsidian's installer only downloads
+  `main.js`, `manifest.json` and `styles.css`); the **Download asset pack** button in the
+  plugin's settings fetches them from this repository's release. The open-source font
+  packs (LXGW WenKai Lite / Noto Sans SC / Noto Serif SC / JetBrains Mono, SIL OFL) work
+  the same way: font cards in **Settings → Appearance**, and the first click on an
+  undownloaded card asks for confirmation with the file size before fetching. Without
+  either download everything still works — the globe falls back to canvas rendering, and
+  the fonts fall back to Obsidian's own.
 
 ## License
 

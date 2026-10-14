@@ -120,7 +120,8 @@ export function TagTreeToolbar() {
 
           {/* 漏斗**没有激活态**（2026-10-13 用户裁定「过滤条件生效的时候，过滤图标
               不要变成蓝色」）：筛着什么由摘要条逐枚列着，这枚钮只报「筛选入口」。
-              地点树那颗同款同步摘掉 `.momo-tagbtn-on`（共享类仍归组合方式按钮用）。 */}
+              地点树那颗同款同步摘掉 `.momo-tagbtn-on`；2026-10-14 起组合方式按钮
+              也摘了，那条共享类整条退役（见 60-design/030-sidebar-tags.css 的注释）。 */}
           <button
             type="button"
             className="momo-tagbtn momo-tagbtn-filter"

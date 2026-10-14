@@ -30,14 +30,18 @@ import {
   sanitizeWarmRatio,
   type BrandIcon,
   type CardStamp,
+  type FontPackId,
   type LangPref,
   type MomoData,
   type UiScale,
   type WarmRatio,
 } from '../../momo/types'
+import { FONT_PACKS, fontPackBytes, type FontPack } from '../../momo/fonts/pack'
 import { copy, LANG_NAMES, getLocale, resolveLocale, setLocale } from '../../momo/i18n'
+import type { BrandIconScan } from '../../momo/service'
 import { getLanguage } from 'obsidian'
-import { syncFontStyle, fontRoleCss } from '../../ui/shared/fontStyle'
+import { syncFontStyle, fontRoleCss, registerFontFaces } from '../../ui/shared/fontStyle'
+import { openConfirmModal } from '../caps'
 import { arrowNav, iconSvg, h } from './dom'
 import { actionsMock, metaMock, sizeMock, titleMock } from './mock'
 import type { SettingsCtx } from './context'
@@ -132,20 +136,34 @@ function buildScaleRow(
 }
 
 /**
- * 字体选择行（v0.9.16；v1.0.0 起改用 Obsidian 字体角色）：**字体格子**，面板字体与
- * 卡片字体各一行。
+ * 字体选择行（v0.9.16；v1.0.0 起改用 Obsidian 字体角色；2026-10-13 起加开源字体包
+ * 格子）：**字体格子**，面板字体与卡片字体各一行。
  *
- * 格子即预览——每个格子里的样字用**那套字体**画（角色格用宿主变量 --font-interface /
- * --font-text / --font-monospace，直接反映 Obsidian 当前的字体设置），选字靠眼睛不靠
+ * 格子即预览——每个格子里的样字用**那套字体**画（角色格用宿主变量
+ * --font-monospace，直接反映 Obsidian 当前的字体设置），选字靠眼睛不靠
  * 名字；「默认」格子用继承的字体，代表「不注入变量」。这与配色方案卡、图标格子同一形制。
  *
  * v1.0.0：四套内置开源字体（随插件分发 ~70MB）退役，改为直接引用 **Obsidian 自己
  * 提供的字体**（用户在 Obsidian「外观」里配的界面 / 正文 / 等宽三档）。
  *
- * 自定义系统字体名输入框已于 2026-10-06 移除（用户要求「移除自定义字体」）。**盘上
- * 旧值继续被读取**——sanitizeFontPref 仍放行系统字体名（老 data.json 不被打回默认），
- * 只是界面上不再有输入入口：旧值不等于任何格子，表现为一行里没有格子亮，roving
- * tabindex 落回「默认」格（BUG-82c 的兜底），点任一格即换成新选择。
+ * 2026-10-13（用户要求「下载一些开源字体放到 GitHub Release，提供字体卡片」）：
+ * 内置字体以**按需下载**复活——每行末尾多出四张字体包格子（霞鹩文楷 / 思源黑体 /
+ * 思源宋体 / JetBrains Mono）。格子三态：
+ *   · 已下载——样字用那套字体画，点击即选中（与角色格同一条路：偏好值 = 家族名，
+ *     落在既有的第三段取值空间，sanitizeFontPref 原样放行）；
+ *   · 未下载——虚线格 + 大小标注（`≈17.8 MB`），点击先弹确认框（报名字与大小），
+ *     用户确认才从本仓 release 逐件下载（这是插件白名单里的第二处联网，与星球
+ *     资源包同一套闸：sfnt 魔数 + 登记字节数），完成后注册 FontFace 并自动选中；
+ *   · 下载中——同一格报进度（`正在下载 1/2…`），一次只下一套。
+ *
+ * 自定义系统字体名输入框已于 2026-10-06 移除（用户要求「移除自定义字体」）；界面 /
+ * 正文两个角色格 2026-10-13 移除（用户要求「系统字体和卡片字体，就提供默认和等宽
+ * 字体两种」）——格子随 `FONT_ROLES` 收编，本函数不用改代码。**移除的盘上旧值
+ * 都继续被读取**：sanitizeFontPref 仍放行系统字体名，也仍放行退役角色
+ * `obsidian:interface` / `obsidian:text`（白名单 `READABLE_FONT_ROLES`，
+ * fontStyle 的 ROLE_CSS 照样解析）——老 data.json 不被打回默认，只是界面上不再有
+ * 输入入口：旧值不等于任何格子，表现为一行里没有格子亮，roving tabindex 落回
+ * 「默认」格（BUG-82c 的兜底），点任一格即换成新选择。
  */
 /**
  * 字体槽位落库的**唯一出口**：落盘 + 重注四类宿主上的字体变量（BUG-119b）。
@@ -179,7 +197,14 @@ function buildFontRow(ctx: SettingsCtx, card: HTMLElement, slot: 'uiFont' | 'car
 
   /** 一格：样字用那格自己的字体画（默认格继承当前字体），名字放样字下面。
    *  `css` 是一段**现成的 font-family 值**（角色格给宿主变量，默认格给 null）。 */
-  interface Tile { el: HTMLButtonElement; value: string }
+  interface Tile {
+    el: HTMLButtonElement
+    value: string
+    /** 字体包格：未下载时点击走「确认 → 下载」而不是直接选中 */
+    pack?: FontPack
+    /** 未下载格的大小 / 进度注记（`.momo-set-font-size`，下载中改写它） */
+    size?: HTMLSpanElement
+  }
   const tiles: Tile[] = []
   const buildTile = (value: string, label: string, css: string | null): void => {
     const tile = h('button', 'momo-set-font-tile')
@@ -198,6 +223,109 @@ function buildFontRow(ctx: SettingsCtx, card: HTMLElement, slot: 'uiFont' | 'car
     buildTile(fontRoleValue(role), copy.meta.fontRole[role], fontRoleCss(role))
   }
 
+  // ---- 开源字体包格子（2026-10-13）：已下载即选、未下载先问后下 ----
+  /** 已下载的包（异步状态落地后填）；正在下载的包 id（一次只下一套） */
+  const installed = new Set<FontPackId>()
+  let busyId: FontPackId | null = null
+
+  for (const pack of FONT_PACKS) {
+    const name = copy.meta.fontPack[pack.id]
+    const tile = h('button', 'momo-set-font-tile')
+    tile.type = 'button'
+    tile.setAttribute('role', 'radio')
+    tile.setAttribute('aria-label', name)
+    // 未下载时样字画不出来（字体还不在文档里）：先按继承字体画，等下载完成
+    // 注册 FontFace 后同一枚 span 自然换成那套字（font-family 在下面按态设置）。
+    const sample = h('span', 'momo-set-font-sample', f.sample)
+    const size = h('span', 'momo-set-font-size')
+    size.append(iconSvg('arrow-down', 11), h('span', 'momo-set-font-size-text', f.packSize(fontPackBytes(pack.id))))
+    tile.append(sample, h('span', 'momo-set-font-name', name), size)
+    const entry: Tile = { el: tile, value: pack.files[0].family, pack, size }
+    tile.addEventListener('click', () => void onPackClick(pack))
+    tiles.push(entry)
+    grid.append(tile)
+  }
+
+  /** 字体包格的点击：已下载 → 直接选中；未下载 → 确认框 → 下载 → 注册 → 选中 */
+  const onPackClick = async (pack: FontPack): Promise<void> => {
+    if (busyId !== null) return
+    if (installed.has(pack.id)) {
+      apply(pack.files[0].family)
+      return
+    }
+    const ok = await openConfirmModal(
+      ctx.service.app,
+      {
+        message: f.downloadConfirm({
+          name: copy.meta.fontPack[pack.id],
+          size: f.packSize(fontPackBytes(pack.id)),
+        }),
+        confirmText: f.download,
+      },
+      ctx.service.data.prefs.colorScheme,
+    )
+    if (!ok) return
+    busyId = pack.id
+    paintBusy(pack)
+    const res = await ctx.service.downloadFontPack(pack.id, (done, total) => {
+      sizeText(pack, f.downloading(done, total))
+    })
+    busyId = null
+    if (!res.ok) {
+      // 失败：格子退回未下载态，大小行换成一句人话（不弹窗——用户在设置页看着
+      // 这一行，就地报比 Notice 更近）
+      setPending(pack)
+      sizeText(pack, f.downloadFailed(res.failed.length, pack.files.length))
+      return
+    }
+    // 下载成功：先把字节注册成 FontFace（样字与面板立刻能用那套字），再选中
+    try {
+      await registerFontFaces(await ctx.service.readFontPackFiles(pack.id))
+    } catch {
+      // 注册失败（字节不被内核接受）：偏好照常选中，字体栈逐级回落——下一次
+      // 打开设置页 / 面板挂载还会再试（注册记忆按 family@weight 幂等）
+    }
+    installed.add(pack.id)
+    setInstalled(pack)
+    apply(pack.files[0].family)
+  }
+
+  /** 大小行的文字（只动文字节点，图标留着） */
+  const sizeText = (pack: FontPack, text: string): void => {
+    const t = tiles.find((x) => x.pack?.id === pack.id)
+    const el = t?.size?.querySelector<HTMLElement>('.momo-set-font-size-text')
+    if (el) el.textContent = text
+  }
+
+  /** 未下载态：虚线格 + 大小行可见 */
+  const setPending = (pack: FontPack): void => {
+    const t = tiles.find((x) => x.pack?.id === pack.id)
+    if (!t) return
+    t.el.classList.remove('is-busy')
+    t.el.classList.add('is-pending')
+    t.size?.classList.remove('is-hidden')
+    sizeText(pack, f.packSize(fontPackBytes(pack.id)))
+  }
+
+  /** 已下载态：样字换成那套字体，大小行收起来 */
+  const setInstalled = (pack: FontPack): void => {
+    const t = tiles.find((x) => x.pack?.id === pack.id)
+    if (!t) return
+    t.el.classList.remove('is-pending', 'is-busy')
+    t.size?.classList.add('is-hidden')
+    const sample = t.el.querySelector<HTMLElement>('.momo-set-font-sample')
+    if (sample) sample.style.fontFamily = `"${pack.files[0].family}"`
+  }
+
+  /** 下载中：格子进 busy 态，大小行报进度 */
+  const paintBusy = (pack: FontPack): void => {
+    const t = tiles.find((x) => x.pack?.id === pack.id)
+    if (!t) return
+    t.el.classList.remove('is-pending')
+    t.el.classList.add('is-busy')
+    t.size?.classList.remove('is-hidden')
+    sizeText(pack, f.downloading(0, pack.files.length))
+  }
 
   const paint = (): void => {
     const value = prefs()[slot]
@@ -217,14 +345,27 @@ function buildFontRow(ctx: SettingsCtx, card: HTMLElement, slot: 'uiFont' | 'car
   wrap.append(grid)
   ctrl.append(wrap)
   paint()
+  // 装的包实时反映到格子上（异步：装没装是读盘判的，进页面时才知道）
+  void ctx.service.fontPackStatus().then((s) => {
+    for (const pack of FONT_PACKS) {
+      if (s.packs[pack.id]) {
+        installed.add(pack.id)
+        setInstalled(pack)
+      } else {
+        setPending(pack)
+      }
+    }
+    paint()
+  })
   // radio 的箭头即选择：与配色方案卡 / 图标格子同一套键盘语言（WAI-ARIA 自动激活）
   arrowNav(grid, '.momo-set-font-tile', (el) => el.click())
 }
 
 /**
- * 左上角图标行（v0.9.3 重做 · v0.9.12 多图重做）：**形状格子 + 图片格子 + 上传格子**
- * ——八枚预设形状（icons.tsx 白名单）一格，用户上传的每张图一格（点哪张用哪张，
- * 每格角上一枚 × 移除），最后一格上传新图（上限 BRAND_ICONS_MAX 张）。
+ * 左上角图标行（v0.9.3 重做 · v0.9.12 多图重做 · 2026-10-14 自动识别 + 去重重做）：
+ * **形状格子 + 图片格子 + 上传格子**——八枚预设形状（icons.tsx 白名单）一格，
+ * `icons/` 文件夹里识别到的每枚图标一格（点哪张用哪张，每格角上一枚 × 移除），
+ * 最后一格上传新图（上限 BRAND_ICONS_MAX 枚）。
  *
  * 为什么不再是原生 `<select>`：下拉把八个形状压成一行文字，选中了什么全靠
  * 猜；而且它与本页其它选择 UI（分段 / 开关卡）不同语言，是「每个选择 UI 都很丑」
@@ -243,6 +384,20 @@ function buildFontRow(ctx: SettingsCtx, card: HTMLElement, slot: 'uiFont' | 'car
  *   · 移除走格子角上的 ×：文件一并删，删的是当前生效那张时回退到清单里最新的
  *     一张（没有就回形状）。**恢复默认同样不动清单**（BUG-88）：上传的图是 vault
  *     里的用户文件，清掉引用之后界面上再无入口把它们加回来，等于替用户删了图标。
+ *
+ * 2026-10-14 用户要求「左上角图标，应该自动识别 icons 文件夹里的图标，并且对重复
+ * 内容的图标自动去重」——图片格子的真源从 `prefs.brandIconImages`（上传时登记的
+ * 快照）换成 **service.scanBrandIconImages() 的盘上扫描**：
+ *   · 识别：目录里扩展名合法的文件都出一格，不再问登记没有——另一个设备同步来的、
+ *     用户自己拷进 icons/ 的图，打开设置页就看得见、点得了；
+ *   · 去重：逐份读字节算指纹，内容相同的多份文件只留一格（当前生效那张优先当
+ *     代表），格区下方一行小字报「识别到几枚、几个重复文件已合并」——不然 4 个
+ *     同内容文件合出 1 格，用户会以为识别坏了；
+ *   · × 移除的是**这枚图标的所有副本**（service 里按字节相同一并删）：只删代表的
+ *     话，下一次扫描会从副本里把它认回来（BUG-80d「说删了其实还在」的同款反馈）；
+ *   · 上传上限按**去重后**的枚数算（同内容传八遍也只是一枚），满额的「先移除一张」
+ *     指的就是格区里看得见的那些格。
+ * 登记清单退化成排序提示（登记过的排前）与旧 root 删除闸的一份子，行为不变。
  *
  * 2026-10-09 用户四条：「去掉这段文字」×2——行说明（复述控件）与格区下方那条
  * keepNote 注记（裁决没变，只是不再占屏幕上的一行）整句移除；「去掉预览」——卡尾
@@ -267,6 +422,10 @@ function buildIconRow(ctx: SettingsCtx, card: HTMLElement): void {
   // BUG-217：默认隐藏由 CSS 给（`.momo-set-icons-err { display: none }` +
   // `.is-on { display: block }`），不再写内联 display——那是 Obsidian 评审的
   // no-static-styles-assignment。
+  // 自动识别 + 去重的一行反馈（2026-10-14）：「识别到几枚图标、几个重复文件已合并」。
+  // 同一套显隐打法（.momo-set-icons-scan，空结果不占行）。没有它，4 个同内容文件
+  // 合并出 1 格时用户无从判断是识别坏了还是去重生效了。
+  const scan = h('div', 'momo-set-icons-scan')
   const file = h('input', 'momo-set-icons-file')
   file.type = 'file'
   file.accept = BRAND_ICON_EXTS.map((ext) => `.${ext}`).join(',')
@@ -276,6 +435,11 @@ function buildIconRow(ctx: SettingsCtx, card: HTMLElement): void {
     err.classList.toggle('is-on', msg !== '')
   }
   const prefs = (): MomoData['prefs'] => ctx.service.data.prefs
+
+  /** 盘上去重后的图标枚数（上传上限按它算）。扫描未回填前先按登记清单长度估——
+   *  开页到扫描回来只有几十毫秒，那之间点上传格按旧口径放行，扫描一到就纠正。 */
+  let uniqueCount = prefs().brandIconImages.length
+  const atMax = (): boolean => uniqueCount >= BRAND_ICONS_MAX
 
   /** 预设格子：id 同时是 ui/icons PATHS 的键（同一语义 = 同一形状） */
   const presetTiles: Array<{ el: HTMLButtonElement; glyph: HTMLElement; id: BrandIcon }> = []
@@ -301,14 +465,14 @@ function buildIconRow(ctx: SettingsCtx, card: HTMLElement): void {
   }
 
   // 上传格子：一行收尾的动作格（不是单选格，所以没有 role=radio）。到顶后变暗、
-  // 点了只给一句人话——比「弹了文件框却存不下」诚实。
+  // 点了只给一句人话——比「弹了文件框却存不下」诚实。枚数按盘上去重后的真面算。
   const uploadTile = h('button', 'momo-set-icon is-upload')
   uploadTile.type = 'button'
   const uploadGlyph = h('span', 'momo-set-icon-glyph')
   uploadTile.setAttribute('aria-label', up.tile)
   uploadTile.append(uploadGlyph)
   uploadTile.addEventListener('click', () => {
-    if (prefs().brandIconImages.length >= BRAND_ICONS_MAX) {
+    if (atMax()) {
       showErr(up.maxed(BRAND_ICONS_MAX))
       return
     }
@@ -316,7 +480,8 @@ function buildIconRow(ctx: SettingsCtx, card: HTMLElement): void {
   })
   grid.append(uploadTile)
 
-  /** 图片格子：清单变动（上传 / 移除）时增删，`imageTiles` 与 DOM 同步 */
+  /** 图片格子：跟着 icons/ 文件夹的扫描结果增删（上传 / 移除后重扫重画），
+   *  `imageTiles` 与 DOM 由 renderImages 统一重建，不单格增删 */
   interface ImageTile { path: string; cell: HTMLElement; el: HTMLButtonElement }
   const imageTiles: ImageTile[] = []
 
@@ -359,27 +524,31 @@ function buildIconRow(ctx: SettingsCtx, card: HTMLElement): void {
       // BUG-80d：先把盘上的文件删掉，**删成功才**收窄清单 / 抽格子——旧实现
       // 先改 pref 再删文件，删失败被 service 吞掉，「点 ✕ 说删了其实还在」
       // 零反馈。删失败：清单 / 格子原样保留，行内红字说明（与上传错误同一槽）。
-      void ctx.service.removeBrandIconImage(path).then((removed) => {
+      // 2026-10-14：删成功后**重扫一遍**再重画——去重之下盘上真面才是格子真源，
+      // 同内容副本也在这趟删除里被 service 一并清掉（否则下一回扫描认回来）。
+      void (async () => {
+        const removed = await ctx.service.removeBrandIconImage(path)
         if (!removed) {
           showErr(up.removeFailed)
           return
         }
-        const list = prefs().brandIconImages.filter((p) => p !== path)
+        const s = await ctx.service.scanBrandIconImages()
         const active = prefs().brandIconImage
-        // 删的正是当前生效那张 → 退回清单里最新的（没有就回形状）
-        const next = active === path ? (list[list.length - 1] ?? '') : active
-        ctx.setPref({ brandIconImages: list, brandIconImage: next })
-        const idx = imageTiles.findIndex((t) => t.path === path)
-        if (idx >= 0) imageTiles.splice(idx, 1)
-        cell.remove()
-        // 「第 N 张」是读屏名字：抽掉中间一张后重新编号，别留两个「第 2 张」
-        imageTiles.forEach((t, i) => t.el.setAttribute('aria-label', up.tileAt(i + 1)))
+        // 生效位被这次删除带走（删的正是它，或它是有相同内容的副本）→ 退回盘上
+        // 最新的一枚（没有就回形状）；没被带走的原样留着
+        const live = s.icons.includes(active) ? active : (s.icons[s.icons.length - 1] ?? '')
+        ctx.setPref({
+          brandIconImages: prefs().brandIconImages.filter((p) => p !== path),
+          brandIconImage: live,
+        })
+        uniqueCount = s.icons.length
+        renderImages(s.icons)
+        showScan(s)
         showErr('')
-        paint()
         // 焦点别落在被删掉的格子上：回最近一张图，没有就回上传格
         const last = imageTiles[imageTiles.length - 1]
         ;(last ? last.el : uploadTile).focus()
-      })
+      })()
     })
     // 方向键从 × 上起按 = 接着在格子间走（× 不属于格子组，箭头停在它上面
     // 会把键盘用户困住）。把键盘事件转回格子再照常走 arrowNav 的循环。
@@ -391,6 +560,30 @@ function buildIconRow(ctx: SettingsCtx, card: HTMLElement): void {
     })
     cell.append(tile, del)
     return { path, cell, el: tile }
+  }
+
+  /** 扫描结果的一行反馈：识别到几枚、这一趟删掉了几个内容重复的旧文件（空文件夹不占行）。
+   *  2026-10-14 用户裁定「重复内容应该删除，只保留最新的一个」——扫描本身就会删副本
+   *  （service.scanBrandIconImages 的清理），所以这里报的是**真删了几个**。 */
+  const showScan = (s: BrandIconScan): void => {
+    const text =
+      s.files === 0 ? '' : up.scanned({ unique: s.icons.length, files: s.files, removed: s.removed })
+    scan.textContent = text
+    scan.classList.toggle('is-on', text !== '')
+  }
+
+  /** 按扫描结果重画图片格：先抽掉全部旧格（形状格与上传格不动），再按序插在
+   *  上传格之前。「第 N 张」的读屏名字随重建自动重排，不会留两个「第 2 张」。 */
+  const renderImages = (paths: readonly string[]): void => {
+    for (const t of imageTiles) t.cell.remove()
+    imageTiles.length = 0
+    for (const path of paths) {
+      const tile = buildImageTile(path)
+      imageTiles.push(tile)
+      // 上传格是这行的收尾，图片格永远排在它前面（append 会把它们甩到后面去）
+      grid.insertBefore(tile.cell, uploadTile)
+    }
+    paint()
   }
 
   /** 预览与选中态一律从 service 现读（display() 时的 prefs 快照会指向上一次的设置） */
@@ -413,7 +606,7 @@ function buildIconRow(ctx: SettingsCtx, card: HTMLElement): void {
       t.el.tabIndex = on ? 0 : -1
     }
     // 上传格跟着到顶与否换观感：暗一档 + 不可点的光标，title 说明原因
-    const full = prefs().brandIconImages.length >= BRAND_ICONS_MAX
+    const full = atMax()
     uploadTile.classList.toggle('is-full', full)
     uploadTile.title = full ? up.maxed(BRAND_ICONS_MAX) : up.tile
     uploadGlyph.empty()
@@ -438,7 +631,7 @@ function buildIconRow(ctx: SettingsCtx, card: HTMLElement): void {
       showErr(up.tooBig(BRAND_ICON_MAX / 1_000_000, Number((picked.size / 1_000_000).toFixed(2))))
       return
     }
-    if (prefs().brandIconImages.length >= BRAND_ICONS_MAX) {
+    if (atMax()) {
       showErr(up.maxed(BRAND_ICONS_MAX))
       return
     }
@@ -447,13 +640,15 @@ function buildIconRow(ctx: SettingsCtx, card: HTMLElement): void {
       try {
         const path = await ctx.service.saveBrandIconImage(await picked.arrayBuffer(), ext)
         ctx.setPref({ brandIconImages: [...prefs().brandIconImages, path], brandIconImage: path })
-        const tile = buildImageTile(path)
-        imageTiles.push(tile)
+        // 2026-10-14：写完盘重扫一遍再重画——新文件进 icons/ 是真源变动，格子
+        // 跟扫描走（顺带吃掉「传了一张与已有图标同内容的图」这种去重情形）。
+        const s = await ctx.service.scanBrandIconImages()
+        uniqueCount = s.icons.length
+        renderImages(s.icons)
+        showScan(s)
         // 新图插在上传格之前（上传格是这行的收尾），焦点跟着新格子走：
         // 连着传几张时键盘用户停在新图上，不用重新 Tab 进组。
-        grid.insertBefore(tile.cell, uploadTile)
-        tile.el.focus()
-        paint()
+        imageTiles.find((t) => t.path === path)?.el.focus()
       } catch {
         // 写盘失败（只读分区 / 磁盘满）：图标不动，行内给一句人话
         showErr(up.failed)
@@ -461,21 +656,22 @@ function buildIconRow(ctx: SettingsCtx, card: HTMLElement): void {
     })()
   })
 
-  // 盘上已上传的图标照清单顺序补格子：一律插在上传格之前——上传格是这行的
-  // 收尾，图片格永远排在它前面（append 会把它们甩到上传格后面去）。
-  for (const path of prefs().brandIconImages) {
-    const tile = buildImageTile(path)
-    imageTiles.push(tile)
-    grid.insertBefore(tile.cell, uploadTile)
-  }
-
-  wrap.append(grid, err)
+  wrap.append(grid, scan, err)
   // 上传 input 必须**挂在文档里**（样式上用 1px 透明占位而不是 display:none）：
   // 游离元素（createElement 后从未 append）调 .click() 不会弹出文件选择框——
   // 桌面端点上传格毫无反应，就是这个原因。历史上这里只建了 input 没 append。
   ctrl.append(file)
   ctrl.append(wrap)
   paint()
+  // 图片格的真源是盘上扫描（2026-10-14 自动识别 + 去重）：开页时异步补一次，
+  // 之后上传 / 移除都重扫。扫描未回的几十毫秒里只有形状格与上传格——图片格
+  // 晚一格进场，好过挂一枚「清单里有、盘上没有」的死格。
+  void (async () => {
+    const s = await ctx.service.scanBrandIconImages()
+    uniqueCount = s.icons.length
+    renderImages(s.icons)
+    showScan(s)
+  })()
   // radio 的箭头即选择：格子组与配色方案卡同一套键盘语言（WAI-ARIA 自动激活）。
   // BUG-176a：但上传格是动作格（弹文件框 / 报满额）——方向键「到达 = 激活」对它
   // 是误伤（用户只想移焦点却弹出系统文件框）。选择器排除 is-upload；上传格没有
@@ -555,8 +751,12 @@ export function buildLookTab(ctx: SettingsCtx): void {
   // ======================= ③ 字体 =======================
   // 面板字体与卡片字体分开配（v0.9.16 用户要求「用户可以分别配置系统字体和卡片
   // 字体」）。v1.0.0 起直接用 **Obsidian 自己提供的字体**（界面 / 正文 / 等宽三个
-  // 角色，见 ui/shared/fontStyle.ts 的 ROLE_CSS），不再自带字体文件；选值即改即
-  // 生效（head 变量同步），恢复 = 两格都回空串（面板走 --momo-sans 原栈，卡片从
+  // 角色，见 ui/shared/fontStyle.ts 的 ROLE_CSS），不再自带字体文件；2026-10-13
+  // 按用户要求「就提供默认和等宽字体两种」，界面 / 正文两格从设置页退役——格子随
+  // FONT_ROLES 收编，退役角色的盘上旧值继续生效（见 buildFontRow 注释）。同日按
+  // 用户要求「下载开源字体放 Release、提供字体卡片」，每行末尾多出四张**按需下载**
+  // 的字体包格子（未下载的点一下先弹确认框报大小，见 buildFontRow）。选值即改
+  // 即生效（head 变量同步），恢复 = 两格都回空串（面板走 --momo-sans 原栈，卡片从
   // 面板继承）。
   // 卡头说明整句移除（2026-10-11 用户要求「去掉这段文字」）：原先那句讲「面板与
   // 卡片各用哪套字、内置四套开源字体」，而下面两行的字面标题（面板字体 / 卡片

@@ -72,7 +72,8 @@ export function LocTreeSection({ nodes }: { nodes: readonly LocTreeNode[] }): Re
         {/* 工具行：一颗层级过滤漏斗。按钮复用标签区那套 .momo-tagbtn（两棵树的工具行
             长成一个样）；**没有激活态**——2026-10-13 用户裁定「过滤条件生效的时候，
             过滤图标不要变成蓝色」，两棵树的漏斗一起摘掉 `.momo-tagbtn-on`（档位勾了
-            几级只由浮层里的 chip 说，漏斗自己只报「这是一颗筛选入口」）。同样不挂
+            几级只由浮层里的 chip 说，漏斗自己只报「这是一颗筛选入口」；那条共享类
+            2026-10-14 随组合方式按钮一起退役了）。同样不挂
             title（面板级禁用原生气泡），名字走 aria-label。 */}
         <div className="momo-loctree-tools">
           <button

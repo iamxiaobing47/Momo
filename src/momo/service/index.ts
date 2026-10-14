@@ -21,7 +21,22 @@ import { createInflightGate, errMsg } from '../core'
 import { MomoDiskFile, accountFromDisk, prefsFromDisk, readDiskFile, serializeAccount, type MomoAccount } from './serviceDisk'
 import { CURRENT_SCHEMA } from '../types/migrations'
 import { affectsPath, isMomoMdPath, type MomoLayout } from './serviceLayout'
-import { emptyTrashEntry, fileStamp, fmTagList, isBlankEntry, projectEntry, tagsOf } from './serviceFiles'
+import {
+  dedupeBrandIconFiles,
+  planBrandIconPrune,
+  emptyTrashEntry,
+  fileStamp,
+  fmTagList,
+  iconContentHash,
+  isBlankEntry,
+  isBrandIconFileName,
+  projectEntry,
+  sameBytes,
+  tagsOf,
+  type BrandIconFile,
+} from './serviceFiles'
+import { embeddedAttachments, linkedAttachments } from './serviceLinks'
+import { FIRST_CARD_CONTENT, FIRST_CARD_LOCATION, FIRST_CARD_TAG } from './firstCard'
 import { hasTagSpace, squeezeTagSpace } from '../tags'
 import {
   addLocationsTo,
@@ -46,6 +61,18 @@ import {
   isGlobePackFileValid,
   type GlobePackFailure,
 } from '../globe/pack'
+import {
+  FONT_PACKS,
+  FONT_PACK_DIR,
+  fontPackAssets,
+  fontPackById,
+  fontPackFiles,
+  fontPackUrl,
+  isFontPackFileValid,
+  type FontFaceSpec,
+  type FontPackFailure,
+} from '../fonts/pack'
+import type { FontPackId } from '../types'
 
 // Momo 服务（contract-momo-storage / concept-momo-trash）：
 // 索引随 vault 事件重建，不缓存正文；插件私有状态只有 data.json。
@@ -57,7 +84,7 @@ import {
 //   serviceDisk.ts    data.json 形状 + 读盘 sanitize
 //   serviceLayout.ts  目录判定（算不算 Momo / 事件要不要理）
 //   serviceFiles.ts   文件名 / 空白判定 / 预览文本
-//   serviceLinks.ts   图片引用路径（相对链接怎么算）
+//   serviceLinks.ts   图片引用路径（相对链接怎么算 / 反解正文引用了哪些附件）
 //   serviceImages.ts  图片分类与命名（什么算图片 / 叫什么）
 // 所以本文件剩下的就是「把那些函数接上 vault 的读写」。
 
@@ -75,6 +102,15 @@ const CLOUD_INDEX_FILE = '.momo-cloud.json'
  * 绝不进 git——vault 仓的 .gitignore 排它）。
  */
 const ACCOUNT_SIDECAR_FILE = 'account.json'
+
+/**
+ * 画布 `.canvas` 里的文件节点字段（BUG-243）：JSON 形如
+ * `{"type":"file","file":"Momo/attachments/IMG-1.png"}`，存的是 **vault 相对路径**
+ * （不是相对画布目录）。宿主不解析画布，`metadataCache.resolvedLinks` 里没有这些边，
+ * 所以清孤儿附件时要自己扫一眼——否则画布里在用的图会被当孤儿删掉。
+ * 模块级常量而不是写在方法里：理由同 tags/parse.ts 的 IMAGE_RE（别每次调用新造正则）。
+ */
+const CANVAS_FILE_RE = /"file"\s*:\s*"([^"\\]*)"/g
 
 const delay = (ms: number): Promise<void> => new Promise((resolve) => window.setTimeout(resolve, ms))
 
@@ -123,6 +159,21 @@ export interface NotesMigrationResult {
   renamed: ReadonlyMap<string, string>
 }
 
+/**
+ * `<root>/icons/` 的扫描结果（service.scanBrandIconImages 的返回值，设置页
+ * 「左上角图标」行的数据源，2026-10-14 自动识别 + 内容去重）：
+ *   · `icons` = 去重后的代表路径，顺序即格子顺序；
+ *   · `files` = 清理前识别到的文件总数；
+ *   · `removed` = 这一趟**真的从盘上删掉**的重复内容副本数（同内容只留最新的一张，
+ *     用户 2026-10-14 裁定：重复内容不是「界面上合并」而是删文件）。三者在设置页
+ *     那行反馈小字里报给用户。
+ */
+export interface BrandIconScan {
+  icons: string[]
+  files: number
+  removed: number
+}
+
 export class MomoService {
   settings: MomoSettings = { ...DEFAULT_SETTINGS }
   // 每实例一份：trash 会被就地增删键（`this.data.trash[name] = ...`），prefs 会被
@@ -131,6 +182,15 @@ export class MomoService {
   // （只拷一层，densityViews / sections / reviewSeen 等嵌套字段仍共享引用）——
   // 首次安装与重置两条路径从此都与「盘上缺省」同一来源。
   data: MomoData = { trash: {}, prefs: prefsFromDisk({}) }
+
+  /**
+   * 本次启动是不是**全新安装**（data.json 读出来是 null）。只服务首次播种
+   * （`seedFirstCard`），别处一概不用它做判定——它是「这台设备上还没写过 data.json」，
+   * 不是「用户没在用这个插件」（重装 / 清了 data.json 的老用户同样为 true，
+   * 所以播种还要叠上「库里一条 Momo 文件都没有」那道闸）。
+   */
+  private freshInstall = false
+
   /**
    * 服务器状态的本地缓存（P3 数据层）：登录态 / entitlement / 配额。
    * null = 未登录。它**不是 prefs**：整体替换、退出登录 = 置 null（sidecar 删文件）。
@@ -242,6 +302,9 @@ export class MomoService {
     // 读盘 + 逐字段兜底全在 serviceDisk.ts（obsidian-free，可单独测）；
     // 这里只做「读完之后必须动 vault 才知道答案」的那几步。
     const loaded = (await this.plugin.loadData()) as MomoDiskFile | null
+    // 首次播种的判据在读盘**之前**定下来：data.json 不存在 = 全新安装。
+    // 别拿「读出来的盘面是空的」当判据——老盘被清过键同样是空的，那不该重复播种。
+    this.freshInstall = loaded === null
     const disk = readDiskFile(loaded)
     this.data = disk.data
     // BUG-151：读盘路径也要裁决 notesDir / trashDir 重叠。磁盘 settings 只过
@@ -471,9 +534,9 @@ export class MomoService {
     const before = this.layout()
     const after = this.layoutOf(this.resolveSettings(next))
     let count = 0
-    for (const f of this.vault.getMarkdownFiles()) {
-      if (f.extension !== 'md') continue
-      if (!isMomoMdPath(f.path, before)) continue // 本来就不是 Momo（别处的文件，不归我们管）
+    // momoFiles(before) 已按**旧布局**筛掉别处的文件（不归我们管）；这里只数
+    // 「改完之后读不到」的那一批。
+    for (const f of this.momoFiles(before)) {
       if (isMomoMdPath(f.path, after)) continue // 改了也还是 Momo（留在原地也读得到）
       count++
     }
@@ -501,9 +564,7 @@ export class MomoService {
     const targetDir = newLayout.notesPath
     /** 旧路径 → 新路径（含重名加序号的落点）：登记 / 置顶改路都按它来 */
     const movedTo = new Map<string, string>()
-    const movers = this.vault
-      .getMarkdownFiles()
-      .filter((f) => f.extension === 'md' && isMomoMdPath(f.path, oldLayout) && !isMomoMdPath(f.path, newLayout))
+    const movers = this.momoFiles(oldLayout).filter((f) => !isMomoMdPath(f.path, newLayout))
     // BUG-130b/c：账面改路（trash 登记 / pinnedNotes / reviewSeen）**无论有没有文件要搬
     // 都要跑**——判据是「root / notesDir 变了」不是「movers 非空」。旧实现在
     // `movers.length === 0` 时直接 return 只 saveSettings：弹窗后文件被外部删掉的场景里
@@ -1014,6 +1075,45 @@ export class MomoService {
     return isMomoMdPath(file.path, layout)
   }
 
+  /**
+   * **全仓唯一的 vault 级枚举入口**（BUG-237）：一切「把库里的 md 过一遍」都走这里，
+   * 别处再出现 `vault.getMarkdownFiles()` / `getFiles()` / `getAllLoadedFiles()`
+   * 一律先回本节登记理由。返回该布局下的全部 Momo 文件（TFile，rename / process 要用）。
+   *
+   * 七个调用点各自为什么必须枚举（逐条一句）：
+   * - `notesRelocation`：数「改目录后会被甩在老位置的笔记条数」——设置页确认闸门
+   *   （BUG-79a）的依据，少数一条 = 少弹一次闸门、用户的笔记被静默留下；
+   * - `migrateNotes`：把老布局下的笔记搬到新目录，要 TFile 才能 `vault.rename`；
+   * - `listEntriesRun`：全库索引的主扫描——**产品功能前提**（见下）；
+   * - `sweepEmptyDrafts`：启动清扫空白草稿——草稿不进索引（`readEntry` 对
+   *   `draft: true` 返回 null），枚举是发现它们的唯一手段；
+   * - `seedFirstCard`：首次安装播种前判「库里是不是还空着」——幂等的关键闸
+   *   （重装 / 手删 data.json / Sync 推来旧盘面都不该再长第二张卡）；
+   * - `squeezeTagSpaces` / `retag`：标签改写——已用索引预筛（D-08），但「索引里
+   *   还没有的文件」（冷启动 / 上次 refresh 之后新增 / 读失败未入缓存）只能靠枚举
+   *   发现，漏一个就是漏改一个标签。
+   * - `vaultReferencedAttachments`（含同处的 `getFiles()` 取画布）：清空回收站扫孤儿
+   *   附件（BUG-243）——「没有任何人引用」的判据**必须覆盖全库**（非 Momo 笔记里用
+   *   `<img>` 引用的图、画布里的图都算引用），漏一篇正文就可能把还有人在用的图当孤儿
+   *   删掉；它只在用户点「清空回收站」那一刻跑一次，不在热路径上。
+   *
+   * 为什么不能收窄成「只扫配置目录」：「一张卡片 = 一个 Markdown 文件」的全库索引
+   * 是产品功能前提——标签 / 地点 / 热力图 / 随机回顾全建在这份索引上，收窄扫描范围
+   * 等于改产品语义（2026-10-13 用户裁决：保留枚举、收敛入口 + 交代）。
+   *
+   * 评审 Recommendation 原文（2026-10-13 社区插件评审输出，BUG-237）：
+   * > Vault Enumeration: Enumerates all files in the vault (`vault.getFiles`,
+   * > `getMarkdownFiles`, etc.). Gives the plugin access to every file path in the vault.
+   * 裁决：保留 + 交代——BUG-229 已判「不是缺陷、只交代」，本单把入口收敛到这一处、
+   * 三语言 README「权限与隐私」节交代理由（工单留 grep 证据）。
+   *
+   * 隐私姿态：全部本地、无网络（ADR-001）；路径只在本服务内做字符串比较——不落盘、
+   * 不上传、不出插件。
+   */
+  private momoFiles(layout: MomoLayout): TFile[] {
+    return this.vault.getMarkdownFiles().filter((f) => this.isMomoFileIn(f, layout))
+  }
+
   /** 根目录缺失 → 提示重建，不静默写散文件（contract-momo-storage 校验点） */
   rootExists(): boolean {
     const folder = this.vault.getAbstractFileByPath(this.rootPath())
@@ -1068,7 +1168,7 @@ export class MomoService {
       return []
     }
     const layout = this.layout()
-    const files = this.vault.getMarkdownFiles().filter((f) => this.isMomoFileIn(f, layout))
+    const files = this.momoFiles(layout)
 
     const seen = new Set<string>()
     const pending: TFile[] = []
@@ -1249,8 +1349,17 @@ export class MomoService {
    * 设置页「地点」卡可关）：开 = 每篇新笔记都带着空地点字段，Obsidian 属性面板
    * 点开就能填；关 = 与之前逐字节一致（只有真用过地点的笔记才有这个键）。
    * 开与关读侧零差异——`locationsOf` 对缺省与空数组一视同仁（momo/locations/locations.ts）。
+   *
+   * `locations` 形参（2026-10-13，只有首次播种在用）：显式给的地点直接写进
+   * frontmatter，**不再看 `newNoteLocations`**——那个 pref 管的是「要不要给用户留一个
+   * 点开就能填的空格子」，与「这条新建时就有地点」是两件事。`[]` 等于不写这个键。
    */
-  async create(content: string, tags: string[], at?: Date): Promise<TFile> {
+  async create(
+    content: string,
+    tags: string[],
+    at?: Date,
+    locations?: readonly string[],
+  ): Promise<TFile> {
     await this.ensureRoot()
     // D-07：同秒并发创建会撞名。fileNameFor 只查**已落盘**的文件，而它与
     // vault.create 之间有 await（这个函数自己还先 await ensureRoot()），
@@ -1270,10 +1379,16 @@ export class MomoService {
     // 上午 = 那天不是未来，仍是 backfilled）。不传 at 的普通新建不带痕迹字段
     // （唯一的例外是下面那行空 locations，它由 pref 决定、且读侧认不认都一样）。
     const fields: Record<string, string | string[]> = { createdAt: when.toISOString(), tags: normalizeTags(tags) }
-    // 空 locations 字段（v0.9.28，默认开）：排在 tags 之后、痕迹字段之前——
+    // locations 字段（v0.9.28 默认开）：排在 tags 之后、痕迹字段之前——
     // 与盘上既有的字段顺序一致（createdAt / tags / locations），diff 好看。
-    // 读侧不依赖它（缺省也等于空数组），纯粹是给用户在新笔记里一个直接填地点的入口。
-    if (this.data.prefs.newNoteLocations) fields.locations = []
+    // 读侧不依赖空数组（缺省也等于空数组），那行纯粹是给用户在新笔记里一个
+    // 直接填地点的入口；显式传入的地点则按实参写（见上）。
+    if (locations !== undefined) {
+      const explicit = normalizeLocations(locations)
+      if (explicit.length > 0) fields.locations = explicit
+    } else if (this.data.prefs.newNoteLocations) {
+      fields.locations = []
+    }
     if (at !== undefined) {
       const trace = dayKey(when.toISOString()) > localDay(new Date()) ? 'scheduled' : 'backfilled'
       fields[trace] = 'true'
@@ -1288,6 +1403,33 @@ export class MomoService {
       // 无论成败都让出名字：失败的调用不该把这一秒的名字永久占住
       this.reserving.delete(finalName)
     }
+  }
+
+  /**
+   * 首次安装播种：给全新用户建**第一张卡**（正文 / 标签 / 地点 = `service/firstCard.ts`，
+   * 2026-10-13 用户裁定）。
+   *
+   * 两道闸缺一不可：
+   * 1. **全新安装**——init 读 data.json 得到 null（`freshInstall`）。老用户哪怕库是空的
+   *    也不播种：他删掉欢迎卡就是不想看，插件凭什么替他把卡长回来；
+   * 2. **库里还是空的**——按布局枚举，一条 Momo 文件都没有才建。这条是幂等的关键：
+   *    重装、手删 data.json、Sync 从别的设备推一份过来，都不会长出第二张。
+   *    这里数的是**文件**不是索引条目：只有 `draft: true` 草稿的库同样算「有东西」，
+   *    不播种（索引为空是另一回事，见 readEntry）。
+   *
+   * 播种内容**不随界面语言变**（三语同一张卡，见 firstCard.ts 的文件头），
+   * 所以它不依赖 `setLocale` 的时机；但 main.ts 仍然把它挂在语言定稿之后——
+   * 那张卡是「用户的第一条内容」，落盘之后再切语言的语义容易含混，早一步不亏。
+   *
+   * 写盘失败原样抛给调用方（main.ts 记日志、不影响其余注册，与 BUG-130a 同口径）。
+   * 返回建出来的文件；两道闸任一没过则返回 null（无事发生，不是错误）。
+   */
+  async seedFirstCard(): Promise<TFile | null> {
+    if (!this.freshInstall) return null
+    if (this.momoFiles(this.layout()).length > 0) return null
+    // 第三个参数（时间位移的 `at`）刻意不传：播种卡就是「此刻」建的，
+    // 传了会给它盖上 backfilled / scheduled 痕迹，那是用户显式选日子才有的东西。
+    return this.create(FIRST_CARD_CONTENT, [FIRST_CARD_TAG], undefined, [FIRST_CARD_LOCATION])
   }
 
   /** 单个文件是不是「新建即弃」的空白草稿；是则移进回收站并返回 true。
@@ -1322,7 +1464,7 @@ export class MomoService {
   private async sweepEmptyDrafts(): Promise<number> {
     if (!this.rootExists()) return 0
     const layout = this.layout()
-    const files = this.vault.getMarkdownFiles().filter((f) => this.isMomoFileIn(f, layout))
+    const files = this.momoFiles(layout)
     let n = 0
     for (const file of files) {
       // N07：读盘（cachedRead）原来在 try 外——文件被并发删掉/读权限不足时
@@ -1646,8 +1788,7 @@ export class MomoService {
     }
     const files: TFile[] = []
     const layout = this.layout()
-    for (const f of this.vault.getMarkdownFiles()) {
-      if (!this.isMomoFileIn(f, layout)) continue
+    for (const f of this.momoFiles(layout)) {
       const hit = this.index.get(f.path)
       if (hit && hit.entry && hit.mtime === f.stat.mtime && hit.size === f.stat.size) {
         // 索引新鲜：标签里没有含空白的那一个 → 这个文件不可能被改写。
@@ -1693,8 +1834,7 @@ export class MomoService {
     const map = (raw: string): string | null => remapTagPath(raw, from, to, cascade)
     const files: TFile[] = []
     const layout = this.layout()
-    for (const f of this.vault.getMarkdownFiles()) {
-      if (!this.isMomoFileIn(f, layout)) continue
+    for (const f of this.momoFiles(layout)) {
       const hit = this.index.get(f.path)
       if (hit && hit.entry && hit.mtime === f.stat.mtime && hit.size === f.stat.size) {
         // 索引新鲜：标签都没提这个键（含层级子树）→ 这个文件不可能被改写。
@@ -1771,6 +1911,125 @@ export class MomoService {
     const path = normalizePath(`${this.attachmentsPath()}/${name}`)
     await this.vault.createBinary(path, data)
     return path
+  }
+
+  /**
+   * 扫一遍 `<root>/icons/`：**自动识别**文件夹里的自定义图标，按**内容去重**并
+   * **删掉重复内容的旧文件**（2026-10-14 用户要求「配置页面 - 左上角图标，应该
+   * 自动识别 icons 文件夹里的图标，并且对重复内容的图标自动去重」，随后点明
+   * 「重复内容应该删除，只保留最新的一个」）。
+   *
+   * 为什么显示真源从 `prefs.brandIconImages` 换成盘上扫描：清单是「上传那一刻
+   * 登记」的快照——用户自己放进 icons/ 的图（另一个设备同步来的、手动拷贝的、
+   * 改 root 之前遗留的）不在上面，设置页看不见；而同一张图传几次会落下几个
+   * 时间戳文件，清单里躺着内容重复的多条（用户盘上现存 4 个逐字节相同的
+   * brand-icon-*.jpg，就是这两件事一起撞上的样子）。现在格子跟**盘上现状**走：
+   *   · 识别 = 目录里扩展名合法的文件都算一枚，不再问登记没有；
+   *   · 清理 = 逐份读字节算指纹，同一指纹**只留修改时刻最新的那张**，其余删盘
+   *     （见 `pruneDuplicateBrandIcons` / `planBrandIconPrune`）；
+   *   · 展示 = 幸存者按指纹去重取代表（当前生效那张优先，`dedupeBrandIconFiles`）。
+   * 清单退化成两件小事：**排序提示**（登记过的排前，其余按文件名——名字带时间戳，
+   * 字典序即上传先后）与删除闸（`ownsBrandIconPath`）的一份子。
+   *
+   * 读不了的文件（并发删除 / 权限抖动）逐个跳过：一格渲染不出来，好过整行报错；
+   * 目录不存在 / list 失败 → 空结果（= 只用预设形状，与从未上传过同一条路）。
+   */
+  async scanBrandIconImages(): Promise<BrandIconScan> {
+    const dir = this.iconsPath()
+    let names: string[]
+    try {
+      names = (await this.vault.adapter.list(dir)).files
+    } catch {
+      return { icons: [], files: 0, removed: 0 }
+    }
+    const prefix = `${dir}/`
+    const registered = this.data.prefs.brandIconImages
+    const candidates = names
+      // 只收**直接子文件**：list 对子目录是非递归的，但 real adapter 历史上给过
+      // 深层路径，过滤一刀稳妥；扩展名白名单把用户放在里面的说明文档滤掉
+      .filter((p) => p.startsWith(prefix) && !p.slice(prefix.length).includes('/') && isBrandIconFileName(p))
+      .sort((a, b) => {
+        const ra = registered.indexOf(a)
+        const rb = registered.indexOf(b)
+        // 登记过的按登记序在前；-1（没登记）排所有登记项之后
+        if (ra !== rb) return (ra < 0 ? registered.length : ra) - (rb < 0 ? registered.length : rb)
+        return a < b ? -1 : a > b ? 1 : 0
+      })
+    const withHash: BrandIconFile[] = []
+    for (const path of candidates) {
+      try {
+        const bytes = new Uint8Array(await this.vault.adapter.readBinary(path))
+        withHash.push({ path, hash: iconContentHash(bytes), mtime: await this.iconMtime(path) })
+      } catch {
+        // 读不了（刚被删 / 权限）：这一枚不入列。旧实现的 is-broken 虚线格是「清单里
+        // 有、盘上没有」的提示，自动识别下没有清单可依，跳过即等同不存在
+      }
+    }
+    // 内容重复的：**同内容只留最新的一张，其余删盘**（2026-10-14 用户裁定：「重复
+    // 内容应该删除，只保留最新的一个」）。清单 / 生效位随删除重指到留下的那张。
+    const removed = await this.pruneDuplicateBrandIcons(withHash)
+    const survivors = withHash.filter((f) => !removed.has(f.path))
+    return {
+      icons: dedupeBrandIconFiles(survivors, this.data.prefs.brandIconImage),
+      files: withHash.length,
+      removed: removed.size,
+    }
+  }
+
+  /** 一枚图标的修改时刻。拿不到就算 0：清理只在同一指纹的组内比大小，缺一项不影响
+   *  「一组留一枚」的判定（同刻时按文件名大者优先，见 planBrandIconPrune）。 */
+  private async iconMtime(path: string): Promise<number> {
+    try {
+      const st = await this.vault.adapter.stat(path)
+      return typeof st?.mtime === 'number' ? st.mtime : 0
+    } catch {
+      return 0
+    }
+  }
+
+  /**
+   * 「重复内容只留最新的一张」：按 `planBrandIconPrune` 的判定逐条删副本，并把删掉的
+   * 路径从 `prefs.brandIconImages` 清单里重指到留下的那张（`brandIconImage` 生效位
+   * 同理）——内容逐字节相同，界面看不出差别，不重指则清单里会留一串死路径。
+   *
+   * 只动**当前** `<root>/icons/` 里的文件（候选就是 list 出来的直接子文件）。逐条
+   * remove 失败不阻断其余：下一回扫描还会认得它，用户可再点一次 ×。
+   *
+   * 返回**真的删掉了**的路径集合（失败的不算——返回体是给设置页反馈行用的）。
+   */
+  private async pruneDuplicateBrandIcons(files: BrandIconFile[]): Promise<Set<string>> {
+    const plan = planBrandIconPrune(files)
+    const removed = new Set<string>()
+    if (plan.remove.length === 0) return removed
+    for (const path of plan.remove) {
+      try {
+        await this.vault.adapter.remove(path)
+        removed.add(path)
+      } catch (e) {
+        console.debug('[Momo] 内容重复的图标副本删除失败', e)
+      }
+    }
+    if (removed.size === 0) return removed
+    const prefs = this.data.prefs
+    const list = [
+      ...new Set(prefs.brandIconImages.map((p) => (removed.has(p) ? plan.remap.get(p) : p) ?? p)),
+    ]
+    const active = removed.has(prefs.brandIconImage)
+      ? (plan.remap.get(prefs.brandIconImage) ?? '')
+      : prefs.brandIconImage
+    const changed =
+      active !== prefs.brandIconImage ||
+      list.length !== prefs.brandIconImages.length ||
+      list.some((p, i) => p !== prefs.brandIconImages[i])
+    if (changed) {
+      try {
+        await this.savePrefs({ brandIconImages: list, brandIconImage: active })
+      } catch (e) {
+        // 盘上已经删了，清单只是提示面：重指失败不阻断这一趟（下一回扫描会再算一次）
+        console.debug('[Momo] 图标清单重指失败', e)
+      }
+    }
+    return removed
   }
 
   /**
@@ -1922,6 +2181,107 @@ export class MomoService {
     return { ok: failed.length === 0, failed, reason: kinds[0] ?? 'network' }
   }
 
+  // ---- 开源字体包（2026-10-13）：v1.0.0 退役的内置字体按需下载复活 ----
+  //
+  // 与星球资源包同一条路（显式点击 → 从本仓 release 逐件下 → 校验后写盘），两处
+  // 差别只有：字体落 `<插件目录>/fonts/`、没有记账文件——「装没装」= 文件齐不齐
+  // （字体资产名与内容不随插件版本变，记版本没有对应的行为，星球贴图那份记账是
+  // 为了报「升级后错配」，字体没有错配这一说）。字节注册成 FontFace 在 ui 层
+  // （fontStyle.registerFontFaces），service 只负责把字节读出来。
+
+  /** 插件目录下的字体子目录（`<configDir>/plugins/momo/fonts/`） */
+  private fontPackDir(): string {
+    return normalizePath(`${this.pluginDir()}/${FONT_PACK_DIR}`)
+  }
+
+  /**
+   * 字体包状态：每套装没装（文件齐不齐）。
+   *
+   * 不随附版本号：字体包的资产名固定、内容不随插件版本变（见上方注释）。
+   * 局部失败（读盘抛错）按「没装」算——设置页的格子会退回未下载态，用户点一下
+   * 就会重下，比把异常捅到 UI 更诚实。
+   */
+  async fontPackStatus(): Promise<{ packs: Record<FontPackId, boolean> }> {
+    const dir = this.fontPackDir()
+    const out = {} as Record<FontPackId, boolean>
+    for (const pack of FONT_PACKS) {
+      let ok = true
+      for (const asset of fontPackAssets(pack.id)) {
+        if (!(await this.vault.adapter.exists(normalizePath(`${dir}/${asset}`)))) {
+          ok = false
+          break
+        }
+      }
+      out[pack.id] = ok
+    }
+    return { packs: out }
+  }
+
+  /**
+   * 下载一套字体包（用户显式点击才发生；network-guard 白名单里的第二处联网）。
+   *
+   * 逐件下 + 逐件校验（sfnt 魔数 + 登记字节数，见 fonts/pack.ts 的
+   * isFontPackFileValid）；任何一件不过关都记进 `failed`，**不写半包**——已成功
+   * 的件留在盘上（下次重下会覆盖），但这一套仍算没装（状态按文件齐不齐判）。
+   */
+  async downloadFontPack(
+    id: FontPackId,
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<{ ok: boolean; failed: string[]; reason: FontPackFailure }> {
+    const dir = this.fontPackDir()
+    const pack = fontPackById(id)
+    if (!pack) return { ok: false, failed: [], reason: 'missing' }
+    const files = fontPackFiles(id)
+    const failed: string[] = []
+    const kinds: FontPackFailure[] = []
+    if (!(await this.vault.adapter.exists(dir))) {
+      try {
+        await this.vault.adapter.mkdir(dir)
+      } catch {
+        // ignore：目录已存在 / 并发创建都算成功，下面的 writeBinary 才是判据
+      }
+    }
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      // 失败口径逐件定，取第一次失败的那档当整包口径（整包同因时它就是代表）
+      let kind: FontPackFailure = 'network'
+      try {
+        const res = await requestUrl({ url: fontPackUrl(this.pluginVersion, file.asset), method: 'GET' })
+        if (res.status === 404) {
+          kind = 'missing'
+          throw new Error(`HTTP 404 (${file.asset})`)
+        }
+        if (res.status !== 200) throw new Error(`HTTP ${res.status} (${file.asset})`)
+        const buf = res.arrayBuffer
+        if (!isFontPackFileValid(file, buf)) {
+          kind = 'corrupt'
+          throw new Error('font pack: content check failed')
+        }
+        await this.vault.adapter.writeBinary(normalizePath(`${dir}/${file.asset}`), buf)
+      } catch (e) {
+        kinds.push(kind)
+        console.error('[Momo] 字体包下载失败', file.asset, e)
+        failed.push(file.asset)
+      }
+      onProgress?.(i + 1, files.length)
+    }
+    return { ok: failed.length === 0, failed, reason: kinds[0] ?? 'network' }
+  }
+
+  /**
+   * 读回一套字体包的全部字节（供 ui 层注册 FontFace）。缺件即 reject——调用方
+   * （设置页格子预览 / 面板挂载时的懒注册）按「没装上」处理，字体栈自己回落。
+   */
+  async readFontPackFiles(id: FontPackId): Promise<FontFaceSpec[]> {
+    const dir = this.fontPackDir()
+    const out: FontFaceSpec[] = []
+    for (const file of fontPackFiles(id)) {
+      const buffer = await this.vault.adapter.readBinary(normalizePath(`${dir}/${file.asset}`))
+      out.push({ family: file.family, weight: file.weight, buffer })
+    }
+    return out
+  }
+
   /**
    * 删除闸：这条路径是不是「上传图标」入口管得着的文件。两种情形放行：
    * ① 在**当前** `<root>/icons/` 里（原口径）；
@@ -1947,16 +2307,50 @@ export class MomoService {
    * BUG-80d：返回**是否真的删掉了**——旧实现失败只 debug、调用方无从得知，
    * 「点 ✕ 说删了其实还在」零反馈。删失败时调用方（LookTab）不动清单、行内
    * 红字说明，界面上看得见的和盘上的一致。路径不在 icons/ 下按「没删」处理。
+   *
+   * **内容去重后「移除」= 移除这枚图标的所有副本**（2026-10-14）：代表文件之外，
+   * 当前 `<root>/icons/` 里与它逐字节相同的文件一并删。只删代表的话，下一次扫描
+   * 会从副本里把同一枚图标认回来——用户视角正是 BUG-80d 的「点 ✕ 说删了其实还在」。
+   * 副本只在**当前** icons/ 目录内找：旧 root 下的文件不归这次删除管（BUG-118c
+   * 的闸，那边照旧只删登记过的那一条）。
    */
   async removeBrandIconImage(path: string): Promise<boolean> {
     if (!this.ownsBrandIconPath(path)) return false
+    const dir = this.iconsPath()
+    let bytes: ArrayBuffer | null = null
     try {
-      if (await this.vault.adapter.exists(path)) await this.vault.adapter.remove(path)
-      return true
+      if (await this.vault.adapter.exists(path)) {
+        // 先读后删：副本判定要拿这一份字节当尺子
+        bytes = await this.vault.adapter.readBinary(path)
+        await this.vault.adapter.remove(path)
+      }
     } catch (e) {
       console.debug('[Momo] 上传的左上角图标删除失败', e)
       return false
     }
+    // 文件本来就不在：best-effort 删除，算成功（与旧实现同口径）
+    if (bytes === null) return true
+    try {
+      const { files } = await this.vault.adapter.list(dir)
+      const prefix = `${dir}/`
+      const hash = iconContentHash(new Uint8Array(bytes))
+      for (const f of files) {
+        if (f === path || !f.startsWith(prefix) || !isBrandIconFileName(f)) continue
+        if (f.slice(prefix.length).includes('/')) continue
+        try {
+          const other = await this.vault.adapter.readBinary(f)
+          // 指纹快筛 + 逐字节复核：指纹只为省比较，不可逆动作以字节相等为准
+          if (iconContentHash(new Uint8Array(other)) !== hash) continue
+          if (!sameBytes(bytes, other)) continue
+          await this.vault.adapter.remove(f)
+        } catch {
+          // 单个副本读 / 删失败不阻断其余：下一回扫描还会认得它，用户可再点一次 ×
+        }
+      }
+    } catch {
+      // 列不出目录（比如刚删空）：没有副本可删
+    }
+    return true
   }
 
   /** 打开文件进入 Obsidian 原生编辑器（就地编辑：原生 CodeMirror 即编辑器，不封装第二套）。
@@ -2177,6 +2571,8 @@ export class MomoService {
   async purge(name: string): Promise<void> {
     const path = this.trashPath(name)
     const openLeaves = this.leavesShowing(path)
+    // BUG-241：附件引用要在这条笔记被删掉**之前**读盘——删完就没有第二份正文了
+    const refs = await this.trashEntryAttachmentRefs(name)
     // BUG-68a：同 restore——vault 删除的事件刷新与 caps 收尾 refresh 会叠成
     // 两轮全量；单条彻底删除也进 quiet 窗口，只留 caps 那一次。
     this.beginQuiet()
@@ -2190,6 +2586,8 @@ export class MomoService {
     // 先收标签再落盘：persist 放在 detach 之后 await，磁盘慢时不至于让 UI 白等多等一轮
     for (const leaf of openLeaves) leaf.detach()
     await this.persistBestEffort()
+    // BUG-241：笔记走了，只属于它的附件也走（还有别的笔记在用的图留下）
+    await this.purgeOrphanAttachments(new Set(refs), new Set([path]))
   }
 
   /** 清空回收站（不可恢复；UI 负责二次确认），返回实际删除的文件数
@@ -2205,28 +2603,207 @@ export class MomoService {
     // `names.length - Object.keys(trash).length` 反推，data.trash 里残留的
     // 「文件已不在、登记没清」的键会让它少算，甚至算出负数）。
     let done = 0
+    // 只有**真删成功**的那几条才进 purgedPaths（BUG-241 / BUG-243）：中途失败时留在回收站
+    // 里的笔记仍是某些附件的引用方，把它们算进「已消失」会让孤儿判据误删别人的图。
+    let failure: unknown = null
+    const purgedPaths = new Set<string>()
     try {
       for (const name of names) {
-        const file = this.vault.getAbstractFileByPath(this.trashPath(name))
+        const path = this.trashPath(name)
+        const file = this.vault.getAbstractFileByPath(path)
         if (file instanceof TFile) await this.app.fileManager.trashFile(file)
         delete this.data.trash[name]
+        purgedPaths.add(path)
         done++
       }
     } catch (e) {
-      // B08：带已删条数的错误信息，避免「报失败但其实删了」的误导
-      throw new Error(
-        copy.errors.purgePartial({
-          done,
-          reason: errMsg(e),
-        }),
-      )
+      // B08：带已删条数的错误信息，避免「报失败但其实删了」的误导。
+      // 不在这里抛：先把附件扫尾跑完（下面），再抛同一个错。
+      failure = e
     } finally {
       this.endQuiet()
       // B08：登记落盘进 finally + 单独 try/catch，失败只提示、不覆盖主错误
       await this.persistBestEffort()
       for (const leaf of openLeaves) leaf.detach()
     }
+    // BUG-243：「清空回收站」这一步顺带把附件目录里**没有任何笔记引用**的孤儿清掉。
+    // 它自然覆盖刚被删掉那几条笔记自己的图（此刻已无人引用），所以这一步不再单独收集候选。
+    const swept = await this.sweepOrphanAttachments(purgedPaths)
+    if (swept > 0) new Notice(copy.trash.notice.orphansSwept(swept))
+    if (failure !== null) {
+      throw new Error(
+        copy.errors.purgePartial({
+          done,
+          reason: errMsg(failure),
+        }),
+      )
+    }
     return done
+  }
+
+  /**
+   * 回收站条目引用的附件路径（BUG-241）。**必须在笔记文件被删掉之前调用**——
+   * 删完就没有第二份正文了。相对链接按登记的 `originalPath` 目录解析：笔记搬进
+   * 回收目录后，`../attachments/x.png` 这类写法只有在原目录下才成立；
+   * 登记缺失（极少数降级路径）时退回回收目录内的路径，notes/ 与 trash/ 同层时结果一致。
+   */
+  private async trashEntryAttachmentRefs(name: string): Promise<string[]> {
+    const file = this.vault.getAbstractFileByPath(this.trashPath(name))
+    if (!(file instanceof TFile)) return []
+    let raw: string
+    try {
+      raw = await this.vault.cachedRead(file)
+    } catch (e) {
+      console.debug(`[Momo] 彻底删除时读不到笔记正文，跳过附件清理：${file.path}`, e)
+      return []
+    }
+    const notePath = this.data.trash[name]?.originalPath || file.path
+    return embeddedAttachments(raw, notePath, this.attachmentsPath())
+  }
+
+  /**
+   * 「这个附件还有人在用」的判据集（BUG-241），两道一起看：
+   *   ① 宿主的链接索引 `resolvedLinks`——只查内存索引、不读正文，且**覆盖全库**
+   *      （别的非 Momo 笔记把 Momo 附件嵌进自己正文时，删图等于拆掉别人的文章）；
+   *   ② 其余 Momo 条目现读现算——索引可能还没跟上刚落盘的链接；宿主没有该索引
+   *      （测试假件 / 极端情况）时这是唯一判据。
+   * `purgedPaths` 里那几条（正在被彻底删掉的回收站条目）不算「别人」。
+   */
+  private async stillReferencedAttachments(purgedPaths: ReadonlySet<string>): Promise<Set<string>> {
+    const root = this.attachmentsPath()
+    const kept = new Set<string>()
+    for (const [source, dests] of Object.entries(this.app.metadataCache?.resolvedLinks ?? {})) {
+      if (purgedPaths.has(source)) continue
+      for (const target of Object.keys(dests)) kept.add(normalizePath(target))
+    }
+    for (const entry of await this.listEntries()) {
+      for (const path of linkedAttachments(entry.content, entry.path, root)) kept.add(path)
+    }
+    for (const item of await this.listTrash()) {
+      if (purgedPaths.has(item.entry.path)) continue
+      const notePath = item.record.originalPath || item.entry.path
+      for (const path of linkedAttachments(item.entry.content, notePath, root)) kept.add(path)
+    }
+    return kept
+  }
+
+  /**
+   * 「这个附件还有人在用」的**全库**判据集（BUG-243，清空回收站的孤儿扫描专用）。
+   * 比 `stillReferencedAttachments` 宽、也贵，三路取并集：
+   *   ① 宿主的链接索引 `resolvedLinks`（不读正文，覆盖全库已解析的链接）；
+   *   ② **全库 markdown 正文**（非 Momo 笔记、回收站里的笔记、草稿都在内）——补宿主
+   *      索引照不到的形状（`<img src>` 这类 HTML 图片、指到错路径的旧链接）；
+   *   ③ 画布 `.canvas` 的 `"file"` 字段——宿主不解析画布，那些边不在 resolvedLinks 里。
+   *
+   * 为什么单条彻底删除不用这一把（用它的是 `purge` 那条路的 `stillReferencedAttachments`）：
+   * 判据面与动作面**配平**。单条删除只清「这条笔记自己的图」，Momo 索引 + 宿主链接图
+   * 足够；清空回收站要判「**全库**没有任何人引用」，才值得把全库正文过一遍
+   * （一次全量 cachedRead，只在用户点那颗全局按钮时付一次）。
+   *
+   * 任何一份正文读不到就**上抛**：调用方据此整体放弃清理——读不到的那一篇可能正是
+   * 某个附件的唯一引用方，猜不得（宁可留着孤儿，不可误删在用的图）。
+   */
+  private async vaultReferencedAttachments(purgedPaths: ReadonlySet<string>): Promise<Set<string>> {
+    const root = this.attachmentsPath()
+    const prefix = `${root}/`
+    const kept = new Set<string>()
+    for (const [source, dests] of Object.entries(this.app.metadataCache?.resolvedLinks ?? {})) {
+      if (purgedPaths.has(source)) continue
+      for (const target of Object.keys(dests)) kept.add(normalizePath(target))
+    }
+    for (const file of this.vault.getMarkdownFiles()) {
+      if (purgedPaths.has(file.path)) continue
+      const raw = await this.vault.cachedRead(file)
+      for (const path of linkedAttachments(raw, file.path, root)) kept.add(path)
+    }
+    for (const file of this.vault.getFiles()) {
+      if (file.extension !== 'canvas' || purgedPaths.has(file.path)) continue
+      const raw = await this.vault.cachedRead(file)
+      for (const m of raw.matchAll(CANVAS_FILE_RE)) {
+        // 画布存的是 vault 相对路径（不是相对画布目录），所以直接归一后比前缀
+        const path = normalizePath((m[1] ?? '').trim())
+        if (path !== '' && path.startsWith(prefix)) kept.add(path)
+      }
+    }
+    return kept
+  }
+
+  /**
+   * 彻底删除的收尾：把候选附件里「没有任何其它笔记引用」的清掉（BUG-241）。
+   *
+   * 三条纪律：
+   *   · 只在附件目录内动手（前缀双保险，候选本来就已滤过一遍）；
+   *   · 判据拿不到（读盘 / 索引异常）就**一条都不删**——宁可留孤儿图，不可误删别处在用的图；
+   *   · 单条失败只记日志、不打断：笔记已经删了，图片清不掉不该把整次彻底删除报成失败。
+   * 删除同样经 `fileManager.trashFile`（BUG-226 同口径，跟用户的删除偏好走）。
+   */
+  private async purgeOrphanAttachments(
+    candidates: ReadonlySet<string>,
+    purgedPaths: ReadonlySet<string>,
+  ): Promise<void> {
+    if (candidates.size === 0) return
+    let kept: Set<string>
+    try {
+      kept = await this.stillReferencedAttachments(purgedPaths)
+    } catch (e) {
+      console.debug('[Momo] 附件引用扫描失败，本次不清理附件', e)
+      return
+    }
+    const prefix = `${this.attachmentsPath()}/`
+    this.beginQuiet()
+    try {
+      for (const path of candidates) {
+        if (!path.startsWith(prefix) || kept.has(path)) continue
+        const file = this.vault.getAbstractFileByPath(path)
+        if (!(file instanceof TFile)) continue
+        try {
+          await this.app.fileManager.trashFile(file)
+        } catch (e) {
+          console.debug(`[Momo] 附件清理失败，已跳过：${path}`, e)
+        }
+      }
+    } finally {
+      this.endQuiet()
+    }
+  }
+
+  /**
+   * 清空回收站的收尾：把附件目录里**没有任何笔记引用**的孤儿文件一并清掉（BUG-243），
+   * 返回实际清掉的文件数。用户报障「每次点清空回收站时应该自动识别孤儿附件并删掉」。
+   *
+   * 与 `purgeOrphanAttachments` 同源的三条纪律（判据拿不到就一个都不删 / 单条失败只记日志 /
+   * 删除经 `fileManager.trashFile`），差别只有判据面：这里走全库那一把
+   * （`vaultReferencedAttachments`），因为「孤儿」= **全库**没人引用。
+   *
+   * 范围：`attachmentsDir` 的**直接子项**——与 `listAttachmentFiles`（统计页）同一口径，
+   * 插件的图片落点就只有这一层；子目录里的文件不碰（不是插件写的，也拿不到同一份清单）。
+   */
+  private async sweepOrphanAttachments(purgedPaths: ReadonlySet<string>): Promise<number> {
+    let kept: Set<string>
+    try {
+      kept = await this.vaultReferencedAttachments(purgedPaths)
+    } catch (e) {
+      console.debug('[Momo] 附件引用扫描失败，本次不清孤儿附件', e)
+      return 0
+    }
+    let removed = 0
+    this.beginQuiet()
+    try {
+      for (const file of await this.listAttachmentFiles()) {
+        if (kept.has(file.path)) continue
+        const target = this.vault.getAbstractFileByPath(file.path)
+        if (!(target instanceof TFile)) continue
+        try {
+          await this.app.fileManager.trashFile(target)
+          removed++
+        } catch (e) {
+          console.debug(`[Momo] 孤儿附件清理失败，已跳过：${file.path}`, e)
+        }
+      }
+    } finally {
+      this.endQuiet()
+    }
+    return removed
   }
 
   // ---- 附件统计（v0.6.0）----

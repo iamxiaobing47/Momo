@@ -1,4 +1,5 @@
-import { FONT_ROLE_PREFIX, type FontRole } from '../../momo/types'
+import { FONT_ROLE_PREFIX, type FontRole, type RetiredFontRole } from '../../momo/types'
+import type { FontFaceSpec } from '../../momo/fonts/pack'
 
 // 字体偏好的运行时注入（v0.9.16；2026-10-13 换成 setCssProps，见下）。
 //
@@ -27,6 +28,9 @@ import { FONT_ROLE_PREFIX, type FontRole } from '../../momo/types'
 // --font-text / --font-monospace（Obsidian「外观」里的三档字体设置写的就是它们）。
 // 用户在 Obsidian 里改一次，面板与卡片跟着变。静态 @font-face 注入（旧
 // views/fontFaces.ts）随之删除：插件不再自带字体文件。
+// 2026-10-13：界面 / 正文两个角色从设置页格子退役（用户要求「就提供默认和等宽
+// 两种」），但 ROLE_CSS **仍留着它们的映射**——老 data.json 里的
+// obsidian:interface / obsidian:text 要继续生效（退役 ≠ 旧值失效）。
 //
 // 🔑 2026-10-06 修（用户报障「修改系统字体影响卡片字体」）：旧形状注入的是
 // **--momo-font-ui**，其栈尾挂着 var(--momo-sans)；而 00-tokens.css 的
@@ -56,8 +60,10 @@ type FontVarKey = (typeof FONT_VAR_KEYS)[number]
 const FALLBACK_TAIL = 'var(--font-interface, sans-serif)'
 
 /** Obsidian 的字体角色 → 实际 CSS 值。三个都是宿主主题提供的变量（不引用
- *  任何 momo 自定义属性，避免再现 2026-10-06 那个变量环）。 */
-const ROLE_CSS: Record<FontRole, string> = {
+ *  任何 momo 自定义属性，避免再现 2026-10-06 那个变量环）。
+ *  2026-10-13 起界面 / 正文只是**没有设置页格子**（退役），映射必须留着——
+ *  盘上旧值走 fontFamilyForPref 时还要靠它们解析。 */
+const ROLE_CSS: Record<FontRole | RetiredFontRole, string> = {
   interface: 'var(--font-interface, sans-serif)',
   text: 'var(--font-text, sans-serif)',
   monospace: 'var(--font-monospace, monospace)',
@@ -79,7 +85,8 @@ export function fontRoleCss(role: FontRole): string {
 export function fontFamilyForPref(value: string): string | null {
   if (value === '') return null
   if (value.startsWith(FONT_ROLE_PREFIX)) {
-    const role = value.slice(FONT_ROLE_PREFIX.length) as FontRole
+    // 退役角色（interface / text）也在这张表里：老 data.json 的旧值继续生效
+    const role = value.slice(FONT_ROLE_PREFIX.length) as FontRole | RetiredFontRole
     return ROLE_CSS[role] ?? null
   }
   return `"${value}"`
@@ -139,4 +146,40 @@ export function removeFontVars(): void {
   document.querySelectorAll<HTMLElement>(FONT_HOSTS).forEach((el) => {
     for (const key of FONT_VAR_KEYS) el.style.removeProperty(key)
   })
+}
+
+/** 已注册的 FontFace（`family@weight`）：同一套字体包重复注册毫无意义 */
+const registeredFaces = new Set<string>()
+
+/**
+ * 把下载下来的字体包注册成 **FontFace**（2026-10-13，开源字体按需下载）。
+ *
+ * 为什么不是 `@font-face` 规则：运行期建 `<style>` 是 Obsidian 评审的 Error
+ * （BUG-217 同一条判据），而下载来的 ttf 在构建期不存在、静态规则引用不到。
+ * `document.fonts.add(new FontFace(...))` 是剩下的正路——它往文档的 FontFaceSet
+ * 里塞一枚字体，`font-family: "Noto Sans SC"` 立刻能解析，不碰任何样式元素。
+ *
+ * 幂等按 `family@weight` 记（霞鹩文楷的 Regular / Medium 同家族不同字重，是两枚）；
+ * 单个字重加载失败（字节损坏 / 内核不接受）只跳过它——字体栈逐级回落，面板与
+ * 卡片回到默认那套字，不牵连其它字重与其它包。
+ *
+ * 调用点两处：设置页字体格子（下载完成 / 打开页面时，保证样字画得出来）与面板
+ * 挂载（偏好引用了某套字体包时懒注册，见 usePanelUpkeep）。
+ */
+export async function registerFontFaces(faces: readonly FontFaceSpec[]): Promise<void> {
+  if (typeof document === 'undefined' || typeof FontFace === 'undefined') return
+  // lib.dom 的 FontFaceSet 还没有 add() 的声明（TS 版本偏旧），这里按标准 API 收窄
+  const fonts = document.fonts as FontFaceSet & { add(face: FontFace): FontFace }
+  for (const f of faces) {
+    const key = `${f.family}@${f.weight}`
+    if (registeredFaces.has(key)) continue
+    try {
+      const face = new FontFace(f.family, f.buffer, { weight: f.weight })
+      fonts.add(face)
+      await face.load()
+      registeredFaces.add(key)
+    } catch {
+      // 见上方注释：单个字重失败不牵连其它
+    }
+  }
 }

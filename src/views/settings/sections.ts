@@ -43,11 +43,14 @@ export type SectionId = (typeof SECTION_IDS)[number]
 // 放在本文件（SECTION_IDS 的拥有者）——src/momo/ 不许向上 import，锚定只能由
 // 拥有插槽的这一层反向做。守卫形式与 ui/registry/featureSlots.ts 的侧栏锚定同款
 // （分布式条件提取 + 形参约束；_AssertNever 本文件末尾已有一份，不重复声明）。
+// `export` 只为消掉「defined but never used」：本仓 eslint 按 `^_` 忽略未用变量，
+// 评审平台那份配置不带这条忽略，13 处编译守卫全被它报出来。导出即「被使用」，
+// 守卫本身一字未动——插槽指向不存在的 tab 照旧编译不过。
 type _AssertSlotNever<T extends never> = T
 type _SettingsTabOf<T> = T extends { slots: { settingsTab: infer V } } ? V : never
 type _DeclaredSettingsTab = _SettingsTabOf<(typeof FEATURES)[number]>
 type _UnknownSettingsTab = Exclude<_DeclaredSettingsTab, SectionId>
-type _EverySettingsTabIsReal = _AssertSlotNever<_UnknownSettingsTab>
+export type _EverySettingsTabIsReal = _AssertSlotNever<_UnknownSettingsTab>
 
 /** 锚点 id → 导航 chip 文案（**调用时**现读字典）：模块级快照会把求值时刻（恒为
  *  zh，setLocale 全部晚于模块求值）的语言冻结进字符串，en/ja 永远半中半英（BUG-04） */
@@ -163,10 +166,12 @@ export const SIDEBAR_TOGGLE_KEYS = ['quickStats', 'heatmap', 'review', 'stats', 
  * 否则下一行（目标类型 never）编译失败——防「加了侧栏区块却没有开关」。
  * 形式是 `_AssertNever<T extends never>`：旧写法 `const _x: T = undefined as never`
  * 恒成立（never 可赋给任何类型），从不报错；形参约束才真拦。
+ * `export` 只为消掉「defined but never used」（理由见本文件插槽锚定那一段的注释）：
+ * 导出即「被使用」，漏键照旧编译不过。
  */
 type _MissingToggle = Exclude<keyof MomoData['prefs']['sections'], (typeof SIDEBAR_TOGGLE_KEYS)[number]>
 type _AssertNever<T extends never> = T
-type _AllTogglesListed = _AssertNever<_MissingToggle>
+export type _AllTogglesListed = _AssertNever<_MissingToggle>
 
 /** 品牌名的字数上限与回退值：LookTab 的输入框与 service 的 sanitize 共用 */
 export { BRAND_NAME_MAX, DEFAULT_BRAND_NAME }

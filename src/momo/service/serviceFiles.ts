@@ -1,6 +1,7 @@
 import { normalizeTags, parseInlineTags, splitFrontmatter } from '../tags'
 import { locationsOf } from '../locations'
 import { pad2 } from '../dates'
+import { BRAND_ICON_EXTS } from '../types'
 import type { MomoEntry } from '../types'
 
 // Momo 文件层面的纯逻辑（obsidian-free）：文件名怎么生成、什么算「空白」、
@@ -170,4 +171,146 @@ export function projectEntry(file: EntryStatLike, raw: string): EntryProjection 
     // 那些写入，frontmatter 自维护 updatedAt 必然漏更（v0.9.15「按更新时间排序」的取材点）
     updatedAt: new Date(file.stat.mtime).toISOString(),
   }
+}
+
+// ─── 左上角自定义图标：icons/ 文件夹的识别与内容去重（2026-10-14）─────────────
+//
+// 用户要求「配置页面 - 左上角图标，应该自动识别 icons 文件夹里的图标，并且对重复
+// 内容的图标自动去重」。这三件事的纯逻辑住在这里（obsidian-free，可被 service 的
+// I/O 与测试共用）：什么算一枚图标（文件名尺）、同一张图片的身份（内容指纹）、
+// 去重后留谁（代表选择）。I/O（列目录 / 读字节 / 删文件）在 service/index.ts。
+
+/**
+ * 文件名算不算一枚自定义图标：扩展名在 `BRAND_ICON_EXTS` 白名单里（大小写不敏感）。
+ *
+ * 与 `sanitizeBrandIconImage` 的分工：那个管 data.json 里的**路径值**（拒绝对逃逸、
+ * 非图片扩展名），这把尺子管**盘上的文件名**——用户自己放进 `<root>/icons/` 的图
+ * 没有登记过任何路径，识别它们只能看文件名。无扩展名 / 目录名一律不算。
+ */
+export function isBrandIconFileName(name: string): boolean {
+  const dot = name.lastIndexOf('.')
+  if (dot < 0) return false
+  return BRAND_ICON_EXTS.includes(name.slice(dot + 1).toLowerCase())
+}
+
+/** 32 位 FNV-1a（正序或逆序走一遍字节）。`Math.imul` 是 CPU 原语，1MB 只要几毫秒。 */
+function fnv1a32(bytes: Uint8Array, reverse: boolean): number {
+  let h = 0x811c9dc5
+  if (reverse) {
+    for (let i = bytes.length - 1; i >= 0; i--) h = Math.imul(h ^ bytes[i], 0x01000193) >>> 0
+  } else {
+    for (let i = 0; i < bytes.length; i++) h = Math.imul(h ^ bytes[i], 0x01000193) >>> 0
+  }
+  return h
+}
+
+/**
+ * 内容指纹（64 位十六进制）：同一份字节 → 同一个串。「重复内容的图标」就按它判。
+ *
+ * 为什么不引 sha256：运行期在 Obsidian 渲染层，没有 node 的 `crypto` 模块；Web
+ * Crypto 的 `crypto.subtle.digest` 是**异步**的，还要赌运行上下文是不是 secure
+ * context（`app://` 自定义协议下不保证）。而这里要的只是「这两份字节是不是同一张
+ * 图」的身份判据，不对抗刻意构造的碰撞——两趟 32 位 FNV-1a（正序 + 逆序，混合方式
+ * 不同）拼 64 位，对个位数～百数量级的文件碰撞概率可忽略（n=1000 时约 3e-14），
+ * 且纯函数、零环境依赖、测试里可逐位断言。
+ */
+export function iconContentHash(bytes: Uint8Array): string {
+  const fwd = fnv1a32(bytes, false)
+  const rev = fnv1a32(bytes, true)
+  return fwd.toString(16).padStart(8, '0') + rev.toString(16).padStart(8, '0')
+}
+
+/** 两份字节是否逐字节相等（删除副本前的复核：指纹只是快筛，不可逆动作以字节为准） */
+export function sameBytes(a: ArrayBuffer, b: ArrayBuffer): boolean {
+  if (a.byteLength !== b.byteLength) return false
+  const x = new Uint8Array(a)
+  const y = new Uint8Array(b)
+  for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return false
+  return true
+}
+
+/** 扫描到的一枚图标文件：vault 相对路径 + 内容指纹 + 修改时刻 */
+export interface BrandIconFile {
+  path: string
+  hash: string
+  /** 修改时刻（`adapter.stat` 拿不到时 0）——「重复内容只留最新的一张」的判据 */
+  mtime: number
+}
+
+/**
+ * 按内容指纹去重，返回代表路径（保持入参顺序——调用方已把「登记过的排前、其余
+ * 按文件名」排好，代表即该组的展示位）。
+ *
+ * 同一指纹只留一枚：**当前生效那张**（`activePath`）优先当代表——生效位必须在格子
+ * 上看得见选中态，否则侧栏显示着自定义图、设置页却一格不选，两处对不上；组内没有
+ * 生效那张时留第一个（登记序最前 / 名字最靠前的那枚）。
+ */
+export function dedupeBrandIconFiles(files: readonly BrandIconFile[], activePath: string): string[] {
+  const representative = new Map<string, string>()
+  const out: string[] = []
+  for (const f of files) {
+    const kept = representative.get(f.hash)
+    if (kept === undefined) {
+      representative.set(f.hash, f.path)
+      out.push(f.path)
+      continue
+    }
+    // 这组里冒出了当前生效那张：换它当代表，位置仍留在组内第一次出现处
+    if (f.path === activePath) {
+      const idx = out.indexOf(kept)
+      if (idx >= 0) out[idx] = f.path
+      representative.set(f.hash, f.path)
+    }
+  }
+  return out
+}
+
+/** 一次「同内容只留最新的一张」的清理计划（planBrandIconPrune 的返回值） */
+export interface BrandIconPrunePlan {
+  /** 每组留下的那一枚（顺序 = 该组首次出现序） */
+  keep: string[]
+  /** 要删掉的副本 */
+  remove: string[]
+  /** 被删路径 → 组内留下的那一枚（清单 / 生效位重指用，免得留下死路径） */
+  remap: Map<string, string>
+}
+
+/**
+ * 「重复内容只留**最新**的一张」的清理计划（2026-10-14 用户裁定）。与
+ * `dedupeBrandIconFiles` 的分工：那个只决定**格子上显示哪一枚**（不动盘），这个决定
+ * **盘上删哪几枚**——同一指纹的一组里，修改时刻最大的留下，其余进 `remove`。
+ *
+ * 时刻相同（真实盘上少见，测试里靠假时钟定序）时按文件名**大**者优先：上传命名是
+ * `brand-icon-<时间戳>.<ext>`，字典序即上传先后，名字大的就是后传的那张。
+ *
+ * 纯函数：只算不动盘。删除是不可逆动作，落地（`adapter.remove` + 清单重指）由
+ * service 逐条做、逐条兜错。
+ */
+export function planBrandIconPrune(files: readonly BrandIconFile[]): BrandIconPrunePlan {
+  const groups = new Map<string, BrandIconFile[]>()
+  const order: string[] = []
+  for (const f of files) {
+    const g = groups.get(f.hash)
+    if (g) g.push(f)
+    else {
+      groups.set(f.hash, [f])
+      order.push(f.hash)
+    }
+  }
+  const keep: string[] = []
+  const remove: string[] = []
+  const remap = new Map<string, string>()
+  for (const hash of order) {
+    const group = groups.get(hash) ?? []
+    const winner = group.reduce((a, b) =>
+      b.mtime > a.mtime || (b.mtime === a.mtime && b.path > a.path) ? b : a,
+    )
+    keep.push(winner.path)
+    for (const f of group) {
+      if (f.path === winner.path) continue
+      remove.push(f.path)
+      remap.set(f.path, winner.path)
+    }
+  }
+  return { keep, remove, remap }
 }

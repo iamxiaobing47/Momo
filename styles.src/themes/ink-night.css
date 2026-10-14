@@ -24,6 +24,11 @@
   --momo-card: #26272c;
   --momo-line: #34363c;
   --momo-line-soft: #2c2e33;
+  /* 按压底（2026-10-13 横展）：见 mist-blue.css 同段注。暗色方案的「压一档」是**提亮**
+     不是压深（page 最暗、surface 逐级提亮），旧按压底 surface-2 #2b2c31 与 card 只有
+     1.07、与 surface 1.10——按下去同样看不出。取比 card 提亮一档的中性炭 #3a3b41
+     （card 1.34 / surface 1.37 / surface-2 1.25），过 check-contrast ⑧b 组。 */
+  --momo-press: #3a3b41;
   --momo-ink: #efede7;
   --momo-ink-2: #c5c1b8;
   --momo-ink-3: #b2ada3;

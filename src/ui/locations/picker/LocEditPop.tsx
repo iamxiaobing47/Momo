@@ -5,7 +5,7 @@ import { copy } from '../../../momo/i18n'
 import { LOCATION_MAX_CHARS, LOCATIONS_MAX, canonicalLocName, locationInputIssue } from '../../../momo/locations'
 import { charLength } from '../../../momo/core'
 import type { MomoEntry } from '../../../momo/types'
-import { PopDialog } from '../../kit'
+import { PopDialog, useFreePopPlacement } from '../../kit'
 import { candidateLocRows, isKnownLocation, type LocRow } from './rows'
 import { LocList } from './LocList'
 
@@ -18,8 +18,9 @@ import { LocList } from './LocList'
 // 为什么单卡也要即时写：地点是**内容**不是视图开关（ADR-003），勾一下就是
 // 「这篇确实在这个地方」。给一个「应用」按钮只会多一次「我到底存了没有」的疑问。
 //
-// 落点是 free 变体：由调用方把按钮位置换算成「相对 .momo-app」的偏移，这里再按
-// 面板尺寸夹回可视区（与 TagEditMenu 同一套算法）。**整颗弹层 portal 到
+// 落点是 free 变体：由调用方把按钮位置换算成「相对 .momo-app」的偏移，夹取
+// （先量真实尺寸，再按面板宽高收进可视区）收在 kit 的 useFreePopPlacement——
+// 与另外五个 free 浮层同一处。**整颗弹层 portal 到
 // `.momo-app` 根上再画**（与 CardContextMenu 同一路数）：free 变体的
 // left/top 按 .momo-app 换算，包含块就必须是 .momo-app。渲染树里它挂在顶栏的
 // `.momo-batchtag-wrap` 下，而那颗锚点是 position: relative——直接画在那里，
@@ -33,12 +34,15 @@ import { LocList } from './LocList'
 // `meta`）原样搬的是**这篇的首行正文**（24 字截断），本意是「让用户确认弹层挂在
 // 正确的卡上」——可弹层就是从卡片操作行第 5 颗 mappin 上点开的，卡片本身就在
 // 眼底，再抄一行正文到弹层头部只是同一件事的第二份表述（与设置页那一族「去掉
-// 预览」同一条判据，见 docs/tasks/bug/done/bug-157）。现已整行去掉：本弹层不传
-// title 也不传 meta，`PopDialog` 连头部一起不渲染（`.momo-pop-nohead`），与
-// 2026-10-02 起五个 free 小浮层的口径一致。
+// 预览」同一条判据，见 docs/tasks/bug/done/bug-157）。现已整行去掉：本弹层两个头部
+// 传参都不传（`PopDialog` 的 `title` 随 BUG-187、`meta` 随 2026-10-14 一并退役），
+// 无头弹层的 8px 上内距现在住在 `.momo-pop` 基类里，与 2026-10-02 起五个 free
+// 小浮层的口径一致。
 
-/** 弹层估算高度：把落点夹回视口用（输入 32 + 列表上限 300 + 底 44，v0.9.26 骨架；
- *  2026-10-10 头部整行去掉后少 36） */
+/** 弹层尺寸：宽 = 骨架容器宽 328（与 CSS 对齐）；高 = 输入 32 + 列表上限 300 +
+ *  底 44（v0.9.26 骨架；2026-10-10 头部整行去掉后少 36）= 376。
+ *  两个数只是 `useFreePopPlacement` 的**兜底估值**——落点夹取先量真实尺寸，
+ *  量不到（jsdom 无布局）才用它。 */
 const POP_H = 376
 const POP_W = 328
 
@@ -123,31 +127,23 @@ export function LocEditPop({ path, x, y, onClose }: { path: string; x: number; y
     setQuery('')
   }
 
-  const menuRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState({ left: x, top: y })
   // portal 宿主（.momo-app 根）：首帧先留个不可见锚点拿 closest（同 CardContextMenu）。
-  // host 进依赖：portal 落定后 menuRef 才指向真实 DOM，落点夹取要跟着重跑一次。
   const anchorRef = useRef<HTMLSpanElement>(null)
   const [host, setHost] = useState<HTMLElement | null>(null)
   useLayoutEffect(() => {
     setHost((anchorRef.current?.closest<HTMLElement>('.momo-app') as HTMLElement | null) ?? null)
   }, [])
-  useLayoutEffect(() => {
-    const panel = menuRef.current?.closest('.momo-app') as HTMLElement | null
-    const w = panel?.clientWidth ?? window.innerWidth
-    const h = panel?.clientHeight ?? window.innerHeight
-    setPos({
-      left: Math.max(8, Math.min(x, Math.max(8, w - POP_W - 8))),
-      top: Math.max(8, Math.min(y, Math.max(8, h - POP_H - 8))),
-    })
-  }, [x, y, host])
+  // 落点夹取收在 kit 的 useFreePopPlacement（先量真实尺寸再按面板宽高收进可视区）。
+  // hook 的 dialogRef 是**回调 ref**：portal 落定、弹层真挂上 DOM 之后才量得到尺寸，
+  // 不需要再靠 host 进依赖手动催第二次。
+  const { dialogRef, style } = useFreePopPlacement(x, y, { w: POP_W, h: POP_H })
 
   const dialog = (
     <PopDialog
       variant="free"
       ariaLabel={e.aria}
-      style={{ left: pos.left, top: pos.top }}
-      dialogRef={menuRef}
+      style={style}
+      dialogRef={dialogRef}
       onKeyDown={(ev) => {
         // BUG-176f：输入法组词中按 Esc 不许整颗关掉弹层（与 Enter 的 isComposing 闸同纪律）
         if (ev.key === 'Escape' && !ev.nativeEvent.isComposing) {

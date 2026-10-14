@@ -35,7 +35,9 @@ export function stageRelease(outArg, dir = pluginProjectDir()) {
   const manifest = releaseManifest(dir)
   const missing = manifest.filter((m) => !fs.existsSync(path.join(dir, m.src)))
   if (missing.length > 0) {
-    throw new Error(`缺 ${missing.map((m) => m.src).join(' / ')}（先 npm run build / npm run fetch）`)
+    const fonts = missing.filter((m) => m.src.startsWith('fonts/'))
+    const hint = fonts.length > 0 ? '（字体包先跑 node scripts/fetch-fonts.mjs）' : '（先 npm run build）'
+    throw new Error(`缺 ${missing.map((m) => m.src).join(' / ')} ${hint}`)
   }
   fs.rmSync(outDir, { recursive: true, force: true })
   for (const m of manifest) {

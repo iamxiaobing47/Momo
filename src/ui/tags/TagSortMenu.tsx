@@ -1,8 +1,7 @@
-import { useLayoutEffect, useRef, useState } from 'react'
 import { useUi } from '../store'
 import { copy } from '../../momo/i18n'
 import { TAG_SORT_KEYS } from '../../momo/types'
-import { PopDialog, PopRow } from '../kit'
+import { PopDialog, PopRow, useFreePopPlacement } from '../kit'
 
 // 侧栏标签区的排序浮层（v0.9.18，点工具行上那枚排序按钮唤起）。
 //
@@ -20,8 +19,9 @@ import { PopDialog, PopRow } from '../kit'
  * 弹层尺寸。宽同时用于两处：这里的边界夹取，以及 TagTree 算落点时的右对齐
  * （那边 `import { MENU_W }`，别在两处各写一个数）。窄档下 CSS 的
  * `.momo-pop-free { max-width: calc(100% - 16px) }` 还会再收一道，所以宽是**上限**。
- * 高只是边界夹取的估算（没有底栏：PopDialog 在 footerLeft / footerActions 都为空时
- * 不渲染底栏，见 kit/PopDialog.tsx）。
+ * 高只是 `useFreePopPlacement` 的**兜底估值**（没有底栏：PopDialog 在
+ * footerLeft / footerActions 都为空时不渲染底栏，见 kit/PopDialog.tsx）——
+ * 落点夹取先量真实高度，量不到（jsdom 无布局）才用它。
  */
 export const MENU_W = 176
 const MENU_H = 170
@@ -40,28 +40,21 @@ export function TagSortMenu({
 }) {
   const tagSort = useUi((s) => s.tagSort)
   const setTagSort = useUi((s) => s.setTagSort)
-  const menuRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState({ left: x, top: y })
-
-  // x / y 已由调用方换算成「相对 .momo-app」的偏移；这里再按面板尺寸夹回可视区内。
-  // 用面板（.momo-app）而不是窗口尺寸 —— 弹层是 absolute 定位，坐标基准就是它。
-  // 夹完**同值就不 set**：setPos 每次都造新对象，无脑 set 会为了一个没变的落点多渲一轮
-  // （落点夹取恒等是很常见的：调用方给的坐标本来就在可视区内）。
-  useLayoutEffect(() => {
-    const host = menuRef.current?.closest('.momo-app') as HTMLElement | null
-    const w = host?.clientWidth ?? window.innerWidth
-    const h = host?.clientHeight ?? window.innerHeight
-    const left = Math.max(8, Math.min(x, Math.max(8, w - MENU_W - 8)))
-    const top = Math.max(8, Math.min(y, Math.max(8, h - MENU_H - 8)))
-    setPos((prev) => (prev.left === left && prev.top === top ? prev : { left, top }))
-  }, [x, y])
+  // x / y 已由调用方换算成「相对 .momo-app」的偏移；夹取（先量真实尺寸再收进面板）
+  // 收在 kit 的 useFreePopPlacement 里，本文件不再自己 closest + 夹。
+  const { dialogRef, style } = useFreePopPlacement(
+    x,
+    y,
+    { w: MENU_W, h: MENU_H },
+    { style: { width: MENU_W } },
+  )
 
   return (
     <PopDialog
       variant="free"
       ariaLabel={copy.tags.sortAria}
-      style={{ left: pos.left, top: pos.top, width: MENU_W }}
-      dialogRef={menuRef}
+      style={style}
+      dialogRef={dialogRef}
       onKeyDown={(e) => {
         if (e.key !== 'Escape') return
         e.preventDefault()

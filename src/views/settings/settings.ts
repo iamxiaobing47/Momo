@@ -10,7 +10,7 @@ import {
   type MomoData,
   type MomoSettings,
 } from '../../momo/types'
-import { h, iconSvg, arrowNav } from './dom'
+import { arrowNav, h, iconSvg } from './dom'
 import { applyFontVars, syncFontStyle } from '../../ui/shared/fontStyle'
 import { SECTION_TABS } from './tabs'
 import { SECTION_IDS, type MomoHost, type SectionId } from './sections'
@@ -32,10 +32,21 @@ import * as field from './fields'
 // 取值的唯一真源是设计稿（Ardot「Momo 配置页重设计」帧 ①）与 styles.css 的令牌，
 // 不在本文件里新造任何色值 / 字号 / 圆角。
 //
-// 拆分：本文件只剩**编排**（display() 把七个分页的建造函数跑一遍），具体的行与
-// 控件在各 Tab 文件里：
+// 拆分：本文件只剩**编排**（display() 把整套自建 UI——页头 + 横向 tab + 七个分页的
+// 卡片——跑一遍），具体的行与控件在各 Tab 文件里：
 //   sections.ts 分页定义与默认值 · dom.ts DOM 基建 · fields.ts 控件库
 //   PathsTab / LookTab / PanelTab / ReviewTab / StatsTab / LocTab / TagsTab 各一页
+//
+// BUG-236（Obsidian 1.13.0 声明式设置 API）曾把入口换成 `getSettingDefinitions()`：
+// 自建 UI 住 `SettingDefinitionPage.page` 工厂（MomoSectionPage），`display()` 整块删除。
+// **2026-10-14 用户裁决回到经典 `display()`**（B 案）：声明式形态下 Obsidian 必然先渲染
+// 一层页列表（本机 1.13.7 实测：只有点那一行才 `openPage`），点「Momo」要多一次点击；
+// 用户要的是「点 Momo 直接进设置页」。取舍与代价（评审 no-deprecated-display warning +
+// 设置搜索搜不到本页的设置项）见 display() 处注释与 BUG-236 工单。
+//
+// 2026-10-14 另修：卡片曾被 CSS 按 `display: none` 藏起来（要靠 JS 打 is-active 才亮），
+// BUG-236 删掉打类的 paintTab() 后整页空白——基础规则已改回 display: block，
+// 两个方向的回归守卫见 settings-host-war.test.mts 与 settings-page.test.mts。
 
 export type { MomoHost } from './sections'
 export { PREFS_DEFAULTS, SECTION_IDS, sectionLabel } from './sections'
@@ -58,7 +69,7 @@ const DIR_DEBOUNCE_MS = 600
  * ② 有笔记会被甩在老位置时再弹一次「搬过去 / 只改路径 / 取消」，按选择搬（连回收站
  *    登记、置顶一起）或只落路径。
  *
- * 为什么放在模块层：display() 里的 ctx 与卡片级「恢复默认」都要过这道闸门，
+ * 为什么放在模块层：分页建造与卡片级「恢复默认」都要过这道闸门，
  * 落盘逻辑收在模块层两边才共用同一份。
  */
 /** BUG-79a：目录行名（写盘侧静默回退的 Notice 要点名是哪一行）。panelSide 是
@@ -125,7 +136,7 @@ async function applyDirSettings(
   hooks: DirHooks | undefined,
 ): Promise<DirOutcome> {
   // 闸门一（2026-10-04，用户要求「存放路径的改动必须手动确认才生效」）：这一页
-  // 改的是 Momo 文件落在哪，影响面大，所以任何一次落盘前先把变了哪几行列清楚，
+  // 改的是 Momo 文件落在哪，影响面大，所以任何一次落盘前先把变了哪行列清楚，
   // 让用户点「确认修改」。取消了就原样返回——输入框 / 预览树的回滚由行级
   // onCancel 做（PathsTab 四行都挂了），卡片级「恢复默认」则由调用方看到非 'saved' 整体作废。
   const changed = changedDirRows(patch, service.settings, service.data.prefs.brandName)
@@ -197,63 +208,86 @@ const afterDirCommit = (outcome: DirOutcome, hooks: DirHooks | undefined): void 
   if (outcome === 'saved') hooks?.onSaved?.()
 }
 
+/**
+ * 一批「停顿 / 失焦才落盘」的输入 = 一次 display() 建一批（经典入口只有一批；
+ * BUG-236 的分页形态曾按页各持一批，随页列表一并退役）。
+ *
+ * N10 / BUG-111a：把当前批次还排着的输入立刻结算。setPrefLive 的 prefs 改的是
+ * service.data，persist 兜底就够；但普通文本输入（品牌名一类）走 deferral，
+ * patch 要几百 ms 后才交回 service。
+ *
+ * 目录输入的两种结算语义（2026-10-07 拆分，BUG-111a）：
+ *  - 默认（离开分页 hide / 关设置窗 hide / 收尾）：**照样 flush**——用户
+ *    裁定「关设置窗时目录输入应 flush」。确认框紧跟关闭弹出，落盘发生在用户
+ *    刚改完路径的上下文里；cancel 会把刚打完的路径悄悄丢掉，重开设置页又见
+ *    旧值，那是另一种假反馈。
+ *  - `{ cancelDirs: true }`（仅插件卸载 onunload）：目录输入只 cancel 不 flush。
+ *    卸载时 flush 等于弹出一个没人回答的确认框；而「没确认的路径改动」本来
+ *    也不该写进盘。
+ */
+interface InputBatch {
+  deferrals: Array<Pick<DeferredRun<unknown>, 'flush' | 'cancel'>>
+  /** 上面那批里**目录输入**的几个（debouncedNotesDir / debouncedSettings 造出来的） */
+  dirCommits: Array<Pick<DeferredRun<unknown>, 'cancel'>>
+}
+
+/** 整批撤销（重建前 / 恢复默认前；已执行落盘的那轮撤不回来） */
+function cancelBatch(batch: InputBatch): void {
+  for (const d of batch.deferrals) d.cancel()
+}
+
+/** 整批结算；cancelDirs = 目录输入只撤不落（卸载兜底那一回） */
+function flushBatch(batch: InputBatch, cancelDirs: boolean): void {
+  const dirs = new Set<unknown>(batch.dirCommits)
+  for (const d of batch.deferrals) {
+    if (cancelDirs && dirs.has(d)) d.cancel()
+    else d.flush()
+  }
+}
+
+/** 分页渲染的三个挂点（MomoSettingTab.display 提供；buildSection 只认这一组） */
+interface SectionTarget {
+  /** 内容容器：自建 UI 画在这里，`.momo-settings` / 主题类 / 字体变量都挂在它身上 */
+  containerEl: HTMLElement
+  /** 滚动盒：经典入口下与 containerEl 同一个（Obsidian 把设置内容区交给它）。
+   *  独立成一项是为了 rebuild 时能把 scrollTop 原样写回（BUG-236 起的分页形态里
+   *  它曾是页自己的 rootEl）。 */
+  scrollEl: HTMLElement
+  /** 整页重建（卡片级「恢复默认」/ 语言切换）：再跑一遍 display() */
+  rebuild: () => void
+}
+
 export class MomoSettingTab extends PluginSettingTab {
   /**
-   * 当前停在哪一页。`MomoSettingTab` 在插件生命周期内只有一个实例
-   * （main.ts 里 `addSettingTab(new MomoSettingTab(...))` 一次性建），所以关掉设置
-   * 弹窗再打开仍停在刚才那一页——不必为它往 data.json 里多塞一个偏好字段。
+   * 当前活跃的输入批次（经典入口只有一批）。display() 重建前撤销（B06）、
+   * 关设置窗 / 切走设置页（hide）与卸载兜底（flushPendingSettings）统一结算。
+   */
+  private batches = new Set<InputBatch>()
+
+  /**
+   * 当前这一批 display() 登记的「停顿才落盘」输入（BUG-236 的逐页分批随页列表
+   * 一并退役，只剩这一批）。重建前撤销（B06）、关窗 / 切走设置页统一结算
+   * （flushPendingSettings）。
+   */
+  private batch: InputBatch | null = null
+
+  /**
+   * 横向 tab 的当前选中区段（2026-10-14 恢复页内导航）：点 Momo 直接进这一页后，
+   * 「在哪一页」由页内 tab 说。字段活在 tab 上——关掉设置弹窗再开停在上次那一页
+   * （BUG-236 之前同款语义）。
    */
   private activeSection: SectionId = SECTION_IDS[0]
 
-  /** 当前这一批 display() 登记的「停顿才落盘」输入。切换分页 flush、重建前 cancel、
-   *  卡片级「恢复默认」开头 cancel——否则用户输入后 600ms 内点它 / 关掉设置再打开，
-   *  旧 timer 照常 fire，把输入值写回 service，静默覆盖刚恢复的默认值（B06）。 */
-  private pendingDeferrals: Array<Pick<DeferredRun<unknown>, 'flush' | 'cancel'>> = []
-
-  /** 上面那批里**目录输入**的几个（debouncedNotesDir / debouncedSettings 造出来的）。
-   *  单独记一份：仅插件卸载兜底（flushPendingSettings 的 cancelDirs）时它们只
-   *  cancel 不 flush——落盘要过人肉确认；关窗 / 切页照常 flush，见 flushPendingSettings。 */
-  private pendingDirCommits: Array<Pick<DeferredRun<unknown>, 'cancel'>> = []
-
-  /** N10 / BUG-111a：把当前批次还排着的输入立刻结算。setPrefLive 的 prefs 改的是
-   *  service.data，persist 兜底就够；但普通文本输入（品牌名一类）走 deferral，
-   *  patch 要几百 ms 后才交回 service。
-   *
-   *  目录输入的两种结算语义（2026-10-07 拆分，BUG-111a）：
-   *  - 默认（关设置窗 hide / 收尾）：与切分页同一条纪律，**照样 flush**——用户
-   *    裁定「关设置窗时目录输入应 flush」。确认框紧跟关闭弹出，落盘发生在用户
-   *    刚改完路径的上下文里；cancel 会把刚打完的路径悄悄丢掉，重开设置页又见
-   *    旧值，那是另一种假反馈（hide 的注释早就这么写，此前实现的 cancel 与它打架）。
-   *  - `{ cancelDirs: true }`（仅插件卸载 onunload）：目录输入只 cancel 不 flush。
-   *    卸载时 flush 等于弹出一个没人回答的确认框；而「没确认的路径改动」本来
-   *    也不该写进盘。 */
-  flushPendingSettings(opts?: { cancelDirs?: boolean }): void {
-    const dirs = new Set<unknown>(this.pendingDirCommits)
-    for (const d of this.pendingDeferrals) {
-      if (opts?.cancelDirs && dirs.has(d)) d.cancel()
-      else d.flush()
-    }
-    this.pendingDeferrals = []
-    this.pendingDirCommits = []
-  }
-
-  /** BUG-79b：设置弹窗**关闭**时结算未静默够的输入。旧实现既不 flush 也不
-   *  cancel——600ms 防抖 timer 在弹窗关闭后照常 fire，「改完笔记路径 600ms 内
-   *  关设置，迁移确认框凭空弹在主界面上」。flush 让提交紧跟关闭发生（迁移询问
-   *  出现在用户刚改完路径的上下文里），与切分页统一 flush 是同一条纪律（B06）；
-   *  cancel 会把用户刚打完的路径悄悄丢掉，回开设置页又见旧值，那是另一种假反馈。
-   *  已执行落盘的那轮 flush 是空操作，与 switchTab 的 flush 叠加无副作用。
-   *  BUG-111a（2026-10-07）：这段语义此前名不副实——flushPendingSettings 自
-   *  2026-10-04 起只 cancel 目录输入，hide 跟着一起被带上（关窗 = 悄悄丢输入，
-   *  正是本注释说的假反馈）。现在目录输入默认 flush，cancel 只留给卸载。 */
+  /**
+   * BUG-79b：设置弹窗**关闭**（或切走本设置页）时结算未静默够的输入。旧实现
+   * 既不 flush 也不 cancel——600ms 防抖 timer 在弹窗关闭后照常 fire，「改完笔记
+   * 路径 600ms 内关设置，迁移确认框凭空弹在主界面上」。flush 让提交紧跟关闭
+   * 发生（迁移询问出现在用户刚改完路径的上下文里）；cancel 会把用户刚打完的
+   * 路径悄悄丢掉，回开设置页又见旧值，那是另一种假反馈。
+   * BUG-111a（2026-10-07）：目录输入默认 flush，cancel 只留给卸载兜底。
+   */
   hide(): void {
     this.flushPendingSettings()
-  }
-
-  /** 全部撤销当前批次的 pending 输入（重建前 / 恢复默认前；已执行落盘的那轮撤不回来） */
-  private cancelDeferrals(): void {
-    for (const d of this.pendingDeferrals) d.cancel()
-    this.pendingDeferrals = []
   }
 
   constructor(
@@ -264,11 +298,63 @@ export class MomoSettingTab extends PluginSettingTab {
     super(app, plugin)
   }
 
+  /**
+   * 旧入口（2026-10-14 用户裁决：回到经典 API）。Obsidian 1.13.7 的
+   * `SettingTab.renderTab()` 是 `settingItems.length > 0 ? 渲染声明式页列表 : display()`
+   * ——本类**不再**实现 `getSettingDefinitions()`（`settingItems` 恒为空），所以点
+   * 设置侧栏的「Momo」**直接**进设置页，中间没有那层页列表；「在哪一页」由页内
+   * 横向 tab 说（见 buildSection 的 nav）。
+   *
+   * 代价（用户 2026-10-14 明知并裁决，记录在 BUG-236 工单）：
+   *   · Obsidian 评审的 `settings-tab/no-deprecated-display` warning 回来；
+   *   · 1.13+ 设置顶栏的搜索搜不到 Momo 的设置项（自建 DOM 不进声明式索引）。
+   * 要换回声明式形态（页列表 + 搜索命中）的施工说明见 BUG-236 工单「最终形状」。
+   */
   display(): void {
-    // B06：上一批 display()（用户关掉设置再打开 / 卡片级「恢复默认」后的重建之前）留下的 pending
-    // 输入作废——输入框都要重建了，旧 timer 再 fire 只会把上一页的值写回 service
-    this.cancelDeferrals()
-    const { containerEl } = this
+    // B06：上一批 display()（用户关掉设置再打开 / 卡片级「恢复默认」后的重建之前）
+    // 留下的 pending 输入作废——输入框都要重建了，旧 timer 再 fire 只会把上一轮的
+    // 值写回 service，静默覆盖刚恢复的默认值。
+    if (this.batch) this.settleBatch(this.batch, false)
+    this.batch = this.buildSection({
+      // 经典入口下滚动盒就是标签页自己的容器（Obsidian 把设置内容区交给它）
+      containerEl: this.containerEl,
+      scrollEl: this.containerEl,
+      rebuild: () => this.display(),
+    })
+  }
+
+  /**
+   * N10：留住设置页实例后，卸载时要结算它手里还排着的输入（目录输入只 cancel，
+   * 理由见 onunload——它们的落盘要先过人肉确认）。关设置窗 hide 是另一回事：
+   * 那是 flush，与离开分页同一条纪律。
+   */
+  flushPendingSettings(opts?: { cancelDirs?: boolean }): void {
+    for (const batch of this.batches) flushBatch(batch, opts?.cancelDirs === true)
+    this.batches.clear()
+  }
+
+  /** 登记一次 display() 新建的输入批次（hide / 卸载兜底的收口面） */
+  private registerBatch(batch: InputBatch): void {
+    this.batches.add(batch)
+  }
+
+  /** 摘掉一个批次并结算：flush = 落盘（关窗），否则只撤销（重建前，B06） */
+  private settleBatch(batch: InputBatch, flush: boolean): void {
+    this.batches.delete(batch)
+    if (flush) flushBatch(batch, false)
+    else cancelBatch(batch)
+  }
+
+  /**
+   * 把整套自建 UI 画进 target.containerEl（display() 的唯一实现）。含**横向 tab
+   * 导航**：页头 → nav（七个 chip）→ 内容列（七个分页的卡片一次建全，paintTab 按
+   * activeSection 切 is-active）。「当前在哪一页」由 tab 上的 activeSection 说，
+   * 关掉设置弹窗再开停在上次那一页。
+   *
+   * 返回这一批的 pending 输入（hide 时结算、重建前撤销）。
+   */
+  private buildSection(target: SectionTarget): InputBatch {
+    const { containerEl } = target
     containerEl.empty()
     containerEl.addClass('momo-settings')
 
@@ -309,18 +395,14 @@ export class MomoSettingTab extends PluginSettingTab {
       notifyPrefs()
     }
 
-    /** 本次 display() 里所有「停顿 / 失焦才落盘」的输入。切换分页时统一 flush —— 见 switchTab。
-     *  这里只收 `flush`：deferrals 要装 payload 类型各不相同的 DeferredRun，
-     *  收的是 flush 这一个能力，所以不必为此引入任何类型断言。 */
-    const deferrals: Array<Pick<DeferredRun<unknown>, 'flush' | 'cancel'>> = []
-    this.pendingDeferrals = deferrals
-    /** 目录输入那几个防抖器另记一份：卸载兜底时只 cancel 不 flush（见
-     *  flushPendingSettings——它们的落盘要过人肉确认）。 */
-    const dirCommits: Array<Pick<DeferredRun<unknown>, 'cancel'>> = []
-    this.pendingDirCommits = dirCommits
+    /** 本页这一批所有「停顿 / 失焦才落盘」的输入。离开分页时统一 flush（页 hide），
+     *  重建前统一 cancel（B06）。这里只收 `flush`：deferrals 要装 payload 类型各不相同
+     *  的 DeferredRun，收的是 flush 这一个能力，所以不必为此引入任何类型断言。 */
+    const batch: InputBatch = { deferrals: [], dirCommits: [] }
+    this.registerBatch(batch)
     const deferral = <T>(ms: number, run: (value: T) => void): DeferredRun<T> => {
       const d = deferredRun(ms, run)
-      deferrals.push(d)
+      batch.deferrals.push(d)
       return d
     }
     /** 目录两路防抖（笔记路径 / 附件回收）共用这一个实现：停顿 600ms 后过
@@ -345,7 +427,7 @@ export class MomoSettingTab extends PluginSettingTab {
             console.error('[Momo] 目录设置落盘失败', e)
           })
       })
-      dirCommits.push(d)
+      batch.dirCommits.push(d)
       return d
     }
 
@@ -366,15 +448,14 @@ export class MomoSettingTab extends PluginSettingTab {
      *  重载后侧栏宽度回到默认。 */
     // 走 deferredRun 而不是 obsidian 的 debounce（BUG-31）：后者没有 flush——
     // 拖完滑杆 400ms 内重载插件，内存与 store 都是新值、盘上还是旧的（N08 的
-    // 「重载后回退」窄窗）。注册进 pendingDeferrals 后，卸载兜底 flushPendingSettings
-    // 会把最后那轮一并结算。
+    // 「重载后回退」窄窗）。注册进本页批次后，离开分页 / 卸载兜底会把最后那轮一并结算。
     const persistSoon = deferredRun(400, () => {
       void service.persist().catch((e) => {
         console.error('[Momo] 保存偏好失败', e)
         new Notice(copy.errors.prefsSaveFailed(errMsg(e)))
       })
     })
-    deferrals.push(persistSoon)
+    batch.deferrals.push(persistSoon)
     const setPrefLive = (patch: Partial<MomoData['prefs']>): void => {
       // 这里刻意自己合并 service.data.prefs：要的是「合并立即、persist 延后」，
       // 而 savePrefs 只提供「两者一起」这一种节奏。
@@ -399,6 +480,8 @@ export class MomoSettingTab extends PluginSettingTab {
     // 浏览器渲染只认子文本节点，页头品牌名因此**永远空白**（BUG-33 的用例只
     // 断言 getter 读取，被它骗过）；图标 thunk 同理只在创建时求值一次。正解是
     // 真实文本节点 + 订阅里更新 / 重建（dom.ts 的 TextLike 已收成纯字符串）。
+    // 页头画在整页顶部（2026-10-14 回到单页：品牌 + 联系方式一处就够；BUG-236 的
+    // 分页形态下它曾被画在每一页顶部）。联系方式是 2026-10-12 用户点名要的。
     const head = h('div', 'momo-set-head')
     const mark = h('span', 'momo-set-mark')
     mark.append(iconSvg(service.data.prefs.brandIcon, 16))
@@ -413,8 +496,8 @@ export class MomoSettingTab extends PluginSettingTab {
       mark.replaceChildren(iconSvg(service.data.prefs.brandIcon, 16))
     }
     // 页头右侧：联系方式（2026-10-12 用户要求「配置页面右上角添加我的联系方式」）。
-    // 两枚邮箱是语言中立的数据，三门字典同一份（header.contact 数组；在 display()
-    // 里现读，不犯 BUG-04 那种模块求值期快照）。刻意**不做成** mailto 链接——
+    // 两枚邮箱是语言中立的数据，三门字典同一份（header.contact 数组；在建造时
+    // 现读，不犯 BUG-04 那种模块求值期快照）。刻意**不做成** mailto 链接——
     // Obsidian 对 mailto: 的点击处理不可靠（可能被当成库内链接去解析），而邮箱
     // 文本本身就能选中复制。与左边那一组之间由 CSS 的 margin-inline-start:auto
     // 推开，落在内容列右边缘——和卡片的右边缘是同一条线。
@@ -432,13 +515,11 @@ export class MomoSettingTab extends PluginSettingTab {
     )
     containerEl.append(head)
 
-    // ======================= 分页导航 =======================
+    // ======================= 分页导航（2026-10-14 恢复横向 Tab 页）=======================
     // 七个区段是**分页**，不是一张长页面的锚点：同一时刻只有一个区段可见。
-    // 之前的版本用 scrollIntoView 跳转 + 滚动跟随反算高亮，两套逻辑互相打架
-    // （看着像 tab，点下去是滚动，滚回来又把高亮改了），这里统一成一个 `is-active`。
     // 视觉上是**分段轨道**（与页内 .momo-set-seg 同一套选中语言）：nav 是贴顶的
-    // 横条，chips 装进里面的轨道 wrapper——结构上只多这一层，选中态仍由 paintTab
-    // 打 `is-on`，样式细则在 80-settings.css。
+    // 横条，chips 装进里面的轨道 wrapper——结构上只多这一层，选中态由 paintTab
+    // 打 `is-on`（卡片那侧打 `is-active`，见 010-cards.css 的基础规则注释）。
     // BUG-176b：role 从 tablist 降成 group + aria-pressed，与 BUG-128b 给全部文字档
     // 定的口径一致（tablist 契约缺 aria-controls / tabpanel 关联时，"声明了语义却没
     // 兑现"比缺 role 更糟）。roving tabindex 与方向键（arrowNav）照旧。
@@ -451,8 +532,8 @@ export class MomoSettingTab extends PluginSettingTab {
 
     // 可见 tab（R8a：entitlement 门 P4 起用，现在全部常驻）；chip 与建造都只过这张表
     const visibleTabs = SECTION_TABS.filter((t) => !t.visible || t.visible())
-    // activeSection 是单例且活得比本页久（关掉再开不重置）：当前页被 entitlement
-    // 隐藏时重新指向第一个可见页——否则 paintTab 每回合都在兜底，行为不可预期。
+    // activeSection 活在 tab 上（关掉再开不重置）：当前页被 entitlement 隐藏时重新指向
+    // 第一个可见页——否则 paintTab 每回合都在兜底，行为不可预期。
     if (!visibleTabs.some((t) => t.id === this.activeSection)) this.activeSection = visibleTabs[0].id
 
     const paintTab = (active: string): void => {
@@ -473,10 +554,12 @@ export class MomoSettingTab extends PluginSettingTab {
     }
 
     /** 切分页：先把当前页还没静默够的输入结算掉再切——别让用户已经离开的那一页
-     *  在背地里慢半拍落盘（目录类还会顺带触发一次全库重读）。 */
+     *  在背地里慢半拍落盘（目录类还会顺带触发一次全库重读）。只切显隐、不重建 DOM：
+     *  七个分页的卡片在 display() 里一次建全，切页零成本（也因此切页不重跑各 tab
+     *  的异步链——图标扫描 / 字体包状态这类开页时跑一次的活儿）。 */
     const switchTab = (id: SectionId): void => {
       if (id === this.activeSection) return
-      for (const d of deferrals) d.flush()
+      for (const d of batch.deferrals) d.flush()
       this.activeSection = id
       paintTab(id)
     }
@@ -502,7 +585,9 @@ export class MomoSettingTab extends PluginSettingTab {
 
     /** 卡片：白底 + 1px 线 + r8，卡头（标题 14/600 + 说明 12）下有一条分隔线。
      *  opts.onReset（v0.9.12）：卡头右侧多一颗回退钮，只把这一张卡的设置恢复
-     *  默认——复杂配置卡才配（见 context.ts 的 card 注释）。 */
+     *  默认——复杂配置卡才配（见 context.ts 的 card 注释）。
+     *  2026-10-14：section 入参重新启用——横向 tab 靠 cards 登记表切显隐
+     *  （paintTab 打 is-active，样式见 010-cards.css 的基础规则）。 */
     const card = (
       section: SectionId,
       id: string,
@@ -572,30 +657,37 @@ export class MomoSettingTab extends PluginSettingTab {
       prefs,
       setPref,
       setPrefLive,
-      // 卡片级「恢复默认」的收尾（display() 开头会先撤销
+      // 卡片级「恢复默认」的收尾（本页重建开头会先撤销
       // 还没落盘的输入，B06），用户仍停在当前分页
       rerender: () => {
-        // 整页空重建会**自己**跳一下滚动：滚动容器就是 containerEl 自己
-        // （.vertical-tab-content，真 app.css 里 overflow-y:auto + height:100%），
-        // 它的内容被整体替换时，Chromium 的 scroll anchoring 锚点随旧子树一起
-        // 被丢弃，重建后的首次布局按锚点残影补一笔 scrollTop——实测同等内容
+        // 整页空重建会**自己**跳一下滚动：`.momo-settings` 容器（经典入口下它同时
+        // 是滚动盒）的内容被整体替换时，Chromium 的 scroll anchoring 锚点随旧子树
+        // 一起被丢弃，重建后的首次布局按锚点残影补一笔 scrollTop——实测同等内容
         // 白送 +17px / +52px（不等值，随视口位置变；真 Chromium + 真 app.css +
-        // 真 styles.css 复现）。用户刚点的那颗「恢复默认」就在视口里，这一笔
-        // 就是「UI 跳一下」（2026-10-06 用户报障）。等价位重建（偏好本就是默认值）
-        // 实测分毫不动——跳的不是内容，是那笔残影。
-        // 两道都上：重建期间摘掉滚动锚定（把会被替换掉的锚点清掉，那一笔无从算起），
-        // 再把 scrollTop 原样写回（兜住重建途中任何一次强制布局可能造成的钳位）。
-        // try/finally：display() 万一抛了，也别把 overflow-anchor:none 留在容器上。
+        // 真 styles.css 复现）。用户刚点的那颗「恢复默认」就在视口里，这一笔就是
+        // 「UI 跳一下」（2026-10-06 用户报障）。等价位重建（偏好本就是默认值）实测
+        // 分毫不动——跳的不是内容，是那笔残影。两道都上：重建期间摘掉滚动锚定
+        // （把会被替换掉的锚点清掉，那一笔无从算起），再把 scrollTop 原样写回
+        // （兜住重建途中任何一次强制布局可能造成的钳位）。
+        // try/finally：重建万一抛了，也别把锚定抑制留在容器上。
         // BUG-217：摘锚定走类（`.momo-no-anchor`，规则在 80-settings/001-page.css）——
         // 旧实现写内联 overflowAnchor，那是 Obsidian 评审的 no-static-styles-assignment。
-        const top = containerEl.scrollTop
+        // 类挂在带 `.momo-settings` 的 containerEl 上（CSS 规则
+        // `.momo-settings.momo-no-anchor` 认同一元素；被替换的正是它的子树，
+        // 按 scroll-anchoring 规约该子树整体退出锚点候选）。
+        const top = target.scrollEl.scrollTop
         containerEl.classList.add('momo-no-anchor')
         try {
-          this.display()
+          target.rebuild()
         } finally {
           containerEl.classList.remove('momo-no-anchor')
-          containerEl.scrollTop = top
+          target.scrollEl.scrollTop = top
         }
+        // 这里**不再**补一次 this.update()：BUG-236 的分页形态要靠它刷页名与搜索
+        // 索引（页名现读字典 + refreshSearch）。回到经典入口后本 tab 的
+        // `settingItems` 恒为空、页名由自建页头画，update() 只会走
+        // renderTab() → 再调一次 display() 多做一遍整页重建（还会落在上面那段
+        // 摘锚定之外）。语言切换的刷新由 target.rebuild() 自己完成（建造时现读字典）。
       },
       // 写完笔记文件之后让主面板重算一次（quiet 机制把批量期间的 vault 事件丢了，
       // 与 caps 层批量操作收尾那一次 refresh 同一口径，见 context.ts 的注释）
@@ -631,19 +723,21 @@ export class MomoSettingTab extends PluginSettingTab {
     // setPrefLive 的统一收口，LookTab 改名 / 换图标都会走到。
     ctx.onPrefChange(syncHead)
 
-    // ======================= 分页建造（R8a：遍历注册表，顺序 = SECTION_TABS 声明序，
-    // 与原来的 ①–⑦ 手写调用逐一对应）=======================
+    // ======================= 分页建造（横向 tab 切显隐，不重建 DOM）=======================
+    // 七个分页的卡片一次建全（顺序 = SECTION_TABS 声明序 = tab 条顺序），paintTab
+    // 按 activeSection 切 is-active。切页因此零成本，也不重跑各 tab 开页时跑一次
+    // 的异步链（图标扫描 / 字体包状态）。
     for (const tab of visibleTabs) tab.build(ctx)
-
-    // 卡片到这里才全部建完，可以定到底哪一页可见了（ctx 是「进来时在哪一页就在哪一页」）
     paintTab(this.activeSection)
+
     // 页脚已整块移除：本页改动全部即时落盘，「自动保存」是常真的事实，不需要一排
     // UI 来说它；关闭走 Obsidian 设置弹窗自带的关闭按钮，未静默够的输入由
-    // main.ts 卸载时的 flushPendingSettings() 兜底结算（B06）。
+    // 离开分页（页 hide）与 main.ts 卸载时的 flushPendingSettings() 兜底结算（B06）。
     //
     // 页头的「全部恢复默认」已于 2026-10-04 按用户要求移除：一把梭会把目录 /
     // 语言 / 停靠侧 / 五十多个偏好同时打回默认，误触代价远超收益，而每一项本就
     // 都能在各自那一行单独改回去。恢复默认只保留**卡片级**那一颗（复杂配置卡
     // 卡头右侧，只管自己那一张卡）。
+    return batch
   }
 }

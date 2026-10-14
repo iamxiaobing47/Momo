@@ -174,18 +174,23 @@ type _NavSectionOf<T> = T extends { kind: 'nav'; section: infer S } ? (S extends
  * 编译期守卫一：MainMode 的每个值都必须在这张表里有 nav 条目。
  * 防「加了新模式却忘了在侧栏给入口」。（数的是 as const 那张私有表：放宽后的
  * 联合每个 mode 都是整个 MainMode，守卫会恒真。）
+ * `export` 只为消掉「defined but never used」（本仓 eslint 按 `^_` 忽略未用变量，
+ * 评审平台跑的那份配置没有这条忽略）：导出即「被使用」，漏 nav 条目照旧编译不过。
+ * 守卫本身一字未动。
  */
 export type RegisteredNavMode = _NavModeOf<(typeof _SIDEBAR_SLOTS)[number]>
 export type RegisteredNavSection = _NavSectionOf<(typeof _SIDEBAR_SLOTS)[number]>
 type _ModesWithoutNavItem = Exclude<MainMode, RegisteredNavMode>
-type _EveryModeHasNavItem = _AssertNever<_ModesWithoutNavItem>
+export type _EveryModeHasNavItem = _AssertNever<_ModesWithoutNavItem>
 
 /**
  * 编译期守卫二：SidebarSections 的每个键都必须有归属——section 块的 id
  * （quickStats / heatmap / locations / tags）或 nav 项的 section（review / stats / trash；
  * 「全部笔记 / 地点」常驻无键）。一张表里漏一个键，下一行的约束就不满足。
  * 防「加了开关却没人渲染，设置里拨不动」。
+ * `export` 同为消掉 unused 报告（本仓 eslint 按 `^_` 忽略，评审平台那份不忽略）：
+ * 导出即「被使用」，漏归属照旧编译不过。守卫本身一字未动。
  */
 export type RegisteredSectionId = _SectionIdOf<(typeof _SIDEBAR_SLOTS)[number]>
 type _UnregisteredSections = Exclude<keyof SidebarSections, RegisteredSectionId | RegisteredNavSection>
-type _EverySectionHasOwner = _AssertNever<_UnregisteredSections>
+export type _EverySectionHasOwner = _AssertNever<_UnregisteredSections>

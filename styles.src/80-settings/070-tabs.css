@@ -142,8 +142,10 @@
   box-shadow: inset 0 0 0 1px var(--momo-ink-6);
   color: var(--momo-ink);
 }
+/* 按压底走 --momo-press（2026-10-13 五套通则，见 080-buttons.css 同段注）：
+   本钮静置底就是 surface，surface-2 在雾蓝里与它只差 2/255，按下没有反馈。 */
 .momo-settings .momo-set-viewmove:active:not(:disabled) {
-  background: var(--momo-surface-2);
+  background: var(--momo-press);
 }
 .momo-settings .momo-set-viewmove svg {
   display: block;

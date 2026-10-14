@@ -93,8 +93,11 @@ export const COMMANDS = [
 // 都是本表的真 id——「注册表加了命令、功能表没登记」或反之都编译不过。
 // 反向不锚：四条建档命令全属 notes（它在 core/features.ts 里登记的 command 是
 // open-Momo），搬家 / 回顾这些面板家具入口不属于任何功能，这是刻意的。
+// `export` 只为消掉「defined but never used」（本仓 eslint 按 `^_` 忽略未用变量，
+// 评审平台跑的那份配置没有这条忽略）：导出即「被使用」，槽位没登记照旧编译不过。
+// 守卫本身一字未动。
 type _AssertNever<T extends never> = T
 type _CommandSlotOf<T> = T extends { slots: { command: infer V } } ? V : never
 type _DeclaredCommand = _CommandSlotOf<(typeof FEATURES)[number]>
 type _UnknownCommand = Exclude<_DeclaredCommand, (typeof COMMANDS)[number]['id']>
-type _EveryCommandSlotIsRegistered = _AssertNever<_UnknownCommand>
+export type _EveryCommandSlotIsRegistered = _AssertNever<_UnknownCommand>

@@ -16,6 +16,18 @@
   --momo-card: #ffffff;
   --momo-line: #e9e9e7;
   --momo-line-soft: #f1f1ef;
+  /* ---- 按压底（2026-10-13 用户报「雾蓝下所有按钮点下去变成白色，与背景色融为一体，
+     看不清」）----
+     消费点：80-settings 的七条 :active 规则（按钮 / chip / 分段 / 导航 chip /
+     配色卡 / 步进器 / 序位钮）。原先按压态吃 --momo-surface-2（「嵌面」令牌），
+     而本方案 page / card **同为纯白**、surface-2 #fdfdfd 与它们只差 2/255——
+     按下去等于没有反馈；主行动钮（accent 实底 + --momo-on-accent 白字）更被
+     `:active` 的 (0,4,0) 抢在 `.is-primary` (0,3,0) 前面，变成**白底白字**、
+     整颗钮在点击那一刻消失（真 Chromium 实测计算值，见 080-buttons.css 同段注）。
+     按压底因此单独一个令牌：**比静置面深一档的中性灰**（本方案的墨阶是中性灰，
+     不掺色相），与 card 1.27 / surface 1.23 / surface-2 1.25——三条都在
+     check-contrast 的 ⑧b 组（1.10）之上，产品化的门槛比对见该脚本。 */
+  --momo-press: #e4e4e4;
   --momo-ink: #4a4d50;
   --momo-ink-2: #5c5f62;
   --momo-ink-3: #65686b;

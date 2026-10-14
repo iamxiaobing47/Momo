@@ -1,4 +1,3 @@
-import { useLayoutEffect, useRef, useState } from 'react'
 import { useUi } from '../store'
 import { copy } from '../../momo/i18n'
 import {
@@ -7,7 +6,7 @@ import {
   type TagAttachmentFilter,
   type TagTimeFilter,
 } from '../../momo/tags'
-import { PopDialog } from '../kit'
+import { PopDialog, useFreePopPlacement } from '../kit'
 
 // 侧栏标签区的筛选浮层（v0.9.18）：两组 chip（最近使用 / 附件）+ 左下角「清除全部」。
 //
@@ -33,7 +32,7 @@ import { PopDialog } from '../kit'
  * 弹层尺寸。宽用于边界夹取 + TagTree 算落点时的右对齐（那边 `import { MENU_W }`）。
  * 236 是**上限**：窄侧栏（232px 那档）下 CSS 的 `.momo-pop-free { max-width:
  * calc(100% - 16px) }` 会把它收到面板宽内，chip 组自然换行——所以要按两行估算高度。
- * 高只是边界夹取的估算，不追求精确（同 TagEditMenu 的 MENU_H 口径）。
+ * 高只是 `useFreePopPlacement` 的**兜底估值**：落点夹取先量真实高度，量不到才用它。
  * 2026-10-12：组名下的口径说明删掉后每组矮了一行，210 是按「两组各换行成两排 chip」估的
  * （44 底栏 + 2 × 83）；单排 chip 的实际高度只有 ≈150，估高不估低——夹狠了浮层会贴顶。
  */
@@ -93,27 +92,21 @@ export function TagFilterMenu({
   const tagFilter = useUi((s) => s.tagFilter)
   const setTagFilter = useUi((s) => s.setTagFilter)
   const clearTagFilter = useUi((s) => s.clearTagFilter)
-  const menuRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState({ left: x, top: y })
-
-  // x / y 已由调用方换算成「相对 .momo-app」的偏移；这里再按面板尺寸夹回可视区内
-  // （弹层是 absolute 定位，坐标基准就是面板，不是窗口）。
-  // 夹完**同值就不 set**（理由同 TagSortMenu：setPos 造新对象，白搭一轮渲染）。
-  useLayoutEffect(() => {
-    const host = menuRef.current?.closest('.momo-app') as HTMLElement | null
-    const w = host?.clientWidth ?? window.innerWidth
-    const h = host?.clientHeight ?? window.innerHeight
-    const left = Math.max(8, Math.min(x, Math.max(8, w - MENU_W - 8)))
-    const top = Math.max(8, Math.min(y, Math.max(8, h - MENU_H - 8)))
-    setPos((prev) => (prev.left === left && prev.top === top ? prev : { left, top }))
-  }, [x, y])
+  // x / y 已由调用方换算成「相对 .momo-app」的偏移；夹取（先量真实尺寸再收进面板）
+  // 收在 kit 的 useFreePopPlacement 里。
+  const { dialogRef, style } = useFreePopPlacement(
+    x,
+    y,
+    { w: MENU_W, h: MENU_H },
+    { style: { width: MENU_W } },
+  )
 
   return (
     <PopDialog
       variant="free"
       ariaLabel={copy.tags.filterAria}
-      style={{ left: pos.left, top: pos.top, width: MENU_W }}
-      dialogRef={menuRef}
+      style={style}
+      dialogRef={dialogRef}
       onKeyDown={(e) => {
         if (e.key !== 'Escape') return
         e.preventDefault()

@@ -2,18 +2,21 @@
    浮层骨架（Momo · Dialog 视觉系统，2026-09-23；设计稿 docs/design/mockups/momo-dialog-v1.png）
    ----------------------------------------------------------------------------
    一处骨架、四个浮层：批量标签（加 / 去）、标签管理、卡片右键菜单、二次确认。
-   四个浮层只覆盖各自差异（卡片菜单免头部；确认框换底栏内容），不再各写一套。
+   四个浮层只覆盖各自差异（确认框换底栏内容），不再各写一套。
    解剖（设计稿 card 01–04）：容器 328 · r 12 · 描边 1px · shadow 0 8 24-8；
-   头 36（左右内缩 14；标题衬线 14.5 / 字距 .09em）；输入 32；行 28（r 8 ·
+   上内距 8（2026-10-14 起没有头行）；输入 32；行 28（r 8 ·
    左右内缩 8；图标 14；行距 2）；底 44（按钮 h 32 / r 9 / 内缩 14）。
    颜色一律走项目 token（描边 --momo-line、主按钮 --momo-accent、危险
    --momo-danger）：设计稿的 #E9E9E6 / 绿 #35745A 是 mockup 对 token 的中性化
    渲染（设计稿的 shadow 0 8 24-8 与 --momo-shadow-float 逐字相同可证），
    详见工单 2026-09-23-dialog-visual-system §3 偏离 1。
+   **头行（36px）2026-10-14 整块退役**：`.momo-pop-head` / `.momo-pop-meta` /
+   `.momo-pop-nohead` 三个类随最后一个消费者（标签管理弹层右上角 `#{tag}`）一起
+   删除，上内距归 `.momo-pop` 自己；更早退役的 `.momo-pop-title` 见 BUG-187。
 
    ---- v0.9.26 密度一刀（用户反馈「所有的 dialog 都很大，空间利用率低」）----
    骨架的整体收紧，**六个调用点（含确认弹窗）一次到位**，不为某个弹层开小灶：
-     头 44 → 36    输入 34 → 32    行 32 → 28
+     头 44 → 36（2026-10-14 整块退役）    输入 34 → 32    行 32 → 28
      底 54 → 44    列表上限 264 → 300    列表行距 3 → 2
    少的是 chrome，多的是内容：同样一屏，列表从 8 行变 10 行（300 / (28+2)）。
    与之配套的「去装饰」在组件层：标签管理弹层的候选行不再画恒空的 check 圈
@@ -36,47 +39,21 @@
 /* 弹层本体。位置两种用法二选一：
    ① 锚定（.momo-pop-below，fab 里由 .momo-fab .momo-pop 翻到向上开）：
       挂在 .momo-batchtag-wrap（position: relative）下；
-   ② 自由落点（.momo-pop-free，JS 换算相对 .momo-app 的 left/top）。 */
+   ② 自由落点（.momo-pop-free，JS 换算相对 .momo-app 的 left/top）。
+   上内距 8：首块自带的上内距只有 5px，顶边会显挤，补到与左右 14px 相称的一刀。
+   2026-10-14 起这不变量直接住在基类（头行整块退役，`.momo-pop-nohead` 随之删除）。 */
 .momo-pop {
   position: absolute;
   z-index: var(--momo-z-pop);
   width: 328px;
   display: flex;
   flex-direction: column;
+  padding-top: 8px;
   border-radius: var(--momo-r-4);
   border: 1px solid var(--momo-line);
   background: var(--momo-card);
   box-shadow: var(--momo-shadow-float);
   font-family: var(--momo-sans);
-}
-
-/* 不渲染头行的弹层（2026-10-02 起 free 小浮层都不要左上角标题；2026-10-10 起批量
-   标签弹层连标题带「已选 N 条」都不往头顶放，见 BatchTagPicker 文件头）：首块自带的
-   上内距只有 5px，顶边会显挤，由壳补到与左右 14px 相称的一刀。 */
-.momo-pop-nohead {
-  padding-top: 8px;
-}
-
-/* 头部：h 36、左右内缩 14（v0.9.26 起 44 → 36）。只在调用方真传 title / meta 时
-   渲染（都不传 → `.momo-pop-nohead`，见上）。2026-10-10 起七个调用点全都不再传
-   title（批量标签 / 地点两个弹层跟删，那些话入口按钮已经说过一遍），头部眼下只剩
-   meta 一类行内小字——`.momo-pop-title` 与它唯一的消费者 `--momo-serif` 随
-   BUG-187 一并退役。 */
-.momo-pop-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 36px;
-  flex: none;
-  padding: 0 14px;
-}
-
-.momo-pop-meta {
-  margin-left: auto;
-  font-size: var(--momo-fs-2);
-  color: var(--momo-ink-3);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
 }
 
 /* 头部与输入之间的说明行（去模式「只摘标签本身，不动子标签」这类控件不自明的坑；
@@ -183,7 +160,8 @@
   padding: 5px;
 }
 
-/* 分组标签：常一起出现 / 全部标签 / 这批 Momo 身上有 / 合并到已有标签 */
+/* 分组标签：常一起出现 / 全部标签 / 这批 Momo 身上有 / 合并到已有标签。
+   上内距 3 是它与上一行（候选行 / chip 队列）之间的呼吸位，与列表的 gap 2 一起看。 */
 .momo-pop-seclabel {
   padding: 3px 8px 1px;
   font-size: var(--momo-fs-2);
@@ -191,8 +169,14 @@
   color: var(--momo-ink-3);
 }
 
+/* 列表里**第一个**分组标签（加模式的「常一起出现」；没有建议时是「全部标签」）：
+   它上面没有候选行，直接贴着输入框 / 新建行——列表自己的 5px 上内距是唯一的一刀，
+   真 Chromium 量出来只剩 ~6px，比组间（行底 → 下一组标题 ~10px）明显挤。
+   2026-10-14 用户报「常一起出现，上方最好有几个px的空白」，补到 4px：
+   5 + 4 = 9px，与「全部标签」组上方的观感同一档。
+   旧的 `padding-top: 0`（「首块不重复吃内距」的想当然）就是这条报障的来源。 */
 .momo-pop-seclabel:first-child {
-  padding-top: 0;
+  padding-top: 4px;
 }
 
 /* 行：h 28 · r 8 · 左右内缩 8（v0.9.26 起 32 → 28）。三态——未选（空心圈）/ 待处理（accent 实心白勾）/
@@ -299,23 +283,14 @@
   padding: 5px 8px;
 }
 
-/* check 圈与**第一行**文字对齐（不是两行的垂直中心）：14px 圈配 13px 首行 */
-.momo-app .momo-pop-list-twoline .momo-pop-check {
-  margin-top: 1px;
-}
-
-/* 组合方式浮层：选中行的 check 圈**不跟着染 accent**（2026-10-13 用户裁决）。
-   这一层是单选（两行里只有一行能 on），选中已经由「行底色 + 字重 + 文字色」说了三遍，
-   圈再变一次蓝就成了第四遍——而它恰好是弹层里最小、最先被看到的一枚图形。
-   保留空心圈 + 中性勾：形状仍然说「就是这一行」，不靠颜色。
-   共享规则上面那条不动：批量标签弹层的 accent 实心圈是「已进待处理队列」的语义色，
-   那边要的就是一眼分清「待处理 / 全命中」。
-   不带 .momo-app 前缀：(0,3,0) 已经压得住共享那条 (0,2,0)，不必再加一层。 */
-.momo-pop-list-twoline .momo-pop-row-on .momo-pop-check {
-  background: transparent;
-  border-color: var(--momo-ink-5);
-  color: var(--momo-ink-4);
-}
+/* 两行列表里的 check 圈**没有规则**（2026-10-14 用户裁决）：组合方式浮层的两行走
+   PopRow 的 bare，左列图标整列退休（理由在 TagMatchMenu / PopRow 的文件头）。
+   随它一起退役的还有两条只为它存在的规则：
+     - `.momo-pop-list-twoline .momo-pop-check { margin-top: 1px }`（圈与首行对齐）；
+     - `.momo-pop-list-twoline .momo-pop-row-on .momo-pop-check { … }`（2026-10-13
+       用户裁决「选中行的圈别染 accent」，当时留了空心圈 + 中性勾）。
+   共享的 .momo-pop-check 三条规则一行不动：批量标签弹层（BatchTagPicker）的
+   accent 实心圈是「已进待处理队列」的语义色，那边要的就是一眼分清「待处理 / 全命中」。 */
 
 .momo-app .momo-pop-list-twoline .momo-pop-label {
   display: flex;
@@ -386,8 +361,8 @@
   min-width: 0;
 }
 
-/* 状态块第一行：「已选 N 条」。与 .momo-pop-meta 同款小字 + 表格数字，只是不再
-   靠 margin-left: auto 贴右边（底栏左列才是它的位置）。 */
+/* 状态块第一行：「已选 N 条」。fs-2 小字 + 表格数字（2026-10-14 前与
+   已退役的 `.momo-pop-meta` 同款），不靠 margin-left: auto 贴右边——底栏左列才是它的位置。 */
 .momo-pop-count {
   font-size: var(--momo-fs-2);
   color: var(--momo-ink-3);

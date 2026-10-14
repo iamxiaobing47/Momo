@@ -87,6 +87,11 @@
   --momo-card: #ffffff;
   --momo-line: #cfe6ef;
   --momo-line-soft: #e0f0f6; /* 卡片分隔线，比 line 淡一档 */
+  /* 按压底（2026-10-13 横展）：见 mist-blue.css 同段注。本方案侧栏 surface（#d2edf4）
+     比 card 深一档，按压底取同族青一档的 #b0dae8（card 1.50 / surface 1.22 /
+     surface-2 1.32）——过 check-contrast ⑧b 组（1.10）。⚠️ 别用中性灰：晴空青
+     是这套「晴天感」的全部来源（同本文件头注的铁律，与蛤白同款）。 */
+  --momo-press: #b0dae8;
 
   /* ---- 墨阶 · 靛青黑（H218 冷青黑，不是纯黑也不是暖黑）----
      六档一律按 card / page / surface / surface-2 / accent-soft 五底 ≥4.5 取

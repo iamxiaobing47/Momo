@@ -3,7 +3,7 @@
  * stats group names…). Declared with `Record<enum, …>` so that adding an enum
  * member without copy fails to compile.
  */
-import type { BrandIcon, ColorScheme, FontRole, StatsGroupKey, TagMatchMode, TagSortKey } from '../../types'
+import type { BrandIcon, ColorScheme, FontPackId, FontRole, StatsGroupKey, TagMatchMode, TagSortKey } from '../../types'
 import type { TagAttachmentFilter, TagTimeFilter } from '../../tags'
 import { CHAR_BIN_UPPER } from '../../stats/constants'
 
@@ -70,12 +70,25 @@ export const meta = {
   } satisfies Record<BrandIcon, string>,
 
   /** Obsidian font-role names (v1.0.0; ids = FONT_ROLES in types/prefs.ts).
-   *  These map to the three font settings under Obsidian's Appearance settings. */
+   *  These map to the font settings under Obsidian's Appearance settings.
+   *  2026-10-13 (request: only "Default" and "Monospace" in the font tiles):
+   *  the interface / text roles retired from the settings UI — their on-disk
+   *  values keep working (see RETIRED_FONT_ROLES in prefs.ts), so only the
+   *  monospace name is left here. */
   fontRole: {
-    interface: 'Interface',
-    text: 'Text',
     monospace: 'Monospace',
   } satisfies Record<FontRole, string>,
+
+  /** Open-source font pack names (2026-10-13, on-demand download revival of the
+   *  retired bundled fonts; ids = FontPackId in types/prefs.ts, pack table in
+   *  momo/fonts/pack.ts). Kept short — the tile's name row has a 94px content box
+   *  (BUG-87 truncation lesson: "LXGW WenKai" at 15 characters is the ceiling). */
+  fontPack: {
+    wenkai: 'LXGW WenKai',
+    'noto-sans': 'Noto Sans SC',
+    'noto-serif': 'Noto Serif SC',
+    'jetbrains-mono': 'JetBrains Mono',
+  } satisfies Record<FontPackId, string>,
 
   /** The body-length bins (indices match charBins in stats.ts); numbers come from charBin above */
   charBin,

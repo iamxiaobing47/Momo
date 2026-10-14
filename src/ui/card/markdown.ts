@@ -1,4 +1,5 @@
 import { TAG_RE_HEAD, TAG_RE_TAIL, TAG_TAIL_RE, mapOutsideCode } from '../../momo/tags'
+import type { MomoDomFactory } from '../store/types'
 
 // 卡片正文的 Markdown 预处理（纯函数，不碰 React）。
 // 三件事：行首 Tab 转占位元素、剥掉行内 #标签、把搜索词包成 <mark>。
@@ -55,8 +56,13 @@ export function prepareCardBody(content: string): string {
  * 纯 DOM 操作（**不**重渲染 Markdown，否则每次输入都要把全部命中卡片的
  * MarkdownRenderer 重跑一遍）：先撤掉旧的 `<mark>`，再用 TreeWalker 包住命中的
  * 文字节点；跳过 code / pre / a —— 在代码块与链接内部插标签会破坏渲染结果。
+ *
+ * `dom` = 注入的宿主 DOM 工厂（BUG-235）：本层不许 import obsidian、也不许直接
+ * `document.createElement`（评审 `prefer-create-el`），建 `<mark>` 与文档片段
+ * 经 caps.dom 下沉到 views 侧。`document.createTextNode` / `createTreeWalker`
+ * 不在该规则管辖内，照旧直接调。
  */
-export function highlightMatches(root: HTMLElement, query: string): void {
+export function highlightMatches(root: HTMLElement, query: string, dom: MomoDomFactory): void {
   for (const hit of Array.from(root.querySelectorAll('mark.momo-hit'))) {
     const parent = hit.parentNode
     if (!parent) continue
@@ -81,13 +87,14 @@ export function highlightMatches(root: HTMLElement, query: string): void {
   for (const node of targets) {
     const text = node.nodeValue ?? ''
     const lower = text.toLowerCase()
-    const frag = document.createDocumentFragment()
+    const frag = dom.fragment()
     let i = 0
     let at = lower.indexOf(q, i)
     while (at >= 0) {
       if (at > i) frag.appendChild(document.createTextNode(text.slice(i, at)))
-      const mark = document.createElement('mark')
-      mark.className = 'momo-hit'
+      // BUG-235：建 <mark> 走注入的工厂（类名在创建时整体赋上，与旧的
+      // `document.createElement('mark')` + `mark.className = 'momo-hit'` 逐字等价）
+      const mark = dom.el('mark', 'momo-hit')
       mark.textContent = text.slice(at, at + q.length)
       frag.appendChild(mark)
       i = at + q.length

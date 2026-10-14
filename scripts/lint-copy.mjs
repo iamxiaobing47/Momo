@@ -5,7 +5,7 @@
 //   node scripts/lint-copy.mjs           # 有残留 → 列出并 exit 1（CI / 提交前）
 //   node scripts/lint-copy.mjs --report  # 只报告不失败（迁移期当进度尺）
 //
-// 三类**刻意**的例外（都在下面的白名单里，改动前先读理由）：
+// 四类**刻意**的例外（都在下面的白名单里，改动前先读理由）：
 //   1. 开发者日志（console.* 的参数）：日志要稳定、可 grep，不随用户语言变；
 //   2. 会落盘的默认值（DEFAULT_BRAND_NAME）：它是 data.json 里的数据，不是界面文案；
 //      本地化它会悄悄改写用户已存的值 —— 详见 i18n/zh/meta.ts 的说明；
@@ -14,6 +14,9 @@
 //      中文，星球上的坐标也没有本地化一说，i18n 只管「大洲 / 国家 / 地点」三个
 //      档位名与设置页标签（完整论证见该文件头注释）。用 ctx: '*' 整文件豁免：
 //      字典值挂在城市名（属性名）下，逐条 ctx 列不出来。
+//   4. 首次安装的播种卡内容（service/firstCard.ts）：与 2 同类——它是写进用户
+//      vault 的**落盘内容**（正文 / 标签 / 地点），三语同一张卡。它也不能住进
+//      i18n 字典：i18n-glyph-guard 挡的正是「ja 字典里混进简体专用字形」。
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -32,6 +35,12 @@ const ALLOW = [
   { file: 'momo/types/prefs.ts', ctx: 'DEFAULT_BRAND_NAME', why: '落盘默认值（数据，不是文案）' },
   { file: 'momo/locations/locRegions.ts', ctx: '*', why: '内置地名归属字典（专有名词数据，不本地化）' },
   { file: 'momo/locations/locRoster.ts', ctx: '*', why: '世界城市名册（三语地名数据，专有名词，不本地化）' },
+  // 首次安装播种卡的内容（正文 / 标签 / 地点）：与 DEFAULT_BRAND_NAME 同一类——
+  // 它是**写进用户 vault 的落盘内容**，不是渲染出来的界面文案，三语同一张卡
+  // （2026-10-13 用户裁决）。它也不能住进 i18n：`i18n-glyph-guard` 挡的正是
+  // 「ja 字典里混进简体专用字形」，「问候」当场就红（详见该文件头注释）。
+  { file: 'momo/service/firstCard.ts', ctx: 'FIRST_CARD_TAG', why: '首次播种卡的落盘标签（数据，不是文案）' },
+  { file: 'momo/service/firstCard.ts', ctx: 'FIRST_CARD_LOCATION', why: '首次播种卡的落盘地点（名册正名，专有名词数据）' },
 ]
 // （原第二条白名单 `ExportSummary` 随导出功能整块移除：那个「导出-小记-*.md」
 //   文件名前缀已经不存在，白名单条目同步退场。）

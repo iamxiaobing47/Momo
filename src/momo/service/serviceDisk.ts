@@ -202,6 +202,10 @@ export const DEFAULT_DATA: MomoData = {
     // 语义图标覆写表（v0.9.36「每个图标可配置」）：空表 = 全 Momo 原形。
     // 老盘没有这个键 → 回默认（升级后界面逐像素不变）
     icons: {},
+    // 首次自动开面板的记账（2026-10-13）：false = 插件加载完自动开一次（口径与
+    // 「只开一次」的裁决见 types/entry.ts 的字段注释）。老盘没有这个键 → 回默认，
+    // 升级后的第一次启动也会自动开一次，此后由用户自己开关
+    panelAutoOpened: false,
   },
 }
 
@@ -359,6 +363,9 @@ export function prefsFromDisk(raw: Record<string, unknown>): MomoData['prefs'] {
     // 语义图标覆写表（v0.9.36）：旧 data.json 无此键 → 空表（全 Momo 原形，
     // 升级后界面逐像素不变）；脏键 / 脏值整条丢，见 sanitizeIconOverrides
     icons: sanitizeIconOverrides(view.icons),
+    // 首次自动开面板的记账（2026-10-13）：只认布尔（boolOf）——手改的 "true" / 1
+    // 这类脏值一律回 false（宁可多开一次，也别把「没开过」误判成开过而再也不开）
+    panelAutoOpened: boolOf(view.panelAutoOpened, false),
   }
 }
 

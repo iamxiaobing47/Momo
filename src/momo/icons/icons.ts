@@ -222,10 +222,13 @@ export const ICON_NAMES = [
 ] as const satisfies readonly IconName[]
 
 /** 编译期守卫：IconName 加了成员却忘了进 ICON_NAMES → 这一行编译失败。
- *  形式同 store/types.ts 的侧栏开关守卫：形参约束才真拦（赋值写法恒成立）。 */
+ *  形式同 store/types.ts 的侧栏开关守卫：形参约束才真拦（赋值写法恒成立）。
+ *  `export` 只为消掉「defined but never used」（本仓 eslint 按 `^_` 忽略未用变量，
+ *  评审平台跑的那份配置没有这条忽略）：导出即「被使用」，漏登记照旧编译不过。
+ *  守卫本身一字未动。 */
 type _MissingIcon = Exclude<IconName, (typeof ICON_NAMES)[number]>
 type _AssertNever<T extends never> = T
-type _AllIconsListed = _AssertNever<_MissingIcon>
+export type _AllIconsListed = _AssertNever<_MissingIcon>
 
 // ── Lucide 图标库接入（下一个版本「每个图标可配置」）──────────────────────────
 //

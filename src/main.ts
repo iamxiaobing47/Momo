@@ -52,10 +52,27 @@ export default class MomoPlugin extends Plugin {
     // vault 事件 → 刷新 React 视图（索引随事件重建，不轮询）
     this.unsubscribe = this.service.onChange(() => void useUi.getState().refresh())
 
+    // 首次安装播种（2026-10-13）：全新安装 + 库内一条 Momo 文件都没有 → 建一张
+    // 欢迎卡（正文 / 标签 / 地点 = service/firstCard.ts 那三样常量，三语同一张）。
+    // 挂在 init 之后（那时 settings / prefs 才是真的）。内容不随界面语言变，
+    // 所以不依赖 setLocale 的时机；放在这里是因为它是「用户的第一条内容」，
+    // 应该在设置就位、vault 事件已注册之后落盘。
+    // 不 await：它只写一个文件，不该拖住插件加载；失败记日志、其余注册照旧
+    // （与 init 失败的降级同一口径，BUG-130a）。两道闸（全新安装 / 库还空着）在
+    // service.seedFirstCard 里，没事发生时它安静地返回 null。
+    void this.service.seedFirstCard().catch((e) => {
+      console.error('[Momo] 首次安装播种失败', e)
+    })
+
     // 布局变化 → 记住面板被拖到哪一侧（只在「恰好一个面板」时记，避免搬家过程中的竞态）
     this.registerEvent(this.app.workspace.on('layout-change', () => this.rememberPanelSide()))
 
     this.registerView(VIEW_MOMO, (leaf) => new MomoView(leaf, this.service, this))
+
+    // 首次安装 / 首次启用：布局就绪后自动把面板开在停靠侧（默认右栏），
+    // 「装完插件就能看见 Momo」；只做这一次，之后由用户自己开关
+    // （记账键 prefs.panelAutoOpened，裁决与口径见 types/entry.ts 的字段注释）。
+    this.app.workspace.onLayoutReady(() => void this.autoOpenPanelOnce())
 
     // 命令面板 / Ribbon 里的品牌词：取用户设置的那个（默认「Momo」），不再写死。
     // BUG-131d 口径勘正：`addCommand` 的 name 是 Obsidian 的**静态字段**，改名后要
@@ -137,6 +154,29 @@ export default class MomoPlugin extends Plugin {
     // dispose 同一处收尾。
     this.settingsTab?.flushPendingSettings({ cancelDirs: true })
     void this.service.persist().catch((e) => console.error('[Momo] 卸载前保存偏好失败', e))
+  }
+
+  /**
+   * 首次安装 / 首次启用时自动开一次面板（2026-10-13 用户要求「安装完插件后，
+   * Momo 可以出现在右侧侧边栏」；「只开这一次」的裁决与理由见
+   * types/entry.ts 的 prefs.panelAutoOpened 字段注释）。
+   *
+   * 跑在 onLayoutReady 之后：布局恢复已经走完，此刻 getLeavesOfType() 才答得出
+   * 「用户上次就是开着退出的」——那种盘面只记账，不再开第二个叶子。
+   * 停靠侧仍走 settings.panelSide（默认右栏 = 用户要的右侧；用户此前把面板拖到
+   * 左边的话，这里尊重那一侧，不硬掰回右）。
+   *
+   * 记账落盘失败只记日志：面板已经开出来了、用户看得见，下次启动再试一次即可；
+   * 为了记账把刚开出来的面板收回去才是真的糟。
+   */
+  private async autoOpenPanelOnce(): Promise<void> {
+    if (this.service.data.prefs.panelAutoOpened) return
+    try {
+      if (this.app.workspace.getLeavesOfType(VIEW_MOMO).length === 0) await this.openView()
+      await this.service.savePrefs({ panelAutoOpened: true })
+    } catch (e) {
+      console.error('[Momo] 首次自动打开面板失败', e)
+    }
   }
 
   /**

@@ -211,6 +211,15 @@ export const settingsPage = {
       /** 行内の形式説明（desc より弱い 11px の補足行） */
       formats: (d: { maxMB: number; max: number }): string =>
         `PNG / JPG / WebP / SVG / GIF 対応、1ファイル${d.maxMB}MBまで、最大${d.max}枚`,
+      /** 2026-10-14 ユーザー要請「icons フォルダ内のアイコンを自動認識し、内容が
+       *  重複するアイコンを自動でまとめる」、続けて「重複した内容は削除し、最新の
+       *  1つだけ残す」：スキャン結果の一行フィードバック。unique = 残した枚数、
+       *  files = 整理前に認識したファイル数（テスト・照合用）、removed = この回で
+       *  実際に削除した重複コピーの数。 */
+      scanned: (d: { unique: number; files: number; removed: number }): string =>
+        d.removed > 0
+          ? `icons フォルダ内の ${d.unique} 個のアイコンを認識しました（内容が重複する古いファイルを ${d.removed} 個削除し、最新の 1 つだけ残しました）`
+          : `icons フォルダ内の ${d.unique} 個のアイコンを認識しました`,
       tooBig: (maxMB: number, actualMB: number): string =>
         `画像は${maxMB}MBまでです（現在${actualMB}MB）。左上のアイコンは30pxしかないため、大きすぎる画像に意味はありません。`,
       badType: 'PNG / JPG / WebP / SVG / GIF の画像のみ対応しています。',
@@ -332,9 +341,12 @@ export const settingsPage = {
     },
     /** フォント（v0.9.16、ユーザー要望「システムフォントとカードフォントを
      *  別々に設定」）：パネル用とカード用の2行。タイルはそのフォント自体で
-     *  サンプルを描画し、別途システムにインストール済みのフォント名を受け付ける入力欄を
-     *  置く。4つのオープンソースフォントはプラグイン同梱（fonts/ + 実行時
-     *  @font-face）でオフラインで使える。ライセンスは fonts/OFL-1.1.txt。 */
+     *  サンプルを描画する。v1.0.0 からは Obsidian 自身のフォントを使用（同梱の
+     *  4書体は退役）。2026-10-06：システムインストール済みフォント名の入力欄を
+     *  ユーザー要望で移除。2026-10-13：ユーザー要望「デフォルトと等幅の2つだけ」
+     *  によりインターフェース / 本文の2枠も移除——2回の移除とも盤上の古い値は
+     *  読み取り・効果とも維持（sanitizeFontPref と prefs.ts の RETIRED_FONT_ROLES
+     *  参照）、入力入口がなくなるだけ。各行に残るは「デフォルト + 等幅」の2枠。 */
     fonts: {
       title: 'フォント',
       // 2026-10-11 ユーザー要望「これを消して」：カード見出しの説明文はまるごと削除。
@@ -377,6 +389,19 @@ export const settingsPage = {
         // タイルはこの行の中にあり、それ自身で語る。
         desc: 'カードの本文とタイトルに使うフォント。',
       },
+      /** 未ダウンロードの字体パックタイルのサイズ注記（2026-10-13、ユーザー要望
+       *  「字体ファイルの大きさを提示」）：MB は小数一位、KB は整数——27.6MB と
+       *  187KB の差を一関数で語り、呼び出し側で分岐しない。 */
+      packSize: (bytes: number): string =>
+        bytes >= 1_000_000 ? `約${(bytes / 1_000_000).toFixed(1)} MB` : `${Math.round(bytes / 1000)} KB`,
+      download: 'ダウンロード',
+      downloading: (done: number, total: number): string => `ダウンロード中 ${done}/${total}…`,
+      /** ダウンロード確認框（未ダウンロードのタイルを押したとき）：名前 + 合計サイズ
+       *  + 「ダウンロードを押したときだけ起こる」。 */
+      downloadConfirm: (o: { name: string; size: string }): string =>
+        `「${o.name}」はまだダウンロードされていません。GitHub Release から字体ファイル（合計 ${o.size}）を取得します。ダウンロードを押したときだけ起こります。`,
+      downloadFailed: (failed: number, total: number): string =>
+        `ダウンロードに失敗しました（${failed}/${total} ファイル）——このタイルを押して再試行できます。`,
     },
   },
 

@@ -42,8 +42,9 @@ export interface CardActionsProps {
   /** 设地点（单条，F3）：卡片操作行第 4 颗 mappin。x/y 由本组件按按钮位置
        换算成「相对 .momo-app」的偏移——弹层是 free 变体，落点夹取量的是宿主面板 */
   onLoc?: (path: string, x: number, y: number) => void
-  /** 加标签（单条）：卡片操作行的「加标签」按钮 */
-  onTag?: (paths: string[]) => void
+  /** 加标签（单条）：卡片操作行的「加标签」按钮。第二参 = 与上一颗同一套换算的
+        按钮落点（2026-10-14 起单卡弹层走 free 变体，开在按钮旁边而不是顶栏锚点下）。 */
+  onTag?: (paths: string[], at?: { x: number; y: number }) => void
   /** 能力由 App 层注入（ui/ 不 import obsidian）；由调用方从 store 传入，不在此订阅 */
   caps: MomoCaps | null
 }

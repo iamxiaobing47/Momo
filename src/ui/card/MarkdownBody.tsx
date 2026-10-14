@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useUi } from '../store'
 import type { MomoCaps } from '../store'
+// MomoDomFactory 不经 store 的公开面再导出（index.ts 的 export type 清单是别人的
+// 写面），与 markdown.ts 同路：直接从 types 取
+import type { MomoDomFactory } from '../store/types'
 import { highlightMatches, prepareCardBody } from './markdown'
 
 /**
@@ -94,9 +97,13 @@ export const MARKDOWN_HOST_CLASS = 'markdown-rendered'
  * 渲染用的**游离容器**——实时路径与预热路径共用这一个准备步骤（BUG-120，别各写一遍）。
  * 实时路径传卡容器的类名（含 markdown-rendered 与自家 momo-* 作用域）；预热没有卡容器，
  * 只带渲染器认的那个类。无论哪条路，`markdown-rendered` 都必须在。
+ *
+ * `dom` = 注入的宿主 DOM 工厂（BUG-235）：这一层不许 import obsidian、也不许直接
+ * `document.createElement`（评审 `prefer-create-el`），建容器经 caps.dom 下沉到
+ * views 侧。类名赋法逐字未变（`className` 整体赋值 + `classList.add` 补渲染器认的类）。
  */
-function detachedHost(className?: string): HTMLDivElement {
-  const box = document.createElement('div')
+function detachedHost(className: string | undefined, dom: MomoDomFactory): HTMLDivElement {
+  const box = dom.el('div')
   box.className = className ?? MARKDOWN_HOST_CLASS
   box.classList.add(MARKDOWN_HOST_CLASS)
   return box
@@ -115,7 +122,7 @@ export async function warmBodyCache(
   if (!caps) return
   const hit = bodyCache.get(cacheKey)
   if (hit && hit.caps === caps && hit.content === content) return
-  const box = detachedHost()
+  const box = detachedHost(undefined, caps.dom)
   try {
     await caps.renderMarkdown(box, prepareCardBody(content))
     // box 这一趟就丢，子节点所有权直接转给缓存（不再 clone——预热是性能路径，
@@ -175,6 +182,11 @@ export function MarkdownBody({
     if (!visible) return
     if (!caps || !ref.current) return
     const el = ref.current
+    // BUG-235：宿主 DOM 工厂随 caps 注入。解构取出来（而不是在 effect 里写
+    // `caps.dom`）——`react-hooks/exhaustive-deps` 对成员表达式的依赖归并到
+    // 「最外层被调用的对象」，`caps.dom.el(...)` 会被要求把 `caps.dom` 列进依赖；
+    // 解构后 `dom` 是本 effect 的局部量，依赖面仍是 `caps` 一个。
+    const { dom } = caps
     // 命中缓存（切密度 / 重开面板后的重挂载、回顾跳到看过的条目）：同步回填，
     // 不再跑一趟 Obsidian 的 MarkdownRenderer——那正是「切一下密度，内容逐个
     // 蹦出来」的来源。三项比对（caps / content / 键本身）见文件顶的缓存注释。
@@ -189,7 +201,7 @@ export function MarkdownBody({
       // 必须 clone：命中路径下 `highlightMatches` 是就地改 DOM 的（见文件顶的缓存注释）。
       // 守卫 scripts/bodycache-script-guard.test.mts 钉住「回填路径不许出现解析 API」。
       el.replaceChildren(...hit.nodes.map((n) => n.cloneNode(true)))
-      highlightMatches(el, searchRef.current)
+      highlightMatches(el, searchRef.current, dom)
       return
     }
     // B13：cancelled 防渲染竞态——content 连续变化（快速切搜索/筛选）时前一次
@@ -200,7 +212,7 @@ export function MarkdownBody({
     let cancelled = false
     // 连带 el 的类名：MarkdownRenderer 会按容器的 markdown-rendered 等类决定怎么
     // 生成样式，游离容器上缺了它，搬回 el 后个别元素（标题 / 列表 / 表格）会走错外观。
-    const box = detachedHost(el.className)
+    const box = detachedHost(el.className, dom)
     // 先清展示区：渲染在游离容器里进行，这一帧的内容决定后整体搬回，不闪旧卡。
     el.empty()
     // caps.renderMarkdown 是异步的，非法内容 / 渲染抛错时把错误吞掉、不让它变成
@@ -218,7 +230,7 @@ export function MarkdownBody({
         const nodes = Array.from(box.childNodes)
         if (cacheKey) bodyCache.set(cacheKey, { caps, content, nodes: nodes.map((n) => n.cloneNode(true)) })
         el.replaceChildren(...nodes)
-        highlightMatches(el, searchRef.current)
+        highlightMatches(el, searchRef.current, dom)
       })
       // 注释承诺的「吞掉」落实在 catch：void 只丢值不接 rejection，漏出去就是
       // 面板未接住的 unhandled rejection（与 warmBodyCache 的 try/catch 同口径）
@@ -231,11 +243,14 @@ export function MarkdownBody({
     }
   }, [caps, content, visible, cacheKey])
 
-  // 搜索词变化：只重做高亮（纯 DOM），不重渲染 Markdown；未进视口的卡还没渲染，跳过
+  // 搜索词变化：只重做高亮（纯 DOM），不重渲染 Markdown；未进视口的卡还没渲染，跳过。
+  // caps 只为拿注入的宿主 DOM 工厂（BUG-235）——进依赖面是因为高亮确实随它变，
+  // 而工厂随 caps 实例走（每次 init 都 new）；caps 为 null（面板还没装配好）时跳过。
   useEffect(() => {
-    if (!visible) return
-    if (ref.current) highlightMatches(ref.current, search)
-  }, [search, visible])
+    if (!visible || !caps) return
+    const { dom } = caps
+    if (ref.current) highlightMatches(ref.current, search, dom)
+  }, [search, visible, caps])
 
   // 拖选文字的松手同样会冒一次 click（双击选词的第二击 detail=2、三击选段同理）：
   // 那是「选中」不是「打开」，不拦住的话每次想复制几行正文都会被带进编辑器

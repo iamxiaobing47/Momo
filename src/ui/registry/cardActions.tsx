@@ -35,7 +35,9 @@ export interface CardActionCtx {
    */
   mode: MainMode
   onLoc?: (path: string, x: number, y: number) => void
-  onTag?: (paths: string[]) => void
+  /** 加标签（单条，见注册表里 addTag 的注释）：第二参 = 那颗按钮相对 `.momo-app`
+   *  的落点（free 变体弹层用）。批量那一路不走这里（store 的 toggleTagPicker）。 */
+  onTag?: (paths: string[], at?: { x: number; y: number }) => void
   caps: MomoCaps | null
 }
 
@@ -60,6 +62,17 @@ export interface CardMenuActionDef {
   id: string
   feature: string
   render: (ctx: CardMenuCtx) => JSX.Element
+}
+
+/** 卡片操作行上那颗按钮的落点：换算成「相对 `.momo-app`」的偏移（free 变体弹层用）。
+ *  「加标签」与「设地点」两颗共用一份——两颗弹层挂在同一排、同一套落点口径，
+ *  各写一遍必然漂移（BUG-242 那族：落点口径只该有一个真源）。换算只需要按钮这一下，
+ *  弹层自己再也不碰真实 DOM。量不到 `.momo-app`（理论上不会）时退回 (0,0) 兜底。 */
+function buttonAnchor(btn: HTMLElement): { x: number; y: number } {
+  const app = btn.closest<HTMLElement>('.momo-app')
+  const rect = btn.getBoundingClientRect()
+  const base = app?.getBoundingClientRect()
+  return { x: rect.left - (base?.left ?? 0), y: rect.bottom - (base?.top ?? 0) }
 }
 
 const _CARD_ACTIONS = [
@@ -92,13 +105,16 @@ const _CARD_ACTIONS = [
     feature: 'notes',
     // trash 模式不出：回收站的条目不会再进列表，加标签没有着落
     visible: (c: CardActionCtx) => c.showCardTag && c.mode !== 'trash',
+    // 落点按「相对 .momo-app」换算后交给 store 的 openTagPicker（与下一颗 mappin
+    // 同一路数，共用 buttonAnchor）：单卡弹层因此开在这颗按钮旁边，而不是顶栏
+    // 锚点下——按钮在卡片上，锚点在顶栏，隔着半屏（用户报「偶尔距离卡片很远」）。
     render: (c: CardActionCtx) => (
       <button
         className="momo-card-act"
         aria-label={copy.card.addTag}
         onClick={(e) => {
           e.stopPropagation()
-          c.onTag?.([c.path])
+          c.onTag?.([c.path], buttonAnchor(e.currentTarget))
         }}
       >
         <Icon name="tag" size={14} />
@@ -118,11 +134,8 @@ const _CARD_ACTIONS = [
         aria-label={copy.card.setLocation}
         onClick={(e) => {
           e.stopPropagation()
-          const btn = e.currentTarget
-          const app = btn.closest<HTMLElement>('.momo-app')
-          const rect = btn.getBoundingClientRect()
-          const base = app?.getBoundingClientRect()
-          c.onLoc?.(c.path, rect.left - (base?.left ?? 0), rect.bottom - (base?.top ?? 0))
+          const { x, y } = buttonAnchor(e.currentTarget)
+          c.onLoc?.(c.path, x, y)
         }}
       >
         <Icon name="mappin" size={14} />
@@ -221,8 +234,11 @@ export const CARD_MENU_ACTIONS: readonly CardMenuActionDef[] = _CARD_MENU_ACTION
 // 两个注册表**各锚一次**（BUG-224）：并成 `A | B` 一个联合时，两边含同一个 feature
 // （菜单里的 'notes' 同时也在操作行里）会让那层联合出现重复成员，
 // `no-duplicate-type-constituents` 报错；分开锚还各自说得出「是哪张表漏了」。
+// `export` 只为消掉「defined but never used」（本仓 eslint 按 `^_` 忽略未用变量，
+// 评审平台跑的那份配置没有这条忽略）：导出即「被使用」，拼错 feature id 照旧编译不过。
+// 守卫本身一字未动。
 type _AssertNever<T extends never> = T
 type _ActionFeatureOf<T> = T extends { feature: infer F } ? F : never
 type _UnknownActionFeatureOf<T> = Exclude<_ActionFeatureOf<T>, (typeof FEATURES)[number]['id']>
-type _EveryActionFeatureIsReal = _AssertNever<_UnknownActionFeatureOf<(typeof _CARD_ACTIONS)[number]>>
-type _EveryMenuActionFeatureIsReal = _AssertNever<_UnknownActionFeatureOf<(typeof _CARD_MENU_ACTIONS)[number]>>
+export type _EveryActionFeatureIsReal = _AssertNever<_UnknownActionFeatureOf<(typeof _CARD_ACTIONS)[number]>>
+export type _EveryMenuActionFeatureIsReal = _AssertNever<_UnknownActionFeatureOf<(typeof _CARD_MENU_ACTIONS)[number]>>

@@ -50,7 +50,9 @@ export const SECTION_TABS: readonly SettingsTabDef[] = _SECTION_TABS
 
 // R8a 编译守卫：SECTION_IDS 的每个 id 都必须在表里有建造函数。反向由
 // `id: SectionId` 的类型约束保证（表里出现表外 id = excess property 错误）。
+// `export` 只为消掉「defined but never used」（本仓 eslint 按 `^_` 忽略，评审平台那份
+// 不忽略）：导出即「被使用」，漏建造函数照旧编译不过。
 type _AssertNever<T extends never> = T
 type _TabIds = (typeof _SECTION_TABS)[number]['id']
 type _MissingTab = Exclude<SectionId, _TabIds>
-type _EverySectionHasTab = _AssertNever<_MissingTab>
+export type _EverySectionHasTab = _AssertNever<_MissingTab>

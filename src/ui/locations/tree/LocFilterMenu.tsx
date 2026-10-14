@@ -1,7 +1,6 @@
-import { useLayoutEffect, useRef, useState } from 'react'
 import { copy } from '../../../momo/i18n'
 import { LOC_TREE_LEVELS, type LocTreeLevel, type LocTreeLevels } from '../../../momo/locations'
-import { PopDialog } from '../../kit'
+import { PopDialog, useFreePopPlacement } from '../../kit'
 
 // 侧栏「全部地点」树的层级过滤浮层（2026-10-01 单选；2026-10-10 起**多选**）：
 // 四颗 chips（全部 / 大洲 / 国家 / 地点）可同时勾几级，口径 = momo/locations/
@@ -27,8 +26,8 @@ import { PopDialog } from '../../kit'
 /**
  * 弹层宽度：一组 4 枚 chip，比标签区那个两组版（236）窄一档。宽同时用于
  * 边界夹取与 LocTreeSection 算落点时的右对齐（那边 `import { MENU_W }`）。
- * 高只是夹取估算（同 TagFilterMenu 的 MENU_H 口径，不追求精确）——多选后
- * 组名下一行口径说明仍是一行字，高度估值不变。
+ * 高只是 `useFreePopPlacement` 的**兜底估值**（同 TagFilterMenu 的 MENU_H 口径）——
+ * 多选后组名下一行口径说明仍是一行字，高度估值不变；落点夹取先量真实高度，量不到才用它。
  * 2026-10-12：那行口径说明整个删掉了，这里没跟着缩——估大只会让弹层离底边
  * 多留一点空，裁不到内容，留着当余量。
  */
@@ -51,20 +50,9 @@ export function LocFilterMenu({
   onPick: (level: LocTreeLevel) => void
   onClose: () => void
 }): React.JSX.Element {
-  const menuRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState({ left: x, top: y })
-
-  // 按面板尺寸夹回可视区（弹层 absolute，坐标基准是 .momo-app 不是窗口）。
-  // 夹完**同值就不 set**（同 TagSortMenu / TagFilterMenu：setPos 造新对象，
-  // 白搭一轮渲染）。
-  useLayoutEffect(() => {
-    const host = menuRef.current?.closest('.momo-app') as HTMLElement | null
-    const w = host?.clientWidth ?? window.innerWidth
-    const h = host?.clientHeight ?? window.innerHeight
-    const left = Math.max(8, Math.min(x, Math.max(8, w - MENU_W - 8)))
-    const top = Math.max(8, Math.min(y, Math.max(8, h - MENU_H - 8)))
-    setPos((prev) => (prev.left === left && prev.top === top ? prev : { left, top }))
-  }, [x, y])
+  // 落点（已由调用方换算成「相对 .momo-app」的偏移）→ 夹取收在 kit 的
+  // useFreePopPlacement（先量真实尺寸再按面板宽高收进可视区）。
+  const { dialogRef, style } = useFreePopPlacement(x, y, { w: MENU_W, h: MENU_H }, { style: { width: MENU_W } })
 
   // 「全部」亮不亮只看「此刻是不是完整树」——具体级勾了几颗与它无关
   const full = levels.length === 0 || levels.includes('all')
@@ -73,8 +61,8 @@ export function LocFilterMenu({
     <PopDialog
       variant="free"
       ariaLabel={copy.location.treeFilterAria}
-      style={{ left: pos.left, top: pos.top, width: MENU_W }}
-      dialogRef={menuRef}
+      style={style}
+      dialogRef={dialogRef}
       onKeyDown={(e) => {
         if (e.key !== 'Escape') return
         e.preventDefault()

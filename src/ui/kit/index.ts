@@ -14,3 +14,9 @@ export { HeatLegend } from './HeatLegend'
 export { useHeatTip, HeatTip, heatTipText, type HeatTipApi, type HeatTipState } from './HeatCellTip'
 export { PopDialog, type PopDialogProps } from './PopDialog'
 export { PopRow, type PopRowProps } from './PopRow'
+export {
+  useFreePopPlacement,
+  type FreePopOptions,
+  type FreePopPlacement,
+  type FreePopSize,
+} from './useFreePopPlacement'

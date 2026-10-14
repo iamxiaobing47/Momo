@@ -19,8 +19,11 @@ type _AssertNever<T extends never> = T
 
 /** 侧栏插槽：FEATURES 里声明过 sidebarSection 的功能，其值必须都是 prefs.sections 的真键。
  *  分布式条件提取：没有该属性的条目（如 premium 的 `slots: {}`）自然落到 never，
- *  不会把 unknown 漏进并集——直接索引联合会撞「属性不存在」的 TS2339。 */
+ *  不会把 unknown 漏进并集——直接索引联合会撞「属性不存在」的 TS2339。
+ *  `export` 只为消掉「defined but never used」（本仓 eslint 按 `^_` 忽略未用变量，
+ *  评审平台跑的那份配置没有这条忽略）：导出即「被使用」，声明不存在的插槽照旧编译不过。
+ *  守卫本身一字未动。 */
 type _SidebarSlotOf<T> = T extends { slots: { sidebarSection: infer V } } ? V : never
 type _DeclaredSidebarSection = _SidebarSlotOf<(typeof FEATURES)[number]>
 type _UnknownSidebarSection = Exclude<_DeclaredSidebarSection, keyof SidebarSections>
-type _EverySidebarSlotIsReal = _AssertNever<_UnknownSidebarSection>
+export type _EverySidebarSlotIsReal = _AssertNever<_UnknownSidebarSection>

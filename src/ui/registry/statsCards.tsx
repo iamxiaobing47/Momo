@@ -114,10 +114,13 @@ export const STATS_CARDS = [
   },
 ] as const satisfies readonly StatsCardManifest[]
 
-/** 编译期守卫：StatsSections 每个键都必须有注册卡（新键忘登记 → 编译不过） */
+/** 编译期守卫：StatsSections 每个键都必须有注册卡（新键忘登记 → 编译不过）。
+ *  `export` 只为消掉「defined but never used」（本仓 eslint 按 `^_` 忽略未用变量，
+ *  评审平台跑的那份配置没有这条忽略）：导出即「被使用」，漏登记照旧编译不过。
+ *  守卫本身一字未动。 */
 type _AssertNever<T extends never> = T
 type _CardIds = (typeof STATS_CARDS)[number]['id']
-type _AllKeysHaveCards = _AssertNever<Exclude<StatsSectionKey, _CardIds>>
+export type _AllKeysHaveCards = _AssertNever<Exclude<StatsSectionKey, _CardIds>>
 
 /**
  * 按开关过滤可见卡。调用计数供 perf-guard 用（「toggle 无关开关不重算注册表」，

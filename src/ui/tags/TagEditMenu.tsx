@@ -1,19 +1,22 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useUi } from '../store'
 import { copy } from '../../momo/i18n'
 import { canonicalTagPath, isValidTag, tagKey } from '../../momo/tags'
 import { tagNodeMapOf } from '../../momo/tags'
-import { PopDialog, PopRow } from '../kit'
+import { PopDialog, PopRow, useFreePopPlacement } from '../kit'
 
 // 标签管理弹层（侧栏 chip 右键唤起）：改名 / 合并 / 删除 / 置顶。
 // - 改名与合并是同一件事：把 #原（含整棵子树）改成 #新；新名字若已是库里的标签，就是合并。
 // - 删除只删**精确匹配**的那一个标签（不连带子标签），因此虚拟父节点（本层无直属 Momo）禁用。
 //
 // 视觉（v0.9.0 Dialog 视觉系统，设计稿 docs/design/mockups/momo-dialog-v1.png card 03）：
-// 与批量标签弹层共用一套骨架（.momo-pop*），补上旧版整个没有的头部——标题
-// 「管理标签」+ 右侧当前标签（用户是靠记住「刚才右键的是什么」在操作，现在不用了）。
-// 骨架（遮罩 + .momo-pop-free + 头 + 脚）与候选行收敛在 src/ui/kit/ 的
-// PopDialog / PopRow，本文件只留：定位夹取、改名输入态、置顶 / 删除动作。
+// 与批量标签弹层共用一套骨架（.momo-pop*）；骨架（遮罩 + .momo-pop-free + 脚）、
+// 候选行与落点夹取收敛在 src/ui/kit/ 的 PopDialog / PopRow / useFreePopPlacement，
+// 本文件只留：改名输入态、置顶 / 删除动作。
+// 2026-10-14：右上角那行当前标签（`#{tag}`）删除——弹层里的输入框预填的就是这个标签名，
+// 右上角再抄一遍是同一件事的第二遍（BUG-157 / 158 / 160 同族判据）。`PopDialog` 的
+// `meta` prop 与头部整行（`.momo-pop-head` / `.momo-pop-meta`）随最后一个消费者一起
+// 退役，本弹层估算高度因此少一头（MENU_H 434 → 398）。
 // 底部按钮从三颗同级减成两颗 + 一颗文字钮：破坏性且低频的「删除标签」降级成
 // 左下角文字按钮，与主按钮分居底栏两端；「置顶 / 取消置顶」同样放左下角
 // （状态类动作，非破坏性但低频）。按钮动词与标题一致：改名，不再叫「应用」。
@@ -30,14 +33,13 @@ import { PopDialog, PopRow } from '../kit'
 
 /** 候选最多渲染多少行 */
 const MAX_ROWS = 40
-/** 弹层估算尺寸：用于把落点夹回视口内（与骨架的容器宽 328 对齐）。
- *  高 = 头 36 + 输入 32 + 预览句 ~22 + 列表上限 300 + 底 44（v0.9.26 骨架）
- *  = 434。BUG-133g：旧值 380 与自己这行账目差 ~54px——落点夹取因此放行了本该
- *  上移的落点，面板矮 / 在树底部右键时弹层底栏被裁到面板外。与 LocEditPop 的
- *  POP_H 是同一把尺（它 376 = 输入 32 + 列表 300 + 底 44，没有头也没有预览句）：
- *  BUG-157 去掉弹层头部后两窗差 58px = 头 36 + 预览句 22，不再是「只差预览句」。 */
+/** 弹层尺寸：宽 = 骨架容器宽 328（与 CSS 对齐）；高 = 输入 32 + 预览句 ~22 +
+ *  列表上限 300 + 底 44（v0.9.26 骨架）= 398。
+ *  两个数现在只是 `useFreePopPlacement` 的**兜底估值**——落点夹取改成先量真实
+ *  尺寸再夹（BUG-133g 自己写下的那条）；估值只在量不到时用（jsdom 无布局→
+ *  offsetWidth/Height 恒 0，测试行为与估值年代逐值一致）。 */
 const MENU_W = 328
-const MENU_H = 434
+const MENU_H = 398
 
 export function TagEditMenu({
   tag,
@@ -131,27 +133,16 @@ export function TagEditMenu({
     }
   }
 
-  // x / y 已由调用方换算成「相对 .momo-app」的偏移；这里再按面板尺寸夹回可视区内。
-  // 用面板（.momo-app）而不是窗口尺寸——弹层是 absolute 定位，坐标基准就是它。
-  const menuRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState({ left: x, top: y })
-  useLayoutEffect(() => {
-    const host = menuRef.current?.closest('.momo-app') as HTMLElement | null
-    const w = host?.clientWidth ?? window.innerWidth
-    const h = host?.clientHeight ?? window.innerHeight
-    setPos({
-      left: Math.max(8, Math.min(x, Math.max(8, w - MENU_W - 8))),
-      top: Math.max(8, Math.min(y, Math.max(8, h - MENU_H - 8))),
-    })
-  }, [x, y])
+  // x / y 已由调用方换算成「相对 .momo-app」的偏移；夹取（先量真实尺寸，再用
+  // 面板 .momo-app 的宽高把落点收进可视区）收在 kit 的 useFreePopPlacement 里。
+  const { dialogRef, style } = useFreePopPlacement(x, y, { w: MENU_W, h: MENU_H })
 
   return (
     <PopDialog
       variant="free"
-      meta={`#${tag}`}
       ariaLabel={copy.tags.manageAria}
-      style={{ left: pos.left, top: pos.top }}
-      dialogRef={menuRef}
+      style={style}
+      dialogRef={dialogRef}
       onKeyDown={(e) => {
         // BUG-176f：输入法组词中按 Esc 不许整颗关掉弹层（与 Enter 的 isComposing 闸同纪律）
         if (e.key === 'Escape' && !e.nativeEvent.isComposing) {

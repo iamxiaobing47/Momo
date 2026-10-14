@@ -226,6 +226,15 @@ export const settingsPage = {
       /** Inline format note (weaker than desc, 11px supplement line) */
       formats: (d: { maxMB: number; max: number }): string =>
         `PNG / JPG / WebP / SVG / GIF, up to ${d.maxMB}MB each, at most ${d.max} images`,
+      /** 2026-10-14 user request ("auto-recognize the icons in the icons folder and
+       *  deduplicate icons with duplicate content"), then clarified: "duplicate content
+       *  should be deleted, only the newest one kept". One feedback line for the scan:
+       *  `unique` = tiles left, `files` = files recognized before cleanup (for tests /
+       *  accounting), `removed` = duplicate copies actually deleted this round. */
+      scanned: (d: { unique: number; files: number; removed: number }): string =>
+        d.removed > 0
+          ? `Recognized ${d.unique} icons in the icons folder (deleted ${d.removed} duplicate ${d.removed === 1 ? 'copy' : 'copies'}, keeping the newest)`
+          : `Recognized ${d.unique} icons in the icons folder`,
       tooBig: (maxMB: number, actualMB: number): string =>
         `Images cannot exceed ${maxMB}MB (this one is ${actualMB}MB). The corner icon is only 30px; an oversized image buys nothing.`,
       badType: 'Only PNG / JPG / WebP / SVG / GIF images are supported.',
@@ -355,11 +364,13 @@ export const settingsPage = {
     },
     /** Fonts (v0.9.16, per request “users can configure the system font and the card
      *  font separately”): one row each for the panel font and the card font; tiles
-     *  preview in their own face. Four open-source fonts ship with the plugin
-     *  (fonts/ + runtime @font-face), usable offline; licensing notes live in
-     *  fonts/OFL-1.1.txt. 2026-10-06: the input for system-installed font names was
-     *  removed per request; older on-disk values are still honored (see
-     *  sanitizeFontPref), only the input is gone. */
+     *  preview in their own face. Since v1.0.0 the plugin uses Obsidian's own fonts
+     *  (the four bundled open-source faces retired). 2026-10-06: the input for
+     *  system-installed font names was removed per request; 2026-10-13: the
+     *  interface / text role tiles were removed per request (“only Default and
+     *  Monospace”). Both removals keep older on-disk values working (see
+     *  sanitizeFontPref and RETIRED_FONT_ROLES in prefs.ts) — only the input is
+     *  gone, so each row keeps two tiles: Default + Monospace. */
     fonts: {
       title: 'Fonts',
       // 2026-10-11 user request "remove this line": the whole card description is
@@ -407,6 +418,19 @@ export const settingsPage = {
         // "Default" tile sits in that very row and speaks for itself.
         desc: 'The face for card bodies and titles.',
       },
+      /** Size note on undownloaded font-pack tiles (2026-10-13, per request
+       *  "show the font file size"): one decimal for MB, whole KB — the gap
+       *  between 27.6MB and 187KB reads in one function, no branching callers. */
+      packSize: (bytes: number): string =>
+        bytes >= 1_000_000 ? `≈${(bytes / 1_000_000).toFixed(1)} MB` : `${Math.round(bytes / 1000)} KB`,
+      download: 'Download',
+      downloading: (done: number, total: number): string => `Downloading ${done}/${total}…`,
+      /** Download confirmation (popped when an undownloaded tile is clicked):
+       *  name + total size + "happens only when you press Download". */
+      downloadConfirm: (o: { name: string; size: string }): string =>
+        `“${o.name}” is not downloaded yet. Downloading fetches the font files from the GitHub Release (${o.size} in total) and happens only when you press Download.`,
+      downloadFailed: (failed: number, total: number): string =>
+        `Download failed (${failed}/${total} files) — click this tile to retry.`,
     },
   },
 

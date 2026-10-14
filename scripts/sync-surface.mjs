@@ -29,6 +29,11 @@ export const SCRIPT_ALWAYS_SYNC = [
   // 上面那个模块的类型声明面。公开仓不跑 scripts 层 typecheck，带过去只为两仓 scripts/
   // 形状一致（先例：vault-targets.d.mts 在 Momo 也是跟踪的）
   'scripts/react-dom-script-guard.d.mts',
+  // 开源字体包取件（2026-10-13）：release.yml 在 stage-release 之前跑它——公开仓的
+  // CI 发版链少这一件就取不回字体，release 资产会缺五个 ttf + OFL.txt
+  'scripts/fetch-fonts.mjs',
+  // 同上：它的类型声明面（scripts 层 typecheck 用，公开仓不带 tests 也要形状一致）
+  'scripts/fetch-fonts.d.mts',
 ]
 
 /** 全量目录面：本仓的这两个目录是唯一真源——本仓有的全搬过去，公开仓多出来的就是退役文件 */

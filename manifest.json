@@ -1,9 +1,9 @@
 {
   "id": "momo",
   "name": "Momo",
-  "version": "1.0.3",
-  "minAppVersion": "1.8.7",
-  "description": "Card-style lightweight note layer: one Momo = one Markdown file. Tags, filters, random review, heatmap, soft-delete trash. Local-first: the only network access is an optional, user-triggered download of the 3D globe assets.",
+  "version": "1.0.4",
+  "minAppVersion": "1.13.0",
+  "description": "Card-style lightweight note layer: one Momo = one Markdown file. Tags, filters, random review, heatmap, soft-delete trash. Local-first: the only network access is an optional, user-triggered download of the 3D globe assets and the open-source font packs.",
   "author": "iamxiaobing47",
   "isDesktopOnly": true
 }

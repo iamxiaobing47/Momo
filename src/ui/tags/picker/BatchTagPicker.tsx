@@ -1,17 +1,37 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useUi } from '../../store'
 import { canonicalTagPath, isValidTag, tagKey } from '../../../momo/tags'
 import { tagNodeMapOf } from '../../../momo/tags'
 import { copy } from '../../../momo/i18n'
-import { PopDialog, PopRow } from '../../kit'
+import { PopDialog, PopRow, useFreePopPlacement } from '../../kit'
 import { applyPreview } from './preview'
 import { candidateRows, pickedEntries, type Row, type TagPickerMode } from './rows'
 
 export type { Row, TagPickerMode } from './rows'
 
+// free 变体（单卡那一路）的兜底尺寸：量不到时用（jsdom 无布局），真实尺寸由
+// useFreePopPlacement 现量。宽 = 骨架容器 328（与 CSS 的 .momo-pop 一致）；
+// 高 = 上内距 8 + 输入 32 + 列表上限 300 + 底栏 44 + 上下描边 2 = 386。
+const POP_W = 328
+const POP_H = 386
+
 // 批量标签弹层（多选工具栏「加标签 / 去标签」＋ 卡片操作行「加标签」）。
 // 同一个组件、两种模式（mode）：`add` 追加标签、`remove` 摘掉标签——两者的
 // 候选来源、计数口径、按钮文案都不同，共用一套骨架与键盘交互。
+//
+// 两种挂法（2026-10-14 起，看 props.at）：
+// - **单卡**（卡片操作行「加标签」）：调用方把按钮相对 `.momo-app` 的落点经
+//   store 递进来（`at`）→ 走 free 变体、**portal 到 `.momo-app` 根**，弹层开在
+//   那颗按钮旁边。为什么必须 portal：free 的 left/top 按 `.momo-app` 换算，
+//   包含块就必须是 `.momo-app`，而渲染树里它挂在顶栏的 `.momo-batchtag-wrap` 下
+//   （那颗锚点是 position: relative，直接画在那儿落点会整体偏移；窄面板里还会被
+//   `.momo-main` 的 overflow:hidden 裁掉）——与 LocEditPop / CardContextMenu 同一路数。
+// - **批量**（底部批量条「加标签 / 去标签」）：不给 at → 旧的 below 锚点变体，
+//   挂在 `.momo-batchtag-wrap` 下（fab 里由 CSS 翻到向上开）。
+// 单卡为什么不沿用 below：锚点在**顶栏**，按钮在卡片上，两者隔着半屏——点列表
+// 下半部分的卡，弹层却开在面板顶端（窄面板里更像一张贴底整宽面板）。用户报
+// 「dialog 出现的位置，偶尔距离卡片很远」；与单卡地点弹层（LocEditPop）的口径对齐。
 //
 // 交互（BUSINESS.md §6 / concept-momo-tags §批量添加 §批量移除）：
 // - 挂在顶栏 / 底部批量条的 `.momo-batchtag-wrap` 定位锚下，点面板外由
@@ -42,6 +62,8 @@ export type { Row, TagPickerMode } from './rows'
 // PopDialog / PopRow，本文件只留：键盘顺序导航（D-04，**作用域收在输入框上** ——
 // 焦点在候选行 / 底栏按钮时归那颗控件自己，BUG-136h）、三段式内容
 // （note / 输入框 / 待处理 chips / 新建行 / 候选列表）与底栏状态块。
+// 光标行的自动滚动（BUG-109c）自 BUG-245 起只认键盘 / 输入来源：悬停在贴着列表
+// 下缘的半行上不再让列表在指针底下自己上跳（判据与理由见 cursorFromHoverRef）。
 //
 // v0.9.26 密度一刀（用户反馈「dialog 都很大，空间利用率低」）：骨架整体收紧
 // （头 44→36 / 底 54→44 / 行 32→28 / 列表上限 264→300，见 styles.src/30-pop.css），
@@ -58,15 +80,16 @@ export type { Row, TagPickerMode } from './rows'
 // - 文案：简洁、少修辞，略带一点文气；**动词与触发按钮一致**（批量条「加标签」→
 //   主按钮「添加标签」，不再出现「应用」这类不指向具体动作的词）。能靠控件自明的
 //   说明一律不写。
-// - 衬线只属于还带标题的浮层（批量「设地点」的头部）；本弹层 2026-10-10 起没有标题，
-//   面板里再没有第二个用衬线的地方（规则见 styles.src/30-pop/001-pop.css 的
-//   `.momo-pop-title`）。
+// - 衬线（`--momo-serif`）与 `.momo-pop-title` 随 BUG-187 一并退役；头部整行
+//   2026-10-14 起也不复存在（`PopDialog` 的 `meta` prop 与 `.momo-pop-head` 一起
+//   删除，规则见 styles.src/30-pop/001-pop.css 文件头）。
 //
 // 2026-10-10 用户裁决（与 BUG-157 同日同族）：弹层**不再显示头部标题**「添加标签 /
 // 移除标签」——批量条上那颗按钮已经叫「加标签」、底栏主按钮也叫「添加标签」，头顶
 // 再来一行是同一句话的第三遍。title / meta 都不传 → 头部整行不渲染
-// （`.momo-pop-nohead` 补上内距）；「已选 N 条」从头右搬到底栏左列，与影响面摘要
-// 组成 `.momo-pop-status` 两行小字（已选条数常驻、摘要只在有待处理队列时出现）。
+// （当时由 `.momo-pop-nohead` 补上内距；该类 2026-10-14 并入 `.momo-pop`）；「已选
+// N 条」从头右搬到底栏左列，与影响面摘要组成 `.momo-pop-status` 两行小字（已选条数
+// 常驻、摘要只在有待处理队列时出现）。
 // `copy.tags.batch.titleAdd` / `titleRemove` 两个键随头部一起从三语言字典删除
 // （同 v0.9.26 删 `summaryPickAdd` / `summaryPickRemove` 的纪律）。
 //
@@ -83,10 +106,15 @@ export function BatchTagPicker({
   selected,
   mode,
   onClose,
+  at,
 }: {
   selected: readonly string[]
   mode: TagPickerMode
   onClose: () => void
+  /** 唤起它的那颗卡片操作按钮相对 `.momo-app` 的落点；只有单卡那一路给。
+   *  给了 = free 变体 + portal 到 `.momo-app`（弹层开在按钮旁边）；不给 = below
+   *  锚点变体（批量条那一路）。详见文件头的「两种挂法」。 */
+  at?: { x: number; y: number }
 }) {
   const entries = useUi((s) => s.entries)
   const brandName = useUi((s) => s.brandName)
@@ -95,7 +123,41 @@ export function BatchTagPicker({
   const [cursor, setCursor] = useState(0)
   const [busy, setBusy] = useState(false)
 
+  /**
+   * 这一次光标变动的来源是不是**鼠标悬停**（BUG-245 的唯一判据，读它的只有下面
+   * 那条「把光标行滚进视野」的 effect）。
+   *
+   * 为什么必须记来源：悬停也会改 cursor——D-04 的契约是「鼠标停在哪一行，回车就选
+   * 哪一行」，所以 `onMouseEnter` 得写 cursor；但**悬停不需要把行滚进来**（指针正
+   * 压在那一行上），而贴着列表下缘、被裁掉下半截的半行照样能悬停到，于是旧实现会在
+   * 指针底下把列表整体上跳十几 px（用户报「鼠标移动到最后一个标签的下方，滚动条突然
+   * 向下滚动一下」）。方向键与输入框改 cursor 时照旧要滚（BUG-109c 的语义）。
+   *
+   * 为什么是 ref 记「最近一次来源」而不是悬停里打一个「下次别滚」的一次性标记：
+   * 悬停到光标本来就在的那一行时 cursor 值不变、effect 根本不会跑，一次性标记会
+   * 留到下一次方向键去，把那次该滚的也吞掉。这里每次写入都先于 `setCursor` 生效，
+   * effect 读到的永远是**引发这次 cursor 变动**的那个来源。
+   */
+  const cursorFromHoverRef = useRef(false)
+
   const isRemove = mode === 'remove'
+  const free = at !== undefined
+
+  // free 落点：先量真实尺寸再夹回面板（与另外六个 free 浮层同一把尺，见 kit 的
+  // useFreePopPlacement）。below 那一路不传 dialogRef，hook 因此量不到元素、空转。
+  const { dialogRef, style } = useFreePopPlacement(at?.x ?? 0, at?.y ?? 0, { w: POP_W, h: POP_H })
+
+  // free 的包含块必须是 `.momo-app`（落点按它换算），而渲染树里本组件挂在顶栏的
+  // `.momo-batchtag-wrap` 下（那颗锚点是 position: relative）——所以先留一个不可见
+  // 锚点拿 closest，拿到就 portal（与 LocEditPop / CardContextMenu 同一路数）。
+  // 首帧只画锚点：PopDialog 因此晚一个 commit 才挂载，它的「出栈焦点快照」读到的
+  // 仍是那颗按钮（见 PopDialog 的 prevFocusRef），关闭时焦点才还得到原处。
+  const anchorRef = useRef<HTMLSpanElement>(null)
+  const [host, setHost] = useState<HTMLElement | null>(null)
+  useLayoutEffect(() => {
+    if (!free) return
+    setHost((anchorRef.current?.closest<HTMLElement>('.momo-app') as HTMLElement | null) ?? null)
+  }, [free])
 
   // 选中的 Momo（按 path 反查索引投影；选中的 path 一定在 entries 里，这里只是防御）
   const picked = useMemo(() => pickedEntries(entries, selected), [entries, selected])
@@ -160,6 +222,8 @@ export function BatchTagPicker({
     if (!typedValid) return
     if (!isPending(typed)) toggle(typed)
     setQuery('')
+    // 输入驱动的复位（来源不是悬停）→ 允许把光标行滚回来，见 cursorFromHoverRef
+    cursorFromHoverRef.current = false
     setCursor(0)
   }
 
@@ -224,11 +288,14 @@ export function BatchTagPicker({
     }
     if (e.key === 'ArrowDown') {
       e.preventDefault()
+      // 键盘导航：允许把光标行滚进视野（BUG-109c），见 cursorFromHoverRef
+      cursorFromHoverRef.current = false
       setCursor((c) => Math.min(c + 1, Math.max(0, rows.length - 1)))
       return
     }
     if (e.key === 'ArrowUp') {
       e.preventDefault()
+      cursorFromHoverRef.current = false
       setCursor((c) => Math.max(0, c - 1))
       return
     }
@@ -246,10 +313,16 @@ export function BatchTagPicker({
    * 祖先容器，落点不可控。`.momo-pop-list` 不是行的 offsetParent（CSS 没给
    * position），所以按 getBoundingClientRect 差换算回滚动坐标，只写列表自己
    * 的 scrollTop；行已可见时两侧判定都不成立，天然空操作。
-   * 鼠标悬停也会改 cursor——悬停行必然可见，同样空转，不会和滚动抢方向盘。
+   *
+   * BUG-245：**悬停引起的光标变动不滚**。旧注释写「悬停行必然可见，同样空转」，
+   * 那句不成立——贴着列表下缘被裁掉下半截的**半行**照样悬停得到，而它一旦成为
+   * 光标行，`bottom > scrollTop + clientHeight` 就成立：列表在指针底下自己上跳
+   * 十几 px（用户报「鼠标移动到最后一个标签的下方，滚动条突然向下滚动一下」）。
+   * 判据 = 这次 cursor 变动的**来源**（见下面的 cursorFromHoverRef），不是「行可不可见」。
    */
   const listRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
+    if (cursorFromHoverRef.current) return
     const list = listRef.current
     const row = list?.querySelectorAll('.momo-pop-row')[cursor]
     if (!list || row === undefined) return
@@ -277,7 +350,12 @@ export function BatchTagPicker({
         virtual={r.virtual}
         label={`#${r.path}`}
         stat={rowStat(r.hit)}
-        onMouseEnter={() => setCursor(i)}
+        // 悬停也写 cursor（D-04：鼠标停在哪一行、回车就选哪一行），但标记来源——
+        // 悬停**不**触发「把光标行滚进视野」（BUG-245，见 cursorFromHoverRef）
+        onMouseEnter={() => {
+          cursorFromHoverRef.current = true
+          setCursor(i)
+        }}
         onClick={() => toggle(r.path)}
       />
     )
@@ -286,9 +364,13 @@ export function BatchTagPicker({
   /** 分组标签（常一起出现 / 全部标签 / 这批 Momo 身上有） */
   const sectionLabel = (text: string) => <div className="momo-pop-seclabel">{text}</div>
 
-  return (
+  const dialog = (
     <PopDialog
-      variant="below"
+      // 单卡 = free（落点由 at 给、由 useFreePopPlacement 夹回面板）；批量 = below
+      // （挂在 .momo-batchtag-wrap 下，fab 里由 CSS 翻到向上开）。见文件头「两种挂法」。
+      variant={free ? 'free' : 'below'}
+      style={free ? style : undefined}
+      dialogRef={free ? dialogRef : undefined}
       // 2026-10-10 起不传 ariaLabel（BUG-159）：那个名字「批量添加标签 / 批量移除标签」
       // 与唤起弹层的批量条按钮、底栏主按钮、（已去掉的）头顶标题是同一句话的第四遍，
       // 而部分 Electron / Chromium 环境会把 aria-label 渲染成黑底原生气泡（用户报
@@ -342,6 +424,8 @@ export function BatchTagPicker({
         value={query}
         onChange={(e) => {
           setQuery(e.target.value)
+          // 输入驱动的复位（来源不是悬停）→ 允许把第一行滚回来，见 cursorFromHoverRef
+          cursorFromHoverRef.current = false
           setCursor(0)
         }}
       />
@@ -409,4 +493,11 @@ export function BatchTagPicker({
       </div>
     </PopDialog>
   )
+
+  // 批量那一路（不给 at）原样返回，DOM 与改动前逐字一致——**不**包 portal，
+  // below 变体的包含块就是那颗 relative 锚点。
+  if (!free) return dialog
+  // 首帧：先落一个不可见锚点拿 closest（见上面 anchorRef 的注释）。
+  if (host === null) return <span ref={anchorRef} style={{ display: 'none' }} />
+  return createPortal(dialog, host)
 }

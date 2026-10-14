@@ -52,6 +52,16 @@ export declare function pluginProjectDir(start?: string): string
 /** 星球三维渲染库已退役（BUG-219：three 打进 main.js）——部署与发布链里都不再有它 */
 
 /**
+ * 字体包的 release 资产名（2026-10-13 按需下载复活；顺序即发布链拼接顺序）。
+ * 与 src/momo/fonts/pack.ts 的 FONT_PACKS 同表（守卫 scripts/fonts-pack.test.mts
+ * 钉 parity）；末位 OFL.txt 是四份许可拼成的发布伴随件。
+ */
+export declare const FONT_PACK_ASSETS: string[]
+
+/** 字体包在工程内的源目录（gitignore；由 scripts/fetch-fonts.mjs 铺，可选资产） */
+export declare const FONT_PACK_SRC_DIR: string
+
+/**
  * 运行时资源（**两套** cube 六面，共 12 面）的内容指纹：合并 sha256 前 12 位。
  * esbuild 与 verify-deploy 共用这一个实现——自检与被自检各算一遍 = 不一致的新来源。
  * 文件缺失会抛（调用方决定怎么报，别静默给默认值）。

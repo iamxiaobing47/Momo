@@ -69,9 +69,14 @@ export function createSelectionSlice({ set, get }: StoreActions): SelectionSlice
       set({ selected: new Set(paths) })
     },
 
-    /** 卡片操作行「加标签」（单条；多选那一路挂 toggleTagPicker） */
-    openTagPicker(paths, mode) {
-      set({ tagPicker: { paths: [...paths], mode } })
+    /**
+     * 卡片操作行「加标签」（单条；多选那一路挂 toggleTagPicker）。
+     * `at` 由调用方在按钮的 click 里量好（相对 `.momo-app`）：单卡弹层开在那颗
+     * 按钮旁边而不是顶栏锚点下——卡片在列表里的位置才是用户此刻的注意力所在
+     * （见 UiState.tagPicker 的注释）。批量那一路不给 at，走旧的 below 锚点。
+     */
+    openTagPicker(paths, mode, at) {
+      set({ tagPicker: at ? { paths: [...paths], mode, at } : { paths: [...paths], mode } })
     },
 
     /**

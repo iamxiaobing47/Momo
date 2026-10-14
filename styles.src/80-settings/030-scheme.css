@@ -39,8 +39,10 @@
 .momo-settings .momo-set-scheme:hover:not(.is-on) {
   box-shadow: inset 0 0 0 1px var(--momo-ink-6);
 }
+/* 按压底走 --momo-press（2026-10-13 五套通则，见 080-buttons.css 同段注）：
+   色卡静置底是 card，而 surface-2 在雾蓝里与 card 只差 2/255——按下色卡原本没有反馈。 */
 .momo-settings .momo-set-scheme:active:not(.is-on) {
-  background: var(--momo-surface-2);
+  background: var(--momo-press);
 }
 .momo-settings .momo-set-scheme.is-on {
   background: var(--momo-accent-soft);

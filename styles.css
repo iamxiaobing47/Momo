@@ -870,7 +870,7 @@
    2026-10-10 起**没有头部标题**（BUG-160：用户「所有的 dialog，左上角都不要有标题」）：
    标题与底栏主动作按钮是同一句话的第二遍（「删除标签」/「彻底删除」…），与
    BUG-157 / 158 去掉的面板浮层标题同判据。原生 modal-title 由下面那条规则隐藏，
-   内容区的上内距补到与无头浮层（.momo-pop-nohead）相称的一刀。 */
+   内容区的上内距补到与浮层骨架（`.momo-pop` 的 8px 上内距）相称的一刀。 */
 .modal.momo-confirm {
   width: min(328px, calc(100vw - 32px));
   padding: 0;
@@ -896,8 +896,9 @@
 }
 
 /* 头部整行隐藏（BUG-160）：Obsidian 的 Modal 构造函数总会建一个 titleEl，不写文字
-   它也是一条 36px 的空白带——与 .momo-pop-nohead 的口径一致，直接不渲染。
-   四条弹窗（caps 的 openConfirmModal / pickDay、notesMigration 的两框）都不再传标题。 */
+   它也是一条 36px 的空白带——与浮层骨架（`.momo-pop` 无头行、上内距 8px）的口径
+   一致，直接不渲染。四条弹窗（caps 的 openConfirmModal / pickDay、notesMigration
+   的两框）都不再传标题。 */
 .momo-confirm .modal-title {
   display: none;
 }
@@ -905,7 +906,7 @@
 /* contentEl 是 flex 列：消息独占上边距，底栏（含分隔线）贴底——actions 由
    views.tsx createDiv 挂在 contentEl 里，contentEl 不能有左右内边距，
    否则分隔线玑不挨着模态边缘。
-   头部隐藏后上内距由这 8px 补（与 .momo-pop-nohead 同值）。 */
+   头部隐藏后上内距由这 8px 补（与 `.momo-pop` 同值）。 */
 .momo-confirm .modal-content {
   padding: 8px 0 0;
   display: flex;
@@ -1148,18 +1149,21 @@
    浮层骨架（Momo · Dialog 视觉系统，2026-09-23；设计稿 docs/design/mockups/momo-dialog-v1.png）
    ----------------------------------------------------------------------------
    一处骨架、四个浮层：批量标签（加 / 去）、标签管理、卡片右键菜单、二次确认。
-   四个浮层只覆盖各自差异（卡片菜单免头部；确认框换底栏内容），不再各写一套。
+   四个浮层只覆盖各自差异（确认框换底栏内容），不再各写一套。
    解剖（设计稿 card 01–04）：容器 328 · r 12 · 描边 1px · shadow 0 8 24-8；
-   头 36（左右内缩 14；标题衬线 14.5 / 字距 .09em）；输入 32；行 28（r 8 ·
+   上内距 8（2026-10-14 起没有头行）；输入 32；行 28（r 8 ·
    左右内缩 8；图标 14；行距 2）；底 44（按钮 h 32 / r 9 / 内缩 14）。
    颜色一律走项目 token（描边 --momo-line、主按钮 --momo-accent、危险
    --momo-danger）：设计稿的 #E9E9E6 / 绿 #35745A 是 mockup 对 token 的中性化
    渲染（设计稿的 shadow 0 8 24-8 与 --momo-shadow-float 逐字相同可证），
    详见工单 2026-09-23-dialog-visual-system §3 偏离 1。
+   **头行（36px）2026-10-14 整块退役**：`.momo-pop-head` / `.momo-pop-meta` /
+   `.momo-pop-nohead` 三个类随最后一个消费者（标签管理弹层右上角 `#{tag}`）一起
+   删除，上内距归 `.momo-pop` 自己；更早退役的 `.momo-pop-title` 见 BUG-187。
 
    ---- v0.9.26 密度一刀（用户反馈「所有的 dialog 都很大，空间利用率低」）----
    骨架的整体收紧，**六个调用点（含确认弹窗）一次到位**，不为某个弹层开小灶：
-     头 44 → 36    输入 34 → 32    行 32 → 28
+     头 44 → 36（2026-10-14 整块退役）    输入 34 → 32    行 32 → 28
      底 54 → 44    列表上限 264 → 300    列表行距 3 → 2
    少的是 chrome，多的是内容：同样一屏，列表从 8 行变 10 行（300 / (28+2)）。
    与之配套的「去装饰」在组件层：标签管理弹层的候选行不再画恒空的 check 圈
@@ -1182,47 +1186,21 @@
 /* 弹层本体。位置两种用法二选一：
    ① 锚定（.momo-pop-below，fab 里由 .momo-fab .momo-pop 翻到向上开）：
       挂在 .momo-batchtag-wrap（position: relative）下；
-   ② 自由落点（.momo-pop-free，JS 换算相对 .momo-app 的 left/top）。 */
+   ② 自由落点（.momo-pop-free，JS 换算相对 .momo-app 的 left/top）。
+   上内距 8：首块自带的上内距只有 5px，顶边会显挤，补到与左右 14px 相称的一刀。
+   2026-10-14 起这不变量直接住在基类（头行整块退役，`.momo-pop-nohead` 随之删除）。 */
 .momo-pop {
   position: absolute;
   z-index: var(--momo-z-pop);
   width: 328px;
   display: flex;
   flex-direction: column;
+  padding-top: 8px;
   border-radius: var(--momo-r-4);
   border: 1px solid var(--momo-line);
   background: var(--momo-card);
   box-shadow: var(--momo-shadow-float);
   font-family: var(--momo-sans);
-}
-
-/* 不渲染头行的弹层（2026-10-02 起 free 小浮层都不要左上角标题；2026-10-10 起批量
-   标签弹层连标题带「已选 N 条」都不往头顶放，见 BatchTagPicker 文件头）：首块自带的
-   上内距只有 5px，顶边会显挤，由壳补到与左右 14px 相称的一刀。 */
-.momo-pop-nohead {
-  padding-top: 8px;
-}
-
-/* 头部：h 36、左右内缩 14（v0.9.26 起 44 → 36）。只在调用方真传 title / meta 时
-   渲染（都不传 → `.momo-pop-nohead`，见上）。2026-10-10 起七个调用点全都不再传
-   title（批量标签 / 地点两个弹层跟删，那些话入口按钮已经说过一遍），头部眼下只剩
-   meta 一类行内小字——`.momo-pop-title` 与它唯一的消费者 `--momo-serif` 随
-   BUG-187 一并退役。 */
-.momo-pop-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 36px;
-  flex: none;
-  padding: 0 14px;
-}
-
-.momo-pop-meta {
-  margin-left: auto;
-  font-size: var(--momo-fs-2);
-  color: var(--momo-ink-3);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
 }
 
 /* 头部与输入之间的说明行（去模式「只摘标签本身，不动子标签」这类控件不自明的坑；
@@ -1329,7 +1307,8 @@
   padding: 5px;
 }
 
-/* 分组标签：常一起出现 / 全部标签 / 这批 Momo 身上有 / 合并到已有标签 */
+/* 分组标签：常一起出现 / 全部标签 / 这批 Momo 身上有 / 合并到已有标签。
+   上内距 3 是它与上一行（候选行 / chip 队列）之间的呼吸位，与列表的 gap 2 一起看。 */
 .momo-pop-seclabel {
   padding: 3px 8px 1px;
   font-size: var(--momo-fs-2);
@@ -1337,8 +1316,14 @@
   color: var(--momo-ink-3);
 }
 
+/* 列表里**第一个**分组标签（加模式的「常一起出现」；没有建议时是「全部标签」）：
+   它上面没有候选行，直接贴着输入框 / 新建行——列表自己的 5px 上内距是唯一的一刀，
+   真 Chromium 量出来只剩 ~6px，比组间（行底 → 下一组标题 ~10px）明显挤。
+   2026-10-14 用户报「常一起出现，上方最好有几个px的空白」，补到 4px：
+   5 + 4 = 9px，与「全部标签」组上方的观感同一档。
+   旧的 `padding-top: 0`（「首块不重复吃内距」的想当然）就是这条报障的来源。 */
 .momo-pop-seclabel:first-child {
-  padding-top: 0;
+  padding-top: 4px;
 }
 
 /* 行：h 28 · r 8 · 左右内缩 8（v0.9.26 起 32 → 28）。三态——未选（空心圈）/ 待处理（accent 实心白勾）/
@@ -1445,23 +1430,14 @@
   padding: 5px 8px;
 }
 
-/* check 圈与**第一行**文字对齐（不是两行的垂直中心）：14px 圈配 13px 首行 */
-.momo-app .momo-pop-list-twoline .momo-pop-check {
-  margin-top: 1px;
-}
-
-/* 组合方式浮层：选中行的 check 圈**不跟着染 accent**（2026-10-13 用户裁决）。
-   这一层是单选（两行里只有一行能 on），选中已经由「行底色 + 字重 + 文字色」说了三遍，
-   圈再变一次蓝就成了第四遍——而它恰好是弹层里最小、最先被看到的一枚图形。
-   保留空心圈 + 中性勾：形状仍然说「就是这一行」，不靠颜色。
-   共享规则上面那条不动：批量标签弹层的 accent 实心圈是「已进待处理队列」的语义色，
-   那边要的就是一眼分清「待处理 / 全命中」。
-   不带 .momo-app 前缀：(0,3,0) 已经压得住共享那条 (0,2,0)，不必再加一层。 */
-.momo-pop-list-twoline .momo-pop-row-on .momo-pop-check {
-  background: transparent;
-  border-color: var(--momo-ink-5);
-  color: var(--momo-ink-4);
-}
+/* 两行列表里的 check 圈**没有规则**（2026-10-14 用户裁决）：组合方式浮层的两行走
+   PopRow 的 bare，左列图标整列退休（理由在 TagMatchMenu / PopRow 的文件头）。
+   随它一起退役的还有两条只为它存在的规则：
+     - `.momo-pop-list-twoline .momo-pop-check { margin-top: 1px }`（圈与首行对齐）；
+     - `.momo-pop-list-twoline .momo-pop-row-on .momo-pop-check { … }`（2026-10-13
+       用户裁决「选中行的圈别染 accent」，当时留了空心圈 + 中性勾）。
+   共享的 .momo-pop-check 三条规则一行不动：批量标签弹层（BatchTagPicker）的
+   accent 实心圈是「已进待处理队列」的语义色，那边要的就是一眼分清「待处理 / 全命中」。 */
 
 .momo-app .momo-pop-list-twoline .momo-pop-label {
   display: flex;
@@ -1532,8 +1508,8 @@
   min-width: 0;
 }
 
-/* 状态块第一行：「已选 N 条」。与 .momo-pop-meta 同款小字 + 表格数字，只是不再
-   靠 margin-left: auto 贴右边（底栏左列才是它的位置）。 */
+/* 状态块第一行：「已选 N 条」。fs-2 小字 + 表格数字（2026-10-14 前与
+   已退役的 `.momo-pop-meta` 同款），不靠 margin-left: auto 贴右边——底栏左列才是它的位置。 */
 .momo-pop-count {
   font-size: var(--momo-fs-2);
   color: var(--momo-ink-3);
@@ -3700,15 +3676,13 @@
   box-shadow: inset 0 0 0 1px var(--momo-ink-6);
 }
 
-/* 亮灯态（色 + 描边两个信号，不只靠一个 —— 与 .momo-tagchip-on 同一套）。
-   2026-10-13 起唯一的消费者是标签区**组合方式**按钮（交集态）；两棵树的漏斗
-   不再进这个类（用户裁定「过滤条件生效的时候，过滤图标不要变成蓝色」——
-   筛着什么由摘要条 / 浮层里的 chip 说，漏斗只报「筛选入口」）。 */
-.momo-app .momo-tagbtn-on {
-  color: var(--momo-accent);
-  background: var(--momo-accent-soft);
-  border-color: var(--momo-accent-line);
-}
+/* 亮灯态（色 + 描边两个信号，不只靠一个 —— 与 .momo-tagchip-on 同一套）**已整条退役**
+   （2026-10-14）：2026-10-13 两棵树的漏斗先摘（用户裁定「过滤条件生效的时候，过滤图标
+   不要变成蓝色」），当时这枚共享类还剩标签区**组合方式**按钮（交集态）一个消费者；
+   2026-10-14 用户对那枚按钮同样裁定「选中元素后，图标不要变色，保持原样」——三枚入口
+   按钮从此都不兼任状态显示器（筛着什么由摘要条 / 浮层里的 chip 说，组合口径由浮层里
+   选中的那一行说）。类没有消费者就删规则，不给它留空壳（lint:dead 抓的就是这种死类）：
+   将来真需要「入口按钮亮灯」的语义，照 :hover 那条的形状重新写一条，别把它当祖制复活。 */
 
 /* 排序按钮上的键名（数量 / 附件数 / 名称）：三个字要完整，「附件数」不许被省略号吃掉 */
 .momo-tagbtn-text {
@@ -3852,8 +3826,8 @@
 }
 
 /* 组合方式按钮（2026-10-12）：与工具行那枚漏斗（.momo-tagbtn-filter）逐字同款压成
-   正方形，两枚的视觉重量才相当。交集态亮灯走共享的 .momo-app .momo-tagbtn-on，
-   不在这里另立规则——同一个语义（这枚按钮现在是「交集」）只许有一种长相。 */
+   正方形，两枚的视觉重量才相当。长相**不随口径变**（2026-10-14 用户裁决：并集 / 交集
+   都长一个样，当前口径由浮层里选中的那一行说）——所以这里只有尺寸，连亮灯规则都没有。 */
 .momo-app .momo-tagbtn-match {
   width: 20px;
   padding: 0;
@@ -6422,6 +6396,11 @@
   --momo-card: #fcfaf6;
   --momo-line: #dcd5c8;
   --momo-line-soft: #e8e1d4; /* 卡片分隔线，比 line 淡一档 */
+  /* 按压底（2026-10-13 横展）：见 mist-blue.css 同段注。本方案侧栏 surface（#e6e0d4）
+     比 card 深得多，按压底要同时离 card 与 surface 够远：H40 暖纸一档的 #d4ccbb
+     （card 1.53 / surface 1.21 / surface-2 1.35）——过 check-contrast ⑧b 组（1.10）。
+     ⚠️ 别用中性灰：这里的纸感全在 H40 暖调上（同本文件头注的铁律）。 */
+  --momo-press: #d4ccbb;
 
   /* ---- 墨阶 · 松烟（带棕的暖黑，不是纯黑也不是冷灰）----
      中国画里的黑不用纯黑，是松枝烧烟制墨后的深褐。放在暖纸底上比冷黑更沉。
@@ -6524,6 +6503,11 @@
   --momo-card: #26272c;
   --momo-line: #34363c;
   --momo-line-soft: #2c2e33;
+  /* 按压底（2026-10-13 横展）：见 mist-blue.css 同段注。暗色方案的「压一档」是**提亮**
+     不是压深（page 最暗、surface 逐级提亮），旧按压底 surface-2 #2b2c31 与 card 只有
+     1.07、与 surface 1.10——按下去同样看不出。取比 card 提亮一档的中性炭 #3a3b41
+     （card 1.34 / surface 1.37 / surface-2 1.25），过 check-contrast ⑧b 组。 */
+  --momo-press: #3a3b41;
   --momo-ink: #efede7;
   --momo-ink-2: #c5c1b8;
   --momo-ink-3: #b2ada3;
@@ -6634,6 +6618,18 @@
   --momo-card: #ffffff;
   --momo-line: #e9e9e7;
   --momo-line-soft: #f1f1ef;
+  /* ---- 按压底（2026-10-13 用户报「雾蓝下所有按钮点下去变成白色，与背景色融为一体，
+     看不清」）----
+     消费点：80-settings 的七条 :active 规则（按钮 / chip / 分段 / 导航 chip /
+     配色卡 / 步进器 / 序位钮）。原先按压态吃 --momo-surface-2（「嵌面」令牌），
+     而本方案 page / card **同为纯白**、surface-2 #fdfdfd 与它们只差 2/255——
+     按下去等于没有反馈；主行动钮（accent 实底 + --momo-on-accent 白字）更被
+     `:active` 的 (0,4,0) 抢在 `.is-primary` (0,3,0) 前面，变成**白底白字**、
+     整颗钮在点击那一刻消失（真 Chromium 实测计算值，见 080-buttons.css 同段注）。
+     按压底因此单独一个令牌：**比静置面深一档的中性灰**（本方案的墨阶是中性灰，
+     不掺色相），与 card 1.27 / surface 1.23 / surface-2 1.25——三条都在
+     check-contrast 的 ⑧b 组（1.10）之上，产品化的门槛比对见该脚本。 */
+  --momo-press: #e4e4e4;
   --momo-ink: #4a4d50;
   --momo-ink-2: #5c5f62;
   --momo-ink-3: #65686b;
@@ -6765,6 +6761,11 @@
   --momo-card: #ffffff;
   --momo-line: #ebebeb;
   --momo-line-soft: #efefef; /* 卡片分隔线，比 line 淡一档 */
+  /* 按压底（2026-10-13 横展）：见 mist-blue.css 同段注。旧按压底 surface-2（#f5f5f5）
+     与 card 只有 1.09、与 surface（= page #fafafa）1.04——按下去分不出来；中性灰
+     #e5e5e5 与 card 1.26 / surface 1.21 / surface-2 1.16，过 check-contrast ⑧b 组
+     （1.10）。flomo 的墨阶是纯中性灰，这里也不掺绿灰。 */
+  --momo-press: #e5e5e5;
   --momo-ink: #323232; /* = flomo 实测。flomo 墨阶是纯中性灰，不带绿灰 */
 
   /* ink-2..6 沿 flomo 的中性灰方向；但**不能照抄 flomo 的后三档**：
@@ -6950,6 +6951,11 @@
   --momo-card: #ffffff;
   --momo-line: #cfe6ef;
   --momo-line-soft: #e0f0f6; /* 卡片分隔线，比 line 淡一档 */
+  /* 按压底（2026-10-13 横展）：见 mist-blue.css 同段注。本方案侧栏 surface（#d2edf4）
+     比 card 深一档，按压底取同族青一档的 #b0dae8（card 1.50 / surface 1.22 /
+     surface-2 1.32）——过 check-contrast ⑧b 组（1.10）。⚠️ 别用中性灰：晴空青
+     是这套「晴天感」的全部来源（同本文件头注的铁律，与蛤白同款）。 */
+  --momo-press: #b0dae8;
 
   /* ---- 墨阶 · 靛青黑（H218 冷青黑，不是纯黑也不是暖黑）----
      六档一律按 card / page / surface / surface-2 / accent-soft 五底 ≥4.5 取
@@ -7238,7 +7244,10 @@
    都只靠一根 72px 的短线 + 换色，五个 tab 读起来像五个文本链接。改成页内
    分段控件（停靠侧 / 密度）同款——浅灰轨道 + 选中段白底浮起 + 1px accent
    描边 + accent 加粗字，整页只剩一种选中语法。轨道宽随内容（不铺满），
-   nav 条仍贴顶 sticky，窄屏时轨道整体横向滚动。 */
+   nav 条仍贴顶 sticky，窄屏时轨道整体横向滚动。
+   2026-10-14：BUG-236 一度把分页导航整块删掉（七个分页各自成 Obsidian 的设置
+   页），用户要求恢复横向 Tab 页——本段规则与 settings.ts 的 nav / paintTab 一并
+   回归（删改记录见 bug-236 工单与 getSettingDefinitions 处注释）。 */
 .momo-settings .momo-set-nav {
   position: sticky;
   top: 0;
@@ -7285,7 +7294,10 @@
   color: var(--momo-ink);
 }
 .momo-settings .momo-set-nav-chip:active:not(.is-on) {
-  background: var(--momo-surface-2);
+  /* 2026-10-14 恢复这段规则时按当前通则落地（曾抄回旧写法 `--momo-surface-2`，
+     当场被 host-button-clash 的按压态守卫抓住）：按压底一律走 `--momo-press`，
+     理由与五套对照见 080-buttons.css 的按压态通则。 */
+  background: var(--momo-press);
 }
 /* 选中：轻嵌面底 + accent 描边（accent 十套 4.71~6.80 全过 3:1）+ accent 字 600。
    原先吃 card 底，在墨夜/mist-blue 下 card×surface 只有 1.03~1.07、底色等于没换。 */
@@ -7306,18 +7318,17 @@
 }
 
 /* ---- 卡片：白底 + 1px line + r8；卡头下、每块之间一条 line-soft ----
-   分页：同一时刻只有一个区段可见（v0.9.6 起一个区段可以有多张卡）。
-   `is-active` 由 settings.ts 的 paintTab() 打上，它在所有卡片都建完之后才调用，
-   所以这里不必担心「谁都没亮」导致整页空白。 */
+   分页：BUG-236（Obsidian 1.13 声明式设置 API）起七个分页各自成页，一页里的卡片
+   **全部可见**——旧的「同一时刻只有一个区段可见」靠 `.is-active` 切显隐（由
+   settings.ts 的 paintTab() 打上），paintTab 随分页导航一并删除后那把开关没人打了，
+   卡片却还留着 `display: none`：整页内容建得好好的（DOM 在、htmlLen 正常）却一片
+   空白。2026-10-14 修：基础规则直接 `display: block`，`.is-active` 覆写随之退役。 */
 .momo-settings .momo-set-card {
-  display: none;
+  display: block;
   background: var(--momo-card);
   border: 1px solid var(--momo-line);
   border-radius: var(--momo-set-r-card);
   overflow: hidden;
-}
-.momo-settings .momo-set-card.is-active {
-  display: block;
 }
 .momo-settings .momo-set-card > * + * {
   border-top: 1px solid var(--momo-line-soft);
@@ -7526,8 +7537,10 @@
   box-shadow: inset 0 0 0 1px var(--momo-ink-6);
   color: var(--momo-ink);
 }
+/* 按压底走 --momo-press（2026-10-13 五套通则，见 080-buttons.css 同段注）：
+   surface-2 在雾蓝里比轨道 surface 还亮，按下去反而更浮。 */
 .momo-settings .momo-set-seg-item:active:not(.is-on) {
-  background: var(--momo-surface-2);
+  background: var(--momo-press);
 }
 /* 选中：与顶栏 .momo-seg-on 同一手法（透明底 + accent 描边 + accent 字），
    两处分段从此同语言。原先吃 card 底，墨夜下等于没换底。 */
@@ -7612,8 +7625,10 @@
 .momo-settings .momo-set-scheme:hover:not(.is-on) {
   box-shadow: inset 0 0 0 1px var(--momo-ink-6);
 }
+/* 按压底走 --momo-press（2026-10-13 五套通则，见 080-buttons.css 同段注）：
+   色卡静置底是 card，而 surface-2 在雾蓝里与 card 只差 2/255——按下色卡原本没有反馈。 */
 .momo-settings .momo-set-scheme:active:not(.is-on) {
-  background: var(--momo-surface-2);
+  background: var(--momo-press);
 }
 .momo-settings .momo-set-scheme.is-on {
   background: var(--momo-accent-soft);
@@ -7684,14 +7699,18 @@
 .momo-settings .momo-set-font-grid {
   display: grid;
   /* v0.9.42（用户报障「选项里的文字没有全部渲染」）：下限 104 → 116。
-     auto-fill 的 minmax 下限**就是最窄那格的宽**——内容列窄到只放得下四格时，
+     minmax 下限**就是最窄那格的宽**——内容列窄到只放得下四格时，
      每格按 104px 算，减边框 1px×2、左右内距 10px×2，样字只剩 82px；而
      「记录此刻 Aa 123」实测最宽 115px（JetBrains 格，真浏览器量 scrollWidth），
      于是五个格子全变成「记录此刻 Aa …」。116 是「标准内容列仍一排放得下五格」
      的上界：5×116 + 4×8 = 612 ≤ 618 ✓（六格要 736 > 618，跑不出六列）。
      所以宽窗五格一排不变，窄窗格子变宽而不再挤扁文字；代价只是极窄窗口
-     少放一格，格子反而更好读。 */
-  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+     少放一格，格子反而更好读。
+     2026-10-13（用户要求「就提供默认和等宽字体两种」）：每行只剩「默认 +
+     等宽」两格，auto-fill → **auto-fit**——空轨道折叠、两格平分整行。
+     留着 auto-fill 的话两格各只有 1/5 宽、右侧一大片空格，像少了三格；
+     窄窗仍按 116 下限收，样字不会被挤扁。 */
+  grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
   gap: 8px;
 }
 .momo-settings .momo-set-font-tile {
@@ -7717,6 +7736,40 @@
 .momo-settings .momo-set-font-tile.is-on {
   border-color: var(--momo-accent);
   background: var(--momo-accent-soft);
+}
+/* 未下载的开源字体包格（2026-10-13）：虚线边 + 大小行可见。样字先按继承的字体画
+   （那套字体还不在文档里），下载完成注册 FontFace 后同一枚 span 自然换成那套字
+   （LookTab 的 setInstalled 会把 font-family 补上）。 */
+.momo-settings .momo-set-font-tile.is-pending {
+  border-style: dashed;
+}
+/* 下载中：同一条虚线 + 进度光标；LookTab 侧还有 busyId 闸（一次只下一套），
+   这里是视觉侧的「别再点」。 */
+.momo-settings .momo-set-font-tile.is-busy {
+  border-style: dashed;
+  cursor: progress;
+}
+/* 大小 / 进度行：图标 + 文字。与样字、名字同一套截断纪律（内容盒 94px）。 */
+.momo-settings .momo-set-font-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  font-size: var(--momo-fs-1);
+  line-height: 16px;
+  color: var(--momo-ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.momo-settings .momo-set-font-size-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 已下载的格子不显示大小行——那时候它不需要再提示大小了 */
+.momo-settings .momo-set-font-size.is-hidden {
+  display: none;
 }
 /* 样字 / 字体名的硬线：minmax 下限 116px → 内容盒 = 116 − 2（边框）− 20（左右内距）= 94px。
    两行文字都在字典侧（样字 = i18n 三语言 fonts.sample，字体名 = copy.meta.fontName），
@@ -7900,6 +7953,17 @@
 .momo-settings .momo-set-icons-err.is-on {
   display: block;
 }
+/* 自动识别 + 去重的一行反馈（2026-10-14，与 .momo-set-icons-err 同一套显隐打法）：
+   空结果不占行，有话说才现身。 */
+.momo-settings .momo-set-icons-scan {
+  font-size: var(--momo-fs-2);
+  line-height: 16px;
+  color: var(--momo-ink-3);
+  display: none;
+}
+.momo-settings .momo-set-icons-scan.is-on {
+  display: block;
+}
 /* 上传用的隐藏 file input：**不能写 display:none**——它靠 uploadTile 的 click()
    程序性打开文件选择框，1px + opacity:0 的「可见但看不见」才是在所有渲染器里
    都响应 click() 的写法（display:none 在部分环境下连 change 都不派发）。 */
@@ -7915,11 +7979,27 @@
 
 /* ---- 开关 38×22 / r999，滑块 18 ----
    视觉尺寸照设计稿；22px 高在触屏 / 高分屏下热区太勉强，用一枚透明的 ::before
-   把点击区撑到 50×34（反馈①「点击热区」——加大的是热区不是外观）。 */
+   把点击区撑到 50×34（反馈①「点击热区」——加大的是热区不是外观）。
+   2026-10-13 用户报障「雾蓝下配置页右侧的开关看不清边缘，与背景融为一体」：
+   宿主 app.css 有一条**元素选择器**的全局 button 规则
+   （`display:inline-flex; align-items:center; justify-content:center`，
+   见 scripts/host-obsidian-1.13.7.css L7199-7218，特异性只有 (0,0,1)）——本控件
+   没声明过这三个属性，于是整颗开关都是宿主那条的形状：轨道里那枚 18px 滑块被
+   **水平居中**（居中偏 8px），再叠 `.is-on` 的 translateX(16px)，滑块右缘伸出
+   38px 轨道约 6px，正落在行的卡片底色上。滑块底色是 --momo-card、行又身在卡片里，
+   伸出部分与背景**同色**（五套主题 knob×card 对比度全部 1.00）⇒ page==card==纯白
+   的雾蓝 / 苔绿里，滑块右半直接消失；关态同样被中歪（左右各 9px 蓝，不是贴左 2px）。
+   修法与 v0.9.35 的 .momo-brand / .momo-locnode-row 同一招：把 flex 三件套
+   自己声明全，`justify-content: flex-start` 让滑块贴回内容盒左边，(0,2,0)
+   稳压宿主 (0,0,1)。真 Chromium 实测（tmp/scratch 的复现页）：修复前开态
+   滑块偏移 26px、右缘出轨 ~6px；修复后偏移 18px，右侧留 2px 蓝边。 */
 .momo-settings .momo-set-switch {
   position: relative;
   flex: none;
   box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
   width: 38px;
   height: 22px;
   padding: 2px;
@@ -8053,8 +8133,11 @@
   box-shadow: inset 0 0 0 1px var(--momo-ink-6);
   color: var(--momo-ink);
 }
+/* 按压底走 --momo-press（2026-10-13 五套通则，见 080-buttons.css 同段注）：
+   步进器钮坐在轨道（surface）上，而 surface-2 在雾蓝里比它还亮（1.02 那一档），
+   按下去反而像浮起来。 */
 .momo-settings .momo-set-stepper-btn:active:not(:disabled) {
-  background: var(--momo-surface-2);
+  background: var(--momo-press);
 }
 .momo-settings .momo-set-stepper-btn svg {
   width: 14px;
@@ -8214,8 +8297,10 @@
   box-shadow: inset 0 0 0 1px var(--momo-ink-6);
   color: var(--momo-ink);
 }
+/* 按压底走 --momo-press（2026-10-13 五套通则，见 080-buttons.css 同段注）：
+   本钮静置底就是 surface，surface-2 在雾蓝里与它只差 2/255，按下没有反馈。 */
 .momo-settings .momo-set-viewmove:active:not(:disabled) {
-  background: var(--momo-surface-2);
+  background: var(--momo-press);
 }
 .momo-settings .momo-set-viewmove svg {
   display: block;
@@ -8439,8 +8524,40 @@
   box-shadow: inset 0 0 0 1px var(--momo-ink-6);
   color: var(--momo-ink);
 }
+/* ---- 按压态（:active）：一律走 --momo-press，五套通则（2026-10-13）----------------
+   用户报障：「雾蓝配色，所有的按钮，在点击后都会变成白色，然后与背景色融为一体，
+   就看不清了」。根因在**所有** :active 规则原先都吃 `--momo-surface-2`——那是
+   「嵌面」令牌（代码块 / 嵌面块用的近底纸面），不是按压底。横展复算五套 × 两底
+   （按钮一族静置在 card 上、chip / 分段 / 步进器这些坐在父容器 surface 轨道上）：
+
+     方案         旧按压底 vs card / surface     新 --momo-press vs card / surface
+     mist-blue    **1.02 / 1.02**  （报障的一套） 1.27 / 1.23
+     moss-green   **1.09 / 1.04**                1.26 / 1.21
+     clam-white     1.13 / 1.11  （surface 侧只 1.21 / 但方向是反的，见下）→ 1.53 / 1.21
+     stepfun        1.13 / **1.08**              1.50 / 1.22
+     ink-night    **1.07** / 1.10                1.34 / 1.37
+
+   判据是 check-contrast ⑧b 组的 1.10：**五套里四套至少一侧不达标**（雾蓝两侧都只有
+   1.02——page / card / surface / surface-2 = #ffffff / #ffffff / #fbfbfb / #fdfdfd，
+   是同一块白）。clam-white 是唯一数值上过的，可它的 surface-2（#f0ece3）比 surface
+   （#e6e0d4）**亮**——「压一档」压成了「浮一档」，方向还是反的。
+   五套的**主行动钮**更狠（这条与配色无关、五套全中）：`:active` 的 (0,4,0) 压得过
+   `.is-primary` (0,3,0)，按下去的底被刷成近白、字还是 `--momo-on-accent`——
+   实测字色对比 mist-blue 1.02 / moss-green 1.09 / clam-white 1.18 / stepfun 1.13 /
+   ink-night 1.20（都要 4.5），也就是「点下去整颗钮的字消失」，五套一起。
+   修法：按压底改用独立令牌 `--momo-press`（五套主题里各一档，见 themes/*.css 的
+   同段注），过 check-contrast 的 ⑧b 组（按压底 vs card / surface ≥1.10）与 ① 组
+   （ink / ink-2 在按压底上仍是正文 ≥4.5）。改动面 = 设置页七条 :active
+   （本文件两条 + 010-cards / 020-controls / 030-scheme / 060-switches / 070-tabs
+   各一条）；主行动钮那一档另见表末 `.is-primary:active`——它必须在 accent 实底
+   上收尾，**不许**回到中性底。守卫见 scripts/host-button-clash.test.mts 的
+   「按压底不许吃中性纸面层级」（:hover 那条的姊妹判据）。 */
 .momo-settings .momo-set-chip:active:not(.is-on) {
-  background: var(--momo-surface-2);
+  background: var(--momo-press);
+  /* chip 的静置字色是 ink-3（大概 4.4:1 那一档），按压底比 card 深一档后会压到
+     4.5 线以下；这里跟着 hover 一起转 ink —— 按压态与 hover 同为「用户正在指的地方」，
+     字色本来就该同档（hover 那条也写 ink）。 */
+  color: var(--momo-ink);
 }
 .momo-settings .momo-set-chip.is-on {
   background: var(--momo-accent-soft);
@@ -8489,8 +8606,8 @@
   background: var(--momo-surface);
   color: var(--momo-ink);
 }
-.momo-settings .momo-set-btn:active:not(:disabled) {
-  background: var(--momo-surface-2);
+.momo-settings .momo-set-btn:where(:not(.is-primary)):active:not(:disabled) {
+  background: var(--momo-press);
   transform: translateY(0.5px);
 }
 .momo-settings .momo-set-btn.is-ghost {
@@ -8512,6 +8629,18 @@
   border-color: var(--momo-accent-hover);
   background: var(--momo-accent-hover);
   color: var(--momo-on-accent);
+}
+/* 主行动钮的按压态：**留在 accent 家族**（accent-hover），不许落到中性按压底上——
+   中性底 + --momo-on-accent 白字正是这次报障的「白底白字」。上面通用那条已用
+   `:where(:not(.is-primary))` 把它排除，所以这里不是抢特异性，而是把按压的两件事
+   补回来：实底留在 accent-hover（与 hover 同值）+ 0.5px 下沉（按压唯一的形变信号）。
+   (0,4,0) 与 hover 同档、源码序在后——按压时 :hover 仍成立，同档靠源序赢。
+   文字对比度由 check-contrast ③ 组的 on-accent × accent-hover 守着（五套现值 5.99+）。 */
+.momo-settings .momo-set-btn:where(.is-primary):active:not(:disabled) {
+  border-color: var(--momo-accent-hover);
+  background: var(--momo-accent-hover);
+  color: var(--momo-on-accent);
+  transform: translateY(0.5px);
 }
 .momo-settings .momo-set-btn svg {
   flex: none;

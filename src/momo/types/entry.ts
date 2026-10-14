@@ -250,7 +250,7 @@ export interface MomoData {
     sections: SidebarSections
     /** 随机回顾每批条数（1–50，默认 10） */
     reviewCount: number
-    /** 活跃度热力图滚动窗口（1–12 个月，默认 3） */
+    /** 活跃度热力图滚动窗口（1–12 个月，默认 1） */
     heatmapMonths: number
     /** 统计页时间范围（'all' | '90d' | 'ytd' | 'custom'，默认 'all'）：页面顶部切换，关面板后保持 */
     statsRange: StatsRange
@@ -266,7 +266,8 @@ export interface MomoData {
     customCss: string
     /** 面板字体（v0.9.16）：面板界面文字（侧栏 / 弹层 / 设置页）用哪套字。取值空间
      *  与兜底见 sanitizeFontPref：'' = 跟随默认 | 'obsidian:<role>' = Obsidian 的字体
-     *  角色（v1.0.0 起，内置开源字体已退役）| 其余 = 盘上遗留的系统已装字体名 */
+     *  角色（v1.0.0 起，内置开源字体已退役；2026-10-13 起界面只剩等宽一个角色，
+     *  退役的界面 / 正文旧值继续读）| 其余 = 盘上遗留的系统已装字体名 */
     uiFont: string
     /** 卡片字体（v0.9.16）：卡片正文与标题用哪套字，取值空间同 uiFont。
      *  空串 = 跟随面板字体（卡片本来就从面板继承字体） */
@@ -421,5 +422,22 @@ export interface MomoData {
      * 属于**视图偏好**（ADR-003）：只决定形状，不写进任何 Momo 文件。
      */
     icons: IconOverrides
+    /**
+     * 首次自动开面板的**记账**（2026-10-13，用户要求「安装完插件后，Momo 可以
+     * 出现在右侧侧边栏」）：`false`（默认）= 还没替用户开过——插件加载完
+     * （`main.ts` 的 `onLayoutReady`）时若仍是 `false`，就把面板按
+     * `settings.panelSide`（默认右栏）开出来，然后置 `true` 落盘。
+     *
+     * **只开这一次**（同日用户裁定选项 A）：用户自己关掉后，重载插件 / 重启
+     * Obsidian 都不会再弹回来——「关不掉的侧栏」比不自动开更烦。布局恢复里已经
+     * 有面板时（上次就是开着退出的）只记账、不再开第二个。
+     *
+     * 与 `settings.panelSide` 的分工：那个是「面板停哪一侧」（用户拖动会改写），
+     * 这个只回答「自动开这一次做完没有」。它不是界面偏好、设置页没有行，与
+     * `reviewSeen` 同属「只服务行为的记账」，所以住 prefs 而不是 settings。
+     * 旧 data.json 无此键 → 回 false：升级后的**第一次**启动也会自动开一次
+     * （这正是要的「装完就能看见」），此后归用户自己管。
+     */
+    panelAutoOpened: boolean
   }
 }

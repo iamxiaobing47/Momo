@@ -25,7 +25,7 @@ import {
   DEFAULT_TAG_SORT,
   DENSITIES,
   FONT_ROLE_PREFIX,
-  FONT_ROLES,
+  READABLE_FONT_ROLES,
   FONT_VALUE_MAX,
   GLOBE_EARTHS,
   HEATMAP_MONTHS,
@@ -476,8 +476,9 @@ export function sanitizeCustomCss(value: unknown): string {
 /**
  * 字体偏好（v1.0.0）的取值兜底。取值空间三段：
  *   · `''` —— 跟随默认（不注入字体变量，CSS 令牌走原栈）；
- *   · `obsidian:<role>` —— Obsidian 自己的三种字体角色（interface / text /
- *     monospace，见 prefs.ts 的 FONT_ROLES）；
+ *   · `obsidian:<role>` —— Obsidian 自己的字体角色（role 必须在
+ *     READABLE_FONT_ROLES 内：在用的 monospace + 2026-10-13 退役的 interface /
+ *     text——退役角色继续放行，老 data.json 不被打回默认，见 prefs.ts）；
  *   · 其余 —— 历史遗留的**系统已装字体名**（手输入口早已移除，盘上旧值继续读）。
  *
  * 第三段要当 CSS 值注入 head 的 <style>（`--momo-sans / --momo-font-card`），
@@ -492,7 +493,7 @@ export function sanitizeFontPref(value: unknown): string {
   if (s === '') return ''
   if (s.startsWith(FONT_ROLE_PREFIX)) {
     const role = s.slice(FONT_ROLE_PREFIX.length)
-    return (FONT_ROLES as readonly string[]).includes(role) ? s : ''
+    return READABLE_FONT_ROLES.includes(role) ? s : ''
   }
   if (s.startsWith('bundled:')) return ''
   const safe = s.replace(/\s+/g, ' ')

@@ -28,7 +28,7 @@
    2026-10-10 起**没有头部标题**（BUG-160：用户「所有的 dialog，左上角都不要有标题」）：
    标题与底栏主动作按钮是同一句话的第二遍（「删除标签」/「彻底删除」…），与
    BUG-157 / 158 去掉的面板浮层标题同判据。原生 modal-title 由下面那条规则隐藏，
-   内容区的上内距补到与无头浮层（.momo-pop-nohead）相称的一刀。 */
+   内容区的上内距补到与浮层骨架（`.momo-pop` 的 8px 上内距）相称的一刀。 */
 .modal.momo-confirm {
   width: min(328px, calc(100vw - 32px));
   padding: 0;
@@ -54,8 +54,9 @@
 }
 
 /* 头部整行隐藏（BUG-160）：Obsidian 的 Modal 构造函数总会建一个 titleEl，不写文字
-   它也是一条 36px 的空白带——与 .momo-pop-nohead 的口径一致，直接不渲染。
-   四条弹窗（caps 的 openConfirmModal / pickDay、notesMigration 的两框）都不再传标题。 */
+   它也是一条 36px 的空白带——与浮层骨架（`.momo-pop` 无头行、上内距 8px）的口径
+   一致，直接不渲染。四条弹窗（caps 的 openConfirmModal / pickDay、notesMigration
+   的两框）都不再传标题。 */
 .momo-confirm .modal-title {
   display: none;
 }
@@ -63,7 +64,7 @@
 /* contentEl 是 flex 列：消息独占上边距，底栏（含分隔线）贴底——actions 由
    views.tsx createDiv 挂在 contentEl 里，contentEl 不能有左右内边距，
    否则分隔线玑不挨着模态边缘。
-   头部隐藏后上内距由这 8px 补（与 .momo-pop-nohead 同值）。 */
+   头部隐藏后上内距由这 8px 补（与 `.momo-pop` 同值）。 */
 .momo-confirm .modal-content {
   padding: 8px 0 0;
   display: flex;

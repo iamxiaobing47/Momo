@@ -62,6 +62,11 @@
   --momo-card: #fcfaf6;
   --momo-line: #dcd5c8;
   --momo-line-soft: #e8e1d4; /* 卡片分隔线，比 line 淡一档 */
+  /* 按压底（2026-10-13 横展）：见 mist-blue.css 同段注。本方案侧栏 surface（#e6e0d4）
+     比 card 深得多，按压底要同时离 card 与 surface 够远：H40 暖纸一档的 #d4ccbb
+     （card 1.53 / surface 1.21 / surface-2 1.35）——过 check-contrast ⑧b 组（1.10）。
+     ⚠️ 别用中性灰：这里的纸感全在 H40 暖调上（同本文件头注的铁律）。 */
+  --momo-press: #d4ccbb;
 
   /* ---- 墨阶 · 松烟（带棕的暖黑，不是纯黑也不是冷灰）----
      中国画里的黑不用纯黑，是松枝烧烟制墨后的深褐。放在暖纸底上比冷黑更沉。

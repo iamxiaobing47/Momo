@@ -1,10 +1,26 @@
 /* ---- 开关 38×22 / r999，滑块 18 ----
    视觉尺寸照设计稿；22px 高在触屏 / 高分屏下热区太勉强，用一枚透明的 ::before
-   把点击区撑到 50×34（反馈①「点击热区」——加大的是热区不是外观）。 */
+   把点击区撑到 50×34（反馈①「点击热区」——加大的是热区不是外观）。
+   2026-10-13 用户报障「雾蓝下配置页右侧的开关看不清边缘，与背景融为一体」：
+   宿主 app.css 有一条**元素选择器**的全局 button 规则
+   （`display:inline-flex; align-items:center; justify-content:center`，
+   见 scripts/host-obsidian-1.13.7.css L7199-7218，特异性只有 (0,0,1)）——本控件
+   没声明过这三个属性，于是整颗开关都是宿主那条的形状：轨道里那枚 18px 滑块被
+   **水平居中**（居中偏 8px），再叠 `.is-on` 的 translateX(16px)，滑块右缘伸出
+   38px 轨道约 6px，正落在行的卡片底色上。滑块底色是 --momo-card、行又身在卡片里，
+   伸出部分与背景**同色**（五套主题 knob×card 对比度全部 1.00）⇒ page==card==纯白
+   的雾蓝 / 苔绿里，滑块右半直接消失；关态同样被中歪（左右各 9px 蓝，不是贴左 2px）。
+   修法与 v0.9.35 的 .momo-brand / .momo-locnode-row 同一招：把 flex 三件套
+   自己声明全，`justify-content: flex-start` 让滑块贴回内容盒左边，(0,2,0)
+   稳压宿主 (0,0,1)。真 Chromium 实测（tmp/scratch 的复现页）：修复前开态
+   滑块偏移 26px、右缘出轨 ~6px；修复后偏移 18px，右侧留 2px 蓝边。 */
 .momo-settings .momo-set-switch {
   position: relative;
   flex: none;
   box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
   width: 38px;
   height: 22px;
   padding: 2px;
@@ -138,8 +154,11 @@
   box-shadow: inset 0 0 0 1px var(--momo-ink-6);
   color: var(--momo-ink);
 }
+/* 按压底走 --momo-press（2026-10-13 五套通则，见 080-buttons.css 同段注）：
+   步进器钮坐在轨道（surface）上，而 surface-2 在雾蓝里比它还亮（1.02 那一档），
+   按下去反而像浮起来。 */
 .momo-settings .momo-set-stepper-btn:active:not(:disabled) {
-  background: var(--momo-surface-2);
+  background: var(--momo-press);
 }
 .momo-settings .momo-set-stepper-btn svg {
   width: 14px;

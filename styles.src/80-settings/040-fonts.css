@@ -13,14 +13,18 @@
 .momo-settings .momo-set-font-grid {
   display: grid;
   /* v0.9.42（用户报障「选项里的文字没有全部渲染」）：下限 104 → 116。
-     auto-fill 的 minmax 下限**就是最窄那格的宽**——内容列窄到只放得下四格时，
+     minmax 下限**就是最窄那格的宽**——内容列窄到只放得下四格时，
      每格按 104px 算，减边框 1px×2、左右内距 10px×2，样字只剩 82px；而
      「记录此刻 Aa 123」实测最宽 115px（JetBrains 格，真浏览器量 scrollWidth），
      于是五个格子全变成「记录此刻 Aa …」。116 是「标准内容列仍一排放得下五格」
      的上界：5×116 + 4×8 = 612 ≤ 618 ✓（六格要 736 > 618，跑不出六列）。
      所以宽窗五格一排不变，窄窗格子变宽而不再挤扁文字；代价只是极窄窗口
-     少放一格，格子反而更好读。 */
-  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+     少放一格，格子反而更好读。
+     2026-10-13（用户要求「就提供默认和等宽字体两种」）：每行只剩「默认 +
+     等宽」两格，auto-fill → **auto-fit**——空轨道折叠、两格平分整行。
+     留着 auto-fill 的话两格各只有 1/5 宽、右侧一大片空格，像少了三格；
+     窄窗仍按 116 下限收，样字不会被挤扁。 */
+  grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
   gap: 8px;
 }
 .momo-settings .momo-set-font-tile {
@@ -46,6 +50,40 @@
 .momo-settings .momo-set-font-tile.is-on {
   border-color: var(--momo-accent);
   background: var(--momo-accent-soft);
+}
+/* 未下载的开源字体包格（2026-10-13）：虚线边 + 大小行可见。样字先按继承的字体画
+   （那套字体还不在文档里），下载完成注册 FontFace 后同一枚 span 自然换成那套字
+   （LookTab 的 setInstalled 会把 font-family 补上）。 */
+.momo-settings .momo-set-font-tile.is-pending {
+  border-style: dashed;
+}
+/* 下载中：同一条虚线 + 进度光标；LookTab 侧还有 busyId 闸（一次只下一套），
+   这里是视觉侧的「别再点」。 */
+.momo-settings .momo-set-font-tile.is-busy {
+  border-style: dashed;
+  cursor: progress;
+}
+/* 大小 / 进度行：图标 + 文字。与样字、名字同一套截断纪律（内容盒 94px）。 */
+.momo-settings .momo-set-font-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  font-size: var(--momo-fs-1);
+  line-height: 16px;
+  color: var(--momo-ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.momo-settings .momo-set-font-size-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 已下载的格子不显示大小行——那时候它不需要再提示大小了 */
+.momo-settings .momo-set-font-size.is-hidden {
+  display: none;
 }
 /* 样字 / 字体名的硬线：minmax 下限 116px → 内容盒 = 116 − 2（边框）− 20（左右内距）= 94px。
    两行文字都在字典侧（样字 = i18n 三语言 fonts.sample，字体名 = copy.meta.fontName），

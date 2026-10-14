@@ -121,9 +121,12 @@ export const DENSITY_VIEWS = [
  *    后者是**空转**的（never 可赋值给任何类型，实测漏三个档也 exit 0），本处要真能红；
  * ③ 纯类型层，**不给它配运行时引用**：`declare const` 会被 esbuild 擦掉而 `void` 引用
  *    留在产物里，一挂载就 ReferenceError（本次重构第一版踩过）。
+ * `export` 只为消掉「defined but never used」（本仓 eslint 按 `^_` 忽略未用变量，
+ * 评审平台跑的那份配置没有这条忽略）：导出即「被使用」，漏登记密度档照旧编译不过。
+ * 守卫本身一字未动。
  */
 type _RegisteredDensity = (typeof DENSITY_VIEWS)[number]['id']
 type _MissingDensity = Exclude<Density, _RegisteredDensity>
 /** 断言：入参必须是 never（即「DENSITIES 一个都没漏」） */
 type _AssertNever<T extends never> = T
-type _DensitiesAllRegistered = _AssertNever<_MissingDensity>
+export type _DensitiesAllRegistered = _AssertNever<_MissingDensity>

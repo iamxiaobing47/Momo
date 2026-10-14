@@ -33,8 +33,13 @@ export const trash = {
    * No title since 2026-10-10 (BUG-160): "Empty trash" is already the topbar button's word */
   purgeAll: {
     message: (d: { count: number; brand: string }): string =>
-      `Permanently delete the ${d.count} ${d.brand} entries in the trash?`,
+      `Permanently delete the ${d.count} ${d.brand} entries in the trash? Attachments no note references will be removed as well.`,
     confirm: 'Empty',
     button: 'Empty trash',
+  },
+  /** Follow-up echo of emptying the trash (BUG-243): how many orphan attachments went.
+   *  Wiping user files in bulk must not be silent — the count is the only visible result */
+  notice: {
+    orphansSwept: (count: number): string => `Removed ${count} attachments that no note references`,
   },
 }

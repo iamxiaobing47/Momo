@@ -9,7 +9,7 @@
  * `import type` 指回 domain：**只取类型、运行时被擦除**，不构成 i18n ↔ types 的运行时循环
  * （types.ts 需要 copy 才能填这些表，两边只能靠 type-only 引用解开）。
  */
-import type { BrandIcon, ColorScheme, FontRole, StatsGroupKey, TagMatchMode, TagSortKey } from '../../types'
+import type { BrandIcon, ColorScheme, FontPackId, FontRole, StatsGroupKey, TagMatchMode, TagSortKey } from '../../types'
 import type { TagAttachmentFilter, TagTimeFilter } from '../../tags'
 import { CHAR_BIN_UPPER } from '../../stats/constants'
 
@@ -90,12 +90,22 @@ export const meta = {
 
   /** Obsidian 字体角色的名字（v1.0.0，设置页字体格子的主文字；id = types/prefs.ts
    *  FONT_ROLES，Record 全键覆盖，漏一个编译不过）。指的就是 Obsidian「外观」里的
-   *  三档字体设置（界面 / 正文 / 等宽）。 */
+   *  三档字体设置（界面 / 正文 / 等宽）。2026-10-13 按用户要求「系统字体和卡片
+   *  字体，就提供默认和等宽字体两种」，界面 / 正文两格从设置页退役（盘上旧值继续
+   *  生效，见 prefs.ts 的 RETIRED_FONT_ROLES），字典里只剩等宽的名字。 */
   fontRole: {
-    interface: '界面字体',
-    text: '正文字体',
     monospace: '等宽字体',
   } satisfies Record<FontRole, string>,
+
+  /** 开源字体包的名字（2026-10-13，按需下载复活的内置字体；id = types/prefs.ts 的
+   *  FontPackId，包表在 momo/fonts/pack.ts）。名字保持短——格子名字行只有 94px
+   *  内容盒（BUG-87 的截断教训：en 的 LXGW WenKai 15 字符封顶）。 */
+  fontPack: {
+    wenkai: '霞鹜文楷',
+    'noto-sans': '思源黑体',
+    'noto-serif': '思源宋体',
+    'jetbrains-mono': 'JetBrains Mono',
+  } satisfies Record<FontPackId, string>,
 
   /** 字数分布的五个档（下标与 stats.ts 的 charBins 一一对应）；数字由上方 charBin 派生 */
   charBin,

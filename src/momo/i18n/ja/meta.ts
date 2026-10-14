@@ -4,7 +4,7 @@
  * `Record<列挙, …>` で宣言するので、「列挙にメンバーを足したのに文言を書き忘れる」
  * とコンパイルで弾かれる。
  */
-import type { BrandIcon, ColorScheme, FontRole, StatsGroupKey, TagMatchMode, TagSortKey } from '../../types'
+import type { BrandIcon, ColorScheme, FontPackId, FontRole, StatsGroupKey, TagMatchMode, TagSortKey } from '../../types'
 import type { TagAttachmentFilter, TagTimeFilter } from '../../tags'
 import { CHAR_BIN_UPPER } from '../../stats/constants'
 
@@ -72,12 +72,23 @@ export const meta = {
 
   /** Obsidian のフォント役割名（v1.0.0、id = types/prefs.ts の FONT_ROLES。
    *  Record 全キー保証——1 つでも欠けたらコンパイルエラー）。Obsidian の
-   *  「外観」にある三つのフォント設定に対応する。 */
+   *  「外観」にある三つのフォント設定に対応する。2026-10-13 ユーザー要望
+   *  「デフォルトと等幅の2つだけ」により、インターフェース / 本文の2枠は設定
+   *  ページから退役（盤上の古い値は引き続き有効、prefs.ts の RETIRED_FONT_ROLES
+   *  参照）——辞書に残るは等幅のみ。 */
   fontRole: {
-    interface: 'インターフェース',
-    text: '本文',
     monospace: '等幅',
   } satisfies Record<FontRole, string>,
+
+  /** オープンソース字体パックの名前（2026-10-13、按需ダウンロードで复活した内置
+   *  字体；id = types/prefs.ts の FontPackId、包表は momo/fonts/pack.ts）。名前は
+   *  短く——タイルの名前行の内容枠は 94px（BUG-87 の截断教训）。 */
+  fontPack: {
+    wenkai: '霞鶩文楷',
+    'noto-sans': 'Noto Sans SC',
+    'noto-serif': 'Noto Serif SC',
+    'jetbrains-mono': 'JetBrains Mono',
+  } satisfies Record<FontPackId, string>,
 
   /** 文字数分布の5段（添字は stats.ts の charBins と対応）；数字は上の charBin から派生 */
   charBin,

@@ -33,8 +33,40 @@
   box-shadow: inset 0 0 0 1px var(--momo-ink-6);
   color: var(--momo-ink);
 }
+/* ---- 按压态（:active）：一律走 --momo-press，五套通则（2026-10-13）----------------
+   用户报障：「雾蓝配色，所有的按钮，在点击后都会变成白色，然后与背景色融为一体，
+   就看不清了」。根因在**所有** :active 规则原先都吃 `--momo-surface-2`——那是
+   「嵌面」令牌（代码块 / 嵌面块用的近底纸面），不是按压底。横展复算五套 × 两底
+   （按钮一族静置在 card 上、chip / 分段 / 步进器这些坐在父容器 surface 轨道上）：
+
+     方案         旧按压底 vs card / surface     新 --momo-press vs card / surface
+     mist-blue    **1.02 / 1.02**  （报障的一套） 1.27 / 1.23
+     moss-green   **1.09 / 1.04**                1.26 / 1.21
+     clam-white     1.13 / 1.11  （surface 侧只 1.21 / 但方向是反的，见下）→ 1.53 / 1.21
+     stepfun        1.13 / **1.08**              1.50 / 1.22
+     ink-night    **1.07** / 1.10                1.34 / 1.37
+
+   判据是 check-contrast ⑧b 组的 1.10：**五套里四套至少一侧不达标**（雾蓝两侧都只有
+   1.02——page / card / surface / surface-2 = #ffffff / #ffffff / #fbfbfb / #fdfdfd，
+   是同一块白）。clam-white 是唯一数值上过的，可它的 surface-2（#f0ece3）比 surface
+   （#e6e0d4）**亮**——「压一档」压成了「浮一档」，方向还是反的。
+   五套的**主行动钮**更狠（这条与配色无关、五套全中）：`:active` 的 (0,4,0) 压得过
+   `.is-primary` (0,3,0)，按下去的底被刷成近白、字还是 `--momo-on-accent`——
+   实测字色对比 mist-blue 1.02 / moss-green 1.09 / clam-white 1.18 / stepfun 1.13 /
+   ink-night 1.20（都要 4.5），也就是「点下去整颗钮的字消失」，五套一起。
+   修法：按压底改用独立令牌 `--momo-press`（五套主题里各一档，见 themes/*.css 的
+   同段注），过 check-contrast 的 ⑧b 组（按压底 vs card / surface ≥1.10）与 ① 组
+   （ink / ink-2 在按压底上仍是正文 ≥4.5）。改动面 = 设置页七条 :active
+   （本文件两条 + 010-cards / 020-controls / 030-scheme / 060-switches / 070-tabs
+   各一条）；主行动钮那一档另见表末 `.is-primary:active`——它必须在 accent 实底
+   上收尾，**不许**回到中性底。守卫见 scripts/host-button-clash.test.mts 的
+   「按压底不许吃中性纸面层级」（:hover 那条的姊妹判据）。 */
 .momo-settings .momo-set-chip:active:not(.is-on) {
-  background: var(--momo-surface-2);
+  background: var(--momo-press);
+  /* chip 的静置字色是 ink-3（大概 4.4:1 那一档），按压底比 card 深一档后会压到
+     4.5 线以下；这里跟着 hover 一起转 ink —— 按压态与 hover 同为「用户正在指的地方」，
+     字色本来就该同档（hover 那条也写 ink）。 */
+  color: var(--momo-ink);
 }
 .momo-settings .momo-set-chip.is-on {
   background: var(--momo-accent-soft);
@@ -83,8 +115,8 @@
   background: var(--momo-surface);
   color: var(--momo-ink);
 }
-.momo-settings .momo-set-btn:active:not(:disabled) {
-  background: var(--momo-surface-2);
+.momo-settings .momo-set-btn:where(:not(.is-primary)):active:not(:disabled) {
+  background: var(--momo-press);
   transform: translateY(0.5px);
 }
 .momo-settings .momo-set-btn.is-ghost {
@@ -106,6 +138,18 @@
   border-color: var(--momo-accent-hover);
   background: var(--momo-accent-hover);
   color: var(--momo-on-accent);
+}
+/* 主行动钮的按压态：**留在 accent 家族**（accent-hover），不许落到中性按压底上——
+   中性底 + --momo-on-accent 白字正是这次报障的「白底白字」。上面通用那条已用
+   `:where(:not(.is-primary))` 把它排除，所以这里不是抢特异性，而是把按压的两件事
+   补回来：实底留在 accent-hover（与 hover 同值）+ 0.5px 下沉（按压唯一的形变信号）。
+   (0,4,0) 与 hover 同档、源码序在后——按压时 :hover 仍成立，同档靠源序赢。
+   文字对比度由 check-contrast ③ 组的 on-accent × accent-hover 守着（五套现值 5.99+）。 */
+.momo-settings .momo-set-btn:where(.is-primary):active:not(:disabled) {
+  border-color: var(--momo-accent-hover);
+  background: var(--momo-accent-hover);
+  color: var(--momo-on-accent);
+  transform: translateY(0.5px);
 }
 .momo-settings .momo-set-btn svg {
   flex: none;

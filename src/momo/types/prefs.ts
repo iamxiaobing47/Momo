@@ -337,16 +337,24 @@ export const STATS_GROUPS = [
  * ② 数组必须保持 `as const`——被 `readonly StatsGroup[]` 注解后 `keys`  widening
  *    成 keyof 全集，Exclude 退化成 never，漏键也看不出来。
  * 配套的运行时守卫见 scripts/registry-guard.test.mts（注册表覆盖那两条）。
+ * `export` 只为消掉「defined but never used」（本仓 eslint 按 `^_` 忽略未用变量，
+ * 评审平台跑的那份配置没有这条忽略）：导出即「被使用」，漏归组照旧编译不过。
+ * 守卫本身一字未动。
  */
 type _GroupedKeys = (typeof STATS_GROUPS)[number]['keys'][number]
 type _AssertNever<T extends never> = T
-type _AllSectionsGrouped = _AssertNever<Exclude<keyof StatsSections, _GroupedKeys>>
+export type _AllSectionsGrouped = _AssertNever<Exclude<keyof StatsSections, _GroupedKeys>>
 
 /** 随机回顾每批条数：合法区间与默认值 */
 export const REVIEW_COUNT = { min: 1, max: 50, default: 10 } as const
 
-/** 活跃度热力图滚动窗口（月）：合法区间与默认值 */
-export const HEATMAP_MONTHS = { min: 1, max: 12, default: 3 } as const
+/**
+ * 活跃度热力图滚动窗口（月）：合法区间与默认值。
+ * 默认 **1**（2026-10-13 用户裁定「默认配置 - 回顾与活跃度，热力图显示月数应该为 1」；
+ * 此前默认 3）。只作用于**新装 / 盘上缺键**的读盘，已存了值的用户零变化——想铺几个月
+ * 在设置页「回顾与活跃度」里拖滑块（1–12）。
+ */
+export const HEATMAP_MONTHS = { min: 1, max: 12, default: 1 } as const
 
 // ---- 统计页时间范围（v0.4.17，v0.5.4 增自定义区间；prefs 的结构化偏好）----
 
@@ -425,7 +433,7 @@ export const COLOR_SCHEMES: ReadonlyArray<{
 /** 自定义 CSS 片段的长度上限：data.json 是配置文件，不该被当成编辑器存超大文本 */
 export const CUSTOM_CSS_MAX = 200_000
 
-// ---- 字体角色（v1.0.0，取代内置开源字体）----
+// ---- 字体角色（v1.0.0，取代内置开源字体；2026-10-13 收编为只留等宽）----
 //
 // v0.9.16–v0.9.50 插件自带四套开源字体（SIL OFL 1.1，随构建部署进插件目录 fonts/，
 // 运行时 @font-face 注入）。代价：发布包背 ~70MB，而 Obsidian 社区商店安装器（以及
@@ -437,30 +445,60 @@ export const CUSTOM_CSS_MAX = 200_000
 // --font-text / --font-monospace），插件引用它们即可——用户在 Obsidian 里改一次，
 // 面板与卡片自动跟着变，且发布包不再背 70MB。
 //
+// 2026-10-13（用户要求「系统字体和卡片字体，就提供默认和等宽字体两种」）：界面 /
+// 正文两个角色从设置页格子退役，每行只剩「默认 + 等宽」两格。**退役 ≠ 盘上旧值
+// 失效**：obsidian:interface / obsidian:text 的老 data.json 继续放行、继续生效
+// （同 2026-10-06 手输字体名那段的待遇——升级零变化，只是一行里没有格子亮，
+// 点任一格即换成新选择）。想再要第三个格子，把角色加回 FONT_ROLES 即可，
+// 旧值那边早就读得动。
+//
 // 取值空间三段（兜底见 sanitizeFontPref）：
 //   · `''`                —— 跟随默认（不注入字体变量，CSS 令牌走原栈）；
-//   · `obsidian:<role>`   —— Obsidian 的三种字体角色（FontRole）；
+//   · `obsidian:<role>`   —— Obsidian 的字体角色（在用的 + 已退役的都放行，
+//                            白名单见 READABLE_FONT_ROLES）；
 //   · 其余                —— 历史遗留的手输系统字体名（界面入口早已移除，
 //                            盘上旧值继续读，不把人打回默认）。
 //
-// 加一个新角色的三处：
+// 动角色表的三处（加回第三个格子时）：
 //   ① 本表 FONT_ROLES 加一条；
-//   ② fontStyle.ts 的 ROLE_CSS 补一条映射；
+//   ② fontStyle.ts 的 ROLE_CSS 补一条映射（那张表是 Record<FontRole | RetiredFontRole, …>，
+//      两个联合都在，退役角色照样要能解析）；
 //   ③ i18n 三语言的 copy.meta.fontRole 补名字（Record 全键覆盖，漏一个编译不过）。
 
-/** Obsidian 提供的字体角色：界面 / 正文 / 等宽（对应 --font-interface 等三个宿主变量） */
-export type FontRole = 'interface' | 'text' | 'monospace'
+/** Obsidian 提供的字体角色：等宽（对应 --font-monospace 宿主变量）。
+ *  界面 / 正文两个角色 2026-10-13 起从设置页退役，见 RETIRED_FONT_ROLES。 */
+export type FontRole = 'monospace'
 
 /** 字体角色偏好值的前缀：偏好值 = `${FONT_ROLE_PREFIX}${role}` */
 export const FONT_ROLE_PREFIX = 'obsidian:'
 
-/** 全部字体角色（顺序即设置页格子顺序） */
-export const FONT_ROLES: readonly FontRole[] = ['interface', 'text', 'monospace']
+/** 在用的字体角色（顺序即设置页格子顺序）：用户要求「就提供默认和等宽两种」后只剩等宽 */
+export const FONT_ROLES: readonly FontRole[] = ['monospace']
+
+/** 已退役的字体角色（2026-10-13）：设置页不再有对应格子，但盘上旧值继续读、继续
+ *  生效——「移除输入入口」和「旧值失效」是两件事，口径同手输字体名那段。 */
+export type RetiredFontRole = 'interface' | 'text'
+export const RETIRED_FONT_ROLES: readonly RetiredFontRole[] = ['interface', 'text']
+
+/** 盘上仍然放行的角色全集（在用的 + 已退役的）：sanitizeFontPref 的 `obsidian:<role>`
+ *  白名单。只收在用的那批会把老 data.json 的界面 / 正文选择打回默认。 */
+export const READABLE_FONT_ROLES: readonly string[] = [...FONT_ROLES, ...RETIRED_FONT_ROLES]
 
 /** 角色 → 偏好取值（写入 data.json 的字面值） */
 export function fontRoleValue(role: FontRole): string {
   return `${FONT_ROLE_PREFIX}${role}`
 }
+
+/**
+ * 开源字体包的 id（2026-10-13，用户要求「下载开源字体放 GitHub Release、提供字体
+ * 卡片」）：v1.0.0 退役的内置字体以按需下载复活。包表（资产名 / 字节 / 摘要 /
+ * 家族名）在 `src/momo/fonts/pack.ts`，展示名在 i18n 三语言 `copy.meta.fontPack`
+ * （Record FontPackId → string，漏一个编译不过）。
+ *
+ * 偏好侧不需要新键：下载下来的字体以**家族名**落在既有的第三段取值空间里
+ * （`prefs.uiFont = 'Noto Sans SC'`），sanitizeFontPref 的字体名白名单原样放行。
+ */
+export type FontPackId = 'wenkai' | 'noto-sans' | 'noto-serif' | 'jetbrains-mono'
 
 /**
  * 字体偏好值的长度上限（uiFont / cardFont）：`obsidian:<role>` 十余字符，

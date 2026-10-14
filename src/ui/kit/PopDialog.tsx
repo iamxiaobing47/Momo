@@ -1,22 +1,23 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type { CSSProperties, KeyboardEventHandler, ReactNode, Ref } from 'react'
 
-// 浮层弹壳（.momo-pop-mask + .momo-pop + 头 + 脚）：标签管理弹层
+// 浮层弹壳（.momo-pop-mask + .momo-pop + 脚）：标签管理弹层
 // （src/ui/tags/TagEditMenu.tsx）与批量标签弹层（src/ui/tags/picker/BatchTagPicker.tsx，
 // 加 / 去两种模式）逐字同形，收敛到这一份。两处都渲染
-// 「遮罩 + 对话框 + 头部（可选标题 + 右侧 meta）+ 调用方内容 + 底栏（左列 + 右列）」，
+// 「遮罩 + 对话框 + 调用方内容 + 底栏（左列 + 右列）」，
 // DOM 类名与调用点逐字一致：momo-pop-mask / momo-pop / momo-pop-free /
-// momo-pop-below / momo-pop-head / momo-pop-title / momo-pop-meta /
-// momo-pop-foot。底栏左列各调用方不是同一个元素（管理标签是 .momo-pop-footleft
-// 文字钮组、批量标签是 .momo-pop-status 状态块、批量地点是 .momo-pop-sum 摘要），
-// 由调用方经 footerLeft 原样传入。
+// momo-pop-below / momo-pop-foot。底栏左列各调用方不是同一个元素（管理标签是
+// .momo-pop-footleft 文字钮组、批量标签是 .momo-pop-status 状态块、批量地点是
+// .momo-pop-sum 摘要），由调用方经 footerLeft 原样传入。
 //
-// 头 / 脚都是**真有内容才渲染**（title / meta 都不传 → 头部整行消失，
-// `.momo-pop-nohead` 补上内距；footerLeft / footerActions 都不传 → 底栏不渲染）。
-// 2026-10-10 起批量标签弹层也不传 title / meta（头顶的「添加标签」与批量条按钮、
-// 底栏主按钮是同一句话的第三遍，「已选 N 条」搬到底栏左列，见 BatchTagPicker 文件头）。
+// **头部（36px 头行）2026-10-14 起整块退役**：BUG-157 / 158 / 159 / 160 一路删下来，
+// 标签管理弹层右上角的 `#{tag}` 是最后一个消费者（本单同一条判据：弹层里的输入框
+// 预填的就是当前标签名，右上角再抄一遍是同一件事的第二遍）。`meta` prop 与
+// `.momo-pop-head` / `.momo-pop-meta` / `.momo-pop-nohead` 三个类一并删除，
+// 无头弹层的上内距（8px）归 `.momo-pop` 自己（见 001-pop.css）。
+// 底栏同理只在真有内容才渲染（footerLeft / footerActions 都不传 → 整块不渲染）。
 //
-// 外壳只接管「壳 + 头 + 脚」的 markup；定位、关闭、焦点与键盘全部留在调用方：
+// 外壳只接管「壳 + 脚」的 markup；定位、关闭、焦点与键盘全部留在调用方：
 // - free 变体由调用方用 useLayoutEffect 把落点夹回视口（相对 .momo-app 换算），
 //   结果经 style / dialogRef 传进来（TagEditMenu 要量宿主尺寸）；
 // - below 变体由 CSS 挂在定位锚 .momo-batchtag-wrap 下方，调用方无样式；
@@ -47,15 +48,6 @@ import type { CSSProperties, KeyboardEventHandler, ReactNode, Ref } from 'react'
 export interface PopDialogProps {
   /** free = JS 换算的自由落点（style 给 left/top）；below = 挂在定位锚下方 */
   variant: 'free' | 'below'
-  /** 头部右侧 meta（当前标签 / 模式小分段）；不传或空串则头部整行不渲染。
-   *  单卡地点编辑弹层 2026-10-10 起两项都不传（右上角不显示笔记首行，见
-   *  LocEditPop 文件头）——它与其他 free 小浮层一样整行没有头部。
-   *
-   *  BUG-187：`title` prop 与 `.momo-pop-title` 一并退役——2026-10-10 的
-   *  「所有 dialog 左上角都不要有标题」一族的收尾：七个调用点全都不再传，
-   *  渲染分支与唯一的衬线消费者 `--momo-serif` 都是空转。要再放"一行标题"的
-   *  新弹层，先想清它是不是已有可见文字的第三遍（157/158/160 的判据）。 */
-  meta?: ReactNode
   /** 对话框无障碍名（各调用方自己的 copy 键）。
    *  2026-10-10 起可选：批量标签弹层不再传——那个名字（「批量添加标签」）与唤起它
    *  的批量条按钮、底栏主按钮是同一句话的第三遍，而部分 Electron / Chromium 环境会把
@@ -88,7 +80,6 @@ export interface PopDialogProps {
 
 export function PopDialog({
   variant,
-  meta,
   ariaLabel,
   footerLeft,
   footerActions,
@@ -99,7 +90,6 @@ export function PopDialog({
   onMaskClick,
   returnFocus,
 }: PopDialogProps): React.JSX.Element {
-  const hasHead = meta !== undefined && meta !== ''
   /**
    * BUG-82d（BUG-109b 修正）：挂载后**首次渲染**把「上一个焦点」快照成元素
    * 本身。必须在 render 期取（effect 里已经晚了——autoFocus 的输入框把
@@ -196,9 +186,7 @@ export function PopDialog({
 
       <div
         ref={setDialogRef}
-        className={`momo-pop ${variant === 'free' ? 'momo-pop-free' : 'momo-pop-below'}${
-          hasHead ? '' : ' momo-pop-nohead'
-        }`}
+        className={`momo-pop ${variant === 'free' ? 'momo-pop-free' : 'momo-pop-below'}`}
         style={style}
         role="dialog"
         aria-modal="true"
@@ -206,14 +194,6 @@ export function PopDialog({
         tabIndex={-1}
         onKeyDown={trapTab}
       >
-        {/* 头部只在真有内容时渲染（同底栏的口径）：free 小浮层标题 meta 都不传，
-            整行消失——36px 的空带会像被截断（理由见底栏注释）。 */}
-        {hasHead && (
-          <div className="momo-pop-head">
-            <span className="momo-pop-meta">{meta}</span>
-          </div>
-        )}
-
         {children}
 
         {/* 底栏只在真有内容时渲染。排序浮层（TagSortMenu）没有任何底栏动作，

@@ -93,10 +93,14 @@ export const CardMeta = memo(function CardMeta({
   const selectMode = useUi((s) => s.selectMode)
   const checked = useUi((s) => s.selected.has(path))
   // 「加标签」开弹层是 store 动作（selection.ts）：卡片操作行只有单条 add 这一路，
-  // 在这里收窄成 CardActionsProps 的 (paths) => void 形状（useCallback 保引用稳定，
-  // CardActions 是 memo，别每次渲染都换新回调）
+  // 在这里收窄成 CardActionsProps 的 (paths, at?) => void 形状（useCallback 保引用稳定，
+  // CardActions 是 memo，别每次渲染都换新回调）。`at` = 那颗按钮相对 `.momo-app`
+  // 的落点（注册表在 click 里量好）——单卡弹层据此开在按钮旁边，与「设地点」同一路数。
   const openTagPicker = useUi((s) => s.openTagPicker)
-  const onTag = useCallback((paths: string[]) => openTagPicker(paths, 'add'), [openTagPicker])
+  const onTag = useCallback(
+    (paths: string[], at?: { x: number; y: number }) => openTagPicker(paths, 'add', at),
+    [openTagPicker],
+  )
   // 「设地点」开单卡编辑弹层（store 的 location slice）：落点由 CardActions 按
   // mappin 按钮相对 .momo-app 算好后传进来（DOM 测量留在按钮那一侧）
   const openLocEditor = useUi((s) => s.openLocEditor)

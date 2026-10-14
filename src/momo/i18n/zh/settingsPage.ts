@@ -244,6 +244,14 @@ export const settingsPage = {
        *  起，常量一改界面就在撒谎——sanitize 放行 12 张而这里还说「最多 8 张」。 */
       formats: (d: { maxMB: number; max: number }): string =>
         `支持 PNG / JPG / WebP / SVG / GIF，单个文件不超过 ${d.maxMB}MB，最多 ${d.max} 张`,
+      /** 2026-10-14 用户要求「自动识别 icons 文件夹里的图标，并且对重复内容的图标
+       *  自动去重」，随后点明「重复内容应该删除，只保留最新的一个」：扫描结果的一行
+       *  反馈。`unique` = 清理后剩下的枚数，`files` = 清理前识别到的文件数（供调试 /
+       *  测试核账），`removed` = 这一趟真删掉的重复副本数——删了就报，没删不占行。 */
+      scanned: (d: { unique: number; files: number; removed: number }): string =>
+        d.removed > 0
+          ? `已识别 icons 文件夹中的 ${d.unique} 个图标（删除了 ${d.removed} 个内容重复的旧文件，同内容只留最新的一张）`
+          : `已识别 icons 文件夹中的 ${d.unique} 个图标`,
       /** `图片不能超过 1MB（当前 1.4MB）。左上角的图标只有 30px，太大的图没有意义。`
        *  v0.9.13 起按 MB 说话：老写法把 1_000_000 字节除 1000 报成「1000KB」，
        *  而「当前 1400.0KB」那一档小数纯属噪音。 */
@@ -394,10 +402,12 @@ export const settingsPage = {
       desc: '开启后点正文不打开 Obsidian；要打开用操作项目里的「在 Obsidian 中打开（编辑）」。',
     },
     /** 字体（v0.9.16，用户要求「用户可以分别配置系统字体和卡片字体」）：
-     *  面板字体与卡片字体各一行，格子即预览（样字用它代表的字体画）。四套开源
-     *  字体随插件分发（fonts/ 目录 + @font-face 运行时注入），离线可用；授权
-     *  记录在 fonts/OFL-1.1.txt。2026-10-06：手输「系统已装字体名」的输入框按
-     *  用户要求移除，盘上旧值仍可读（见 sanitizeFontPref），只不留输入入口。 */
+     *  面板字体与卡片字体各一行，格子即预览（样字用它代表的字体画）。v1.0.0 起
+     *  改用 Obsidian 自带的字体（fonts/ 四套开源字体整体退役）。2026-10-06：
+     *  手输「系统已装字体名」的输入框按用户要求移除；2026-10-13：界面 / 正文两个
+     *  角色格按用户要求「就提供默认和等宽字体两种」移除——两次移除的盘上旧值仍可读、
+     *  仍生效（见 sanitizeFontPref 与 prefs.ts 的 RETIRED_FONT_ROLES），只不留输入
+     *  入口，每行只剩「默认 + 等宽」两格。 */
     fonts: {
       title: '字体',
       // 2026-10-11 用户要求「去掉这段文字」：卡头说明整句移除——两行字面标题
@@ -437,6 +447,17 @@ export const settingsPage = {
         // 格子里，它的含义由格子本身说明。
         desc: '卡片正文与标题用哪套字体。',
       },
+      /** 未下载字体包格的大小标注（2026-10-13，用户要求「提示字体文件大小」）：
+       *  MB 留一位小数、KB 取整——27.6MB 与 187KB 的差距一个函数说清，不在调用方分叉。 */
+      packSize: (bytes: number): string =>
+        bytes >= 1_000_000 ? `≈${(bytes / 1_000_000).toFixed(1)} MB` : `${Math.round(bytes / 1000)} KB`,
+      download: '下载',
+      downloading: (done: number, total: number): string => `正在下载 ${done}/${total}…`,
+      /** 下载确认框（用户点未下载格子时弹）：名字 + 合计大小 + 「只在你点下载时发生」 */
+      downloadConfirm: (o: { name: string; size: string }): string =>
+        `「${o.name}」还没有下载。下载会从 GitHub Release 获取字体文件（合计 ${o.size}），只在你点「下载」时发生。`,
+      downloadFailed: (failed: number, total: number): string =>
+        `下载没成功（${failed}/${total} 个文件）——稍后点这一格重试。`,
     },
   },
 

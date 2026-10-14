@@ -131,6 +131,13 @@ const PAIRS = [
   { fg: 'ink-2', bg: 'accent-soft', min: TEXT, kind: 'text' },
   { fg: 'ink-3', bg: 'accent-soft', min: TEXT, kind: 'text' },
   { fg: 'ink-4', bg: 'accent-soft', min: TEXT, kind: 'text' },
+  // 按压底上的文字（2026-10-13，与 ⑧b 同批）：按压态只换底、不换字色，所以静置字色
+  // 必须在这块底上仍然达标。消费者是设置页的按钮一族（.momo-set-btn 的 ink-2、chip
+  // 按压时转 ink、配色卡继承 ink）。⚠️ ink-3 目前在 mist-blue 的按压底上只有 4.41
+  // （#65686b on #e4e4e4）——所以 chip 的按压态跟着 hover 一起写了 `color: ink`；
+  // 谁要往按压底上放 ink-3，先把 press 提亮到让这条过。
+  { fg: 'ink', bg: 'press', min: TEXT, kind: 'text' },
+  { fg: 'ink-2', bg: 'press', min: TEXT, kind: 'text' },
 
   // ---- ② 语义色文字（链接 / 选中名 / 危险项 / 状态字）----
   ...['accent', 'accent-hover', 'danger', 'danger-hover', 'warn', 'sage', 'clay', 'primary'].flatMap((fg) =>
@@ -253,6 +260,24 @@ const PAIRS = [
   // 底色差 <1.10 时选中实际只剩描边一道信号。
   { fg: 'accent-soft', bg: 'card', min: 1.10, kind: 'state' },
   { fg: 'accent-soft-2', bg: 'card', min: 1.10, kind: 'state' },
+
+  // ---- ⑧b 按压底可分辨（2026-10-13 用户报「雾蓝配色，所有的按钮，在点击后都会变成
+  //   白色，然后与背景色融为一体，就看不清了」）----
+  // 按压底 --momo-press 是**按钮按下去那一刻唯一换的东西**（:active 只改 background，
+  // 形变只有 0.5px 下沉），所以它必须离两种静置面都够远：
+  //   · card    —— 按钮一族的静置面（.momo-set-btn / .momo-set-scheme 自带 card 底）；
+  //   · surface —— 轨道控件的静置面（chip / 分段 / 导航 chip / 步进器 / 序位钮都坐在
+  //                父容器的 surface 轨道上、自己透明）。
+  // 门槛沿用 ⑧ 组「选中 = 换底」的 1.10——它是同一族病：原先七条 :active 全吃
+  // --momo-surface-2（「嵌面」）。横展复算五套 × 两底（旧值，card / surface）：
+  //   mist-blue **1.02 / 1.02**（报障的一套：page=card=#ffffff，surface-2 #fdfdfd）
+  //   moss-green **1.09 / 1.04** · stepfun 1.13 / **1.08** · ink-night **1.07** / 1.10
+  //   clam-white 1.13 / 1.11 —— 数值上唯一过的，可它的 surface-2 比 surface **亮**
+  //   （「压一档」压成「浮一档」），方向反了。
+  // 即五套里四套至少一侧不达标。clam-white 那条留着 ⑧b 拦是因为它只差 0.01 的余量，
+  // 色值一动就掉下去；方向那一半由 80-buttons.css 的通则注与令牌语义兜。
+  { fg: 'press', bg: 'card', min: 1.10, kind: 'state', why: '按压底 × 按钮的静置卡片面' },
+  { fg: 'press', bg: 'surface', min: 1.10, kind: 'state', why: '按压底 × 轨道控件的静置侧栏面' },
 
   // ---- ⑦ 装饰性描边：只报告，不作废 ----
   // SC 1.4.11 只约束「识别控件与状态**所必需**的视觉信息」；这几条线围起来的东西

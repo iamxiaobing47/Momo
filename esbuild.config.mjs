@@ -5,7 +5,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { buildCss } from './scripts/build-css.mjs'
-import { ARTIFACTS, STALE_ARTIFACTS, GLOBE_TEXTURES, GLOBE_EARTH_IDS, GLOBE_CUBE_FACES, globeTextureProblems, globeAssetRevOf, vaultPluginDirs } from './scripts/vault-targets.mjs'
+import { ARTIFACTS, STALE_ARTIFACTS, GLOBE_TEXTURES, GLOBE_EARTH_IDS, GLOBE_CUBE_FACES, globeTextureProblems, globeAssetRevOf, vaultPluginDirs, FONT_PACK_ASSETS } from './scripts/vault-targets.mjs'
 import { neutralizeScriptElements, scriptElementProblems } from './scripts/react-dom-script-guard.mjs'
 
 const production = process.argv[2] === 'production'
@@ -116,6 +116,10 @@ const reactDomScriptNeutralizer = {
 const sha256 = (p) => crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex')
 const sameFile = (a, b) => fs.existsSync(a) && fs.existsSync(b) && sha256(a) === sha256(b)
 
+/** 字体包的本地源目录（gitignore；由 scripts/fetch-fonts.mjs 铺，可选资产） */
+const fontDir = path.join(projectDir, 'fonts')
+const hasFonts = fs.existsSync(fontDir)
+
 // 同步部署到 vault 的插件目录；vault 不存在时跳过，但一定打印结果（不静默失败）
 const deployPlugin = {
   name: 'deploy-to-vault',
@@ -182,10 +186,38 @@ const deployPlugin = {
         // 文件名与 src/momo/globe/pack.ts 的 GLOBE_PACK_MANIFEST_FILE 是同一个字面量
         // （那是 .ts，本文件是构建期跑的 .mjs，import 不了）；globe-pack.test.mts 钉住两处一致。
         fs.writeFileSync(path.join(dest, 'globe-pack.json'), JSON.stringify({ version: pluginVersion }))
+        // 开源字体包（2026-10-13，按需下载复活）：本地构建把 fonts/ 铺进插件目录的
+        // fonts/ 子目录——与运行期下载的落盘布局一致（service.fontPackStatus 按文件
+        // 齐不齐判「装没装」），于是设置页的字体格直接是「已下载」可用态。fonts/
+        // 是 gitignore 的可选资产：contributor 没跑 fetch-fonts 也照样能构建，所以
+        // 缺失只提示、不算问题（真实用户那条路是运行期从 release 按需下载）。
+        if (hasFonts) {
+          const fontDst = path.join(dest, 'fonts')
+          fs.mkdirSync(fontDst, { recursive: true })
+          for (const name of fs.readdirSync(fontDir)) {
+            const src = path.join(fontDir, name)
+            if (!fs.statSync(src).isFile()) continue
+            fs.copyFileSync(src, path.join(fontDst, name))
+            if (!sameFile(src, path.join(fontDst, name))) problems.push(`${dest}\\fonts\\${name} 与源不一致`)
+          }
+          // 清死文件：v1.0.0 之前铺进插件目录的旧字体（LXGWWenKaiLite-*.ttf 那批）
+          // 不在当前资产清单里，留着只是占地方——运行期只认 FONT_PACK_ASSETS 这五个名字。
+          // 仅在本地 fonts/ 存在时清（那时才知道「当前资产集」是什么；没有它就不动
+          // 插件目录，免得把用户运行期下载下来的字体误删）。
+          for (const name of fs.readdirSync(fontDst)) {
+            if (!FONT_PACK_ASSETS.includes(name)) fs.rmSync(path.join(fontDst, name), { force: true })
+          }
+        }
         deployed.push(dest)
       }
       const note = skipped.length > 0 ? `（未找到 vault：${skipped.length} 个，已跳过）` : ''
       console.log(`[deploy] → ${deployed.join('\n           ') || '(无)'}${note}`)
+      if (!hasFonts) {
+        console.log(
+          '[deploy] fonts/ 不在（没跑 node scripts/fetch-fonts.mjs）→ 不铺字体；' +
+            '设置页的字体格是「未下载」态，点一下会走 release 下载（需要这一版已发布）',
+        )
+      }
       // 零目标（既没部署、也没遇到「vault 不存在」）与「配了路径但机器上没有那些 vault」
       // 是两回事：后者是 skipped，前者说明 MOMO_VAULTS 整个没设。对开源贡献者
       // 「(无)」莫名其妙，这里说清修法。

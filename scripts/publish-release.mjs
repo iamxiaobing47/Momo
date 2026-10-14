@@ -301,13 +301,15 @@ function main() {
   // ④ 构建新鲜度：**构建产物**必须比源新
   // 只查构建出来的那几件（main.js / styles.css）：manifest.json 与星球贴图
   // 是从源原样拷的、不存在「重新构建」，把它们也拉去跟 src/ 比时间会恒红（贴图自己就在 src/ 下）。
+  // 2026-10-13：fonts/ 的字体包同理——它是 fetch-fonts.mjs 从上游取的**独立资产**，
+  // 取件时间与源码新旧无关（改了 src 不用重下字体），排除出这道比新。
   const sourceList = sourceRels(dir)
   // 路径口径统一成正斜杠：sourceRels 是手写 `/`，releaseManifest 走 path.join（Windows 是 `\`），
   // 不归一就会把「本身就是源文件」的贴图/清单当成构建产物、拿它跟 src/ 比时间 → 恒红。
   const norm = (rel) => rel.split(path.sep).join('/')
   const sourceSet = new Set(sourceList.map(norm))
   const artifacts = releaseManifest(dir)
-    .filter((m) => !sourceSet.has(norm(m.src)))
+    .filter((m) => !sourceSet.has(norm(m.src)) && !m.src.startsWith('fonts/'))
     .map((m) => ({ rel: m.src, mtimeMs: mtimeMsOrNull(path.join(dir, m.src)) }))
   const sourceMs = sourceList.map((rel) => mtimeMsOrNull(path.join(dir, rel)) ?? 0)
   problems.push(...assetFreshnessProblems({ newestSourceMtimeMs: sourceMs.length > 0 ? Math.max(...sourceMs) : 0, artifacts }))

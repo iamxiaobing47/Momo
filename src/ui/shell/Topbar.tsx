@@ -1,12 +1,12 @@
 import { useShallow } from 'zustand/react/shallow'
 import { useUi } from '../store'
-import type { MainMode } from '../store'
+import type { MainMode, UiState } from '../store'
 import type { ViewId } from '../../momo/types'
 import { copy } from '../../momo/i18n'
 import { PanelToggleIcon, Icon } from '../shared/icons'
 import { Segmented, Spacer } from '../kit'
 import { Composer } from './Composer'
-import { BatchTagPicker, type TagPickerMode } from '../tags/picker'
+import { BatchTagPicker } from '../tags/picker'
 import { LocEditPop } from '../locations/picker'
 import { NAV_ITEMS } from '../registry/sidebarSections'
 import { TOPBAR_SLOTS } from '../registry/topbarSlots'
@@ -55,8 +55,10 @@ export interface TopbarProps {
   onEnterSelectMode: () => void
   /** 切模式（侧栏菜单 / 本文件的窄档模式分段共用） */
   onMode: (mode: MainMode) => void
-  /** 卡片操作行「加标签」的弹层；多选那一路的弹层挂在底部批量条里（见 BatchBar） */
-  tagPicker: { paths: string[]; mode: TagPickerMode } | null
+  /** 卡片操作行「加标签」的弹层；多选那一路的弹层挂在底部批量条里（见 BatchBar）。
+   *  类型直接取 store 的字段（`UiState['tagPicker']`）——单卡那一路带着按钮落点
+   *  `at`，在这里再手抄一份形状就会漏字段（改 store 时这里编译不过才是对的）。 */
+  tagPicker: UiState['tagPicker']
   onCloseTagPicker: () => void
   /** 单卡地点编辑弹层（F3，卡片操作行第 4 颗 mappin）：null = 关闭；x/y 已在
       按钮那侧换算成「相对 .momo-app」的偏移。与 tagPicker 同一个挂位 */
@@ -147,13 +149,17 @@ export function Topbar({
             onDensityIntent={onDensityIntent}
           />
 
-          {/* 卡片操作行「加标签」的弹层锚点；多选那一路的弹层挂在底部批量条里 */}
+          {/* 卡片操作行「加标签」的弹层锚点；多选那一路的弹层挂在底部批量条里。
+              2026-10-14 起单卡那颗弹层**不画在这只盒子里**：它带着按钮落点走 free
+              变体、portal 到 .momo-app 根（BatchTagPicker 自己 portal；见该文件头），
+              这只 relative 锚点只剩兜底（tagPicker.at 缺失时仍按 below 挂这儿）。 */}
           <div className="momo-batchtag-wrap">
             {!selectMode && tagPicker && (
               <BatchTagPicker
                 key={tagPicker.mode}
                 selected={tagPicker.paths}
                 mode={tagPicker.mode}
+                at={tagPicker.at}
                 onClose={onCloseTagPicker}
               />
             )}

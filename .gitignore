@@ -6,6 +6,11 @@ node_modules/
 # main.js 由 esbuild 产出，不入库；styles.css 是部署件，要入库
 main.js
 
+# —— 开源字体包（2026-10-13 按需下载复活）——
+# 四套字体 ttf + 拼接的 OFL.txt 由 scripts/fetch-fonts.mjs 从上游取进 fonts/，
+# 只作发布链的 release 资产（运行期由插件按需下载），不入库
+/fonts/
+
 # —— 临时产物 ——
 # 所有运行时临时文件统一进 tmp/（run-tests→tmp/test、run-bench→tmp/bench、
 # 真 Chromium 回归 tmp/repro、截图中间产物 tmp/shots、一次性杂物 tmp/scratch）。

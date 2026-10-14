@@ -152,6 +152,17 @@
 .momo-settings .momo-set-icons-err.is-on {
   display: block;
 }
+/* 自动识别 + 去重的一行反馈（2026-10-14，与 .momo-set-icons-err 同一套显隐打法）：
+   空结果不占行，有话说才现身。 */
+.momo-settings .momo-set-icons-scan {
+  font-size: var(--momo-fs-2);
+  line-height: 16px;
+  color: var(--momo-ink-3);
+  display: none;
+}
+.momo-settings .momo-set-icons-scan.is-on {
+  display: block;
+}
 /* 上传用的隐藏 file input：**不能写 display:none**——它靠 uploadTile 的 click()
    程序性打开文件选择框，1px + opacity:0 的「可见但看不见」才是在所有渲染器里
    都响应 click() 的写法（display:none 在部分环境下连 change 都不派发）。 */

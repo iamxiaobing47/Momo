@@ -61,6 +61,11 @@
   --momo-card: #ffffff;
   --momo-line: #ebebeb;
   --momo-line-soft: #efefef; /* 卡片分隔线，比 line 淡一档 */
+  /* 按压底（2026-10-13 横展）：见 mist-blue.css 同段注。旧按压底 surface-2（#f5f5f5）
+     与 card 只有 1.09、与 surface（= page #fafafa）1.04——按下去分不出来；中性灰
+     #e5e5e5 与 card 1.26 / surface 1.21 / surface-2 1.16，过 check-contrast ⑧b 组
+     （1.10）。flomo 的墨阶是纯中性灰，这里也不掺绿灰。 */
+  --momo-press: #e5e5e5;
   --momo-ink: #323232; /* = flomo 实测。flomo 墨阶是纯中性灰，不带绿灰 */
 
   /* ink-2..6 沿 flomo 的中性灰方向；但**不能照抄 flomo 的后三档**：
