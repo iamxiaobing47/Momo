@@ -17,7 +17,9 @@
   background: transparent;
   box-shadow: none;
   border-radius: var(--momo-r-4);
-  font-family: var(--font-interface, inherit);
+  /* 读 --momo-sans 而不是宿主 --font-interface（2026-10-14 同 00-tokens.css 的
+     button 复位）：发布框是颗 <button>，写死宿主变量就不跟着「系统字体」走了。 */
+  font-family: var(--momo-sans);
   font-size: var(--momo-fs-4);
   text-align: left;
   cursor: pointer;

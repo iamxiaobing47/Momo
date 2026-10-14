@@ -190,13 +190,24 @@
   flex-direction: row-reverse;
 }
 
-/* 要盖掉 Obsidian 原生控件的默认投影 / 字体，统一定义 */
+/* 要盖掉 Obsidian 原生控件的默认投影 / 字体，统一定义。
+   ⚠ font-family 必须读 **--momo-sans**（2026-10-14 用户报障「侧栏菜单这些文字也是
+   系统字体，切换的时候却不受字体影响」）：这一条 (0,1,1) 直接落在面板里每个
+   button / input / select / textarea 上，**压过从 .momo-app 继承来的**
+   font-family: var(--momo-sans)（80-settings/090-ui-scale.css 的面板根规则）。
+   旧值写死宿主变量 var(--font-interface, inherit)——那是 v0.9.16「面板字体可配」
+   之前的形状；之后运行时只在四类宿主上覆盖 --momo-sans 本体，这条却始终在读
+   宿主变量，于是面板里一切没有自己声明 font-family 的按钮（侧栏菜单 / chips /
+   图标钮 / 顶栏分段…）永远停在 Obsidian 的界面字体，设置里换了字体也没反应。
+   与 .momo-settings 那条同族复位（80-settings/001-page.css）现在同值——那边
+   从一开始就写 var(--momo-sans)，两个宿主不再两张脸。
+   默认观感不变：没选字体时 --momo-sans 的字面量就是 var(--font-interface, …)。 */
 .momo-app button,
 .momo-app input,
 .momo-app select,
 .momo-app textarea {
   box-shadow: none;
-  font-family: var(--font-interface, inherit);
+  font-family: var(--momo-sans);
   min-height: 0;
 }
 
@@ -292,7 +303,9 @@
   background: transparent;
   box-shadow: none;
   border-radius: var(--momo-r-4);
-  font-family: var(--font-interface, inherit);
+  /* 读 --momo-sans 而不是宿主 --font-interface（2026-10-14 同 00-tokens.css 的
+     button 复位）：发布框是颗 <button>，写死宿主变量就不跟着「系统字体」走了。 */
+  font-family: var(--momo-sans);
   font-size: var(--momo-fs-4);
   text-align: left;
   cursor: pointer;
@@ -1101,9 +1114,9 @@
    现在与 `.momo-loc-pill` 同一形制：**一条声明块同时列两个宿主**（(0,2,0)，
    压得过任何 (0,1,1) 的宿主 button 规则），两个宿主逐字一致；`60-design/130-sort-menu.css`
    里那条同族副本已删（两条并存 = 将来必然分家，本 Bug 的来路）。
-   font-family 显式写给 var(--font-interface, inherit)：这正是 `.momo-app button`
-   复位给真卡的同一取值——不声明的话预览会走 `.momo-settings button` 的 --momo-sans，
-   预览与真卡在字体上又会差一档。
+   font-family 显式写给 var(--momo-sans)：与 `.momo-app button` 复位（00-tokens.css）
+   同值——2026-10-14 起两边都读它，标签 chip 才跟着「系统字体」走；两个宿主各自读
+   自己的 --momo-sans（运行期注入保持同值），预览与真卡在字体上不会差一档。
    2026-10-12 起底色 / 字色从 accent 令牌换成 tag 专用令牌（check-contrast ②c 组：
    tag × tag-soft / tag × card / page × tag 三条判定）；选中态 `.momo-card-tag-on`
    仍是 accent 描边——「选中 = accent」的语言不变。 */
@@ -1117,7 +1130,7 @@
   background: var(--momo-tag-soft);
   padding: 0 8px;
   color: var(--momo-tag);
-  font-family: var(--font-interface, inherit);
+  font-family: var(--momo-sans);
   font-size: var(--momo-fs-1);
   font-weight: 500;
   cursor: pointer;

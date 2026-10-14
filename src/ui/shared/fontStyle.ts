@@ -183,3 +183,14 @@ export async function registerFontFaces(faces: readonly FontFaceSpec[]): Promise
     }
   }
 }
+
+/**
+ * 这套字（任一字重）注册过没有——调用方据此避免把几十 MB 字节重复读回来
+ * （2026-10-14：设置页点「已下载」格子时补注册用；注册记忆是模块级的，换个
+ * Obsidian 会话就空了，那时才真需要读一次盘）。
+ */
+export function fontPackRegistered(family: string): boolean {
+  const prefix = `${family}@`
+  for (const key of registeredFaces) if (key.startsWith(prefix)) return true
+  return false
+}

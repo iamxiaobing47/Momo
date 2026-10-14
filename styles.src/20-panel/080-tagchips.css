@@ -11,9 +11,9 @@
    现在与 `.momo-loc-pill` 同一形制：**一条声明块同时列两个宿主**（(0,2,0)，
    压得过任何 (0,1,1) 的宿主 button 规则），两个宿主逐字一致；`60-design/130-sort-menu.css`
    里那条同族副本已删（两条并存 = 将来必然分家，本 Bug 的来路）。
-   font-family 显式写给 var(--font-interface, inherit)：这正是 `.momo-app button`
-   复位给真卡的同一取值——不声明的话预览会走 `.momo-settings button` 的 --momo-sans，
-   预览与真卡在字体上又会差一档。
+   font-family 显式写给 var(--momo-sans)：与 `.momo-app button` 复位（00-tokens.css）
+   同值——2026-10-14 起两边都读它，标签 chip 才跟着「系统字体」走；两个宿主各自读
+   自己的 --momo-sans（运行期注入保持同值），预览与真卡在字体上不会差一档。
    2026-10-12 起底色 / 字色从 accent 令牌换成 tag 专用令牌（check-contrast ②c 组：
    tag × tag-soft / tag × card / page × tag 三条判定）；选中态 `.momo-card-tag-on`
    仍是 accent 描边——「选中 = accent」的语言不变。 */
@@ -27,7 +27,7 @@
   background: var(--momo-tag-soft);
   padding: 0 8px;
   color: var(--momo-tag);
-  font-family: var(--font-interface, inherit);
+  font-family: var(--momo-sans);
   font-size: var(--momo-fs-1);
   font-weight: 500;
   cursor: pointer;

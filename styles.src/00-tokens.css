@@ -190,13 +190,24 @@
   flex-direction: row-reverse;
 }
 
-/* 要盖掉 Obsidian 原生控件的默认投影 / 字体，统一定义 */
+/* 要盖掉 Obsidian 原生控件的默认投影 / 字体，统一定义。
+   ⚠ font-family 必须读 **--momo-sans**（2026-10-14 用户报障「侧栏菜单这些文字也是
+   系统字体，切换的时候却不受字体影响」）：这一条 (0,1,1) 直接落在面板里每个
+   button / input / select / textarea 上，**压过从 .momo-app 继承来的**
+   font-family: var(--momo-sans)（80-settings/090-ui-scale.css 的面板根规则）。
+   旧值写死宿主变量 var(--font-interface, inherit)——那是 v0.9.16「面板字体可配」
+   之前的形状；之后运行时只在四类宿主上覆盖 --momo-sans 本体，这条却始终在读
+   宿主变量，于是面板里一切没有自己声明 font-family 的按钮（侧栏菜单 / chips /
+   图标钮 / 顶栏分段…）永远停在 Obsidian 的界面字体，设置里换了字体也没反应。
+   与 .momo-settings 那条同族复位（80-settings/001-page.css）现在同值——那边
+   从一开始就写 var(--momo-sans)，两个宿主不再两张脸。
+   默认观感不变：没选字体时 --momo-sans 的字面量就是 var(--font-interface, …)。 */
 .momo-app button,
 .momo-app input,
 .momo-app select,
 .momo-app textarea {
   box-shadow: none;
-  font-family: var(--font-interface, inherit);
+  font-family: var(--momo-sans);
   min-height: 0;
 }
 

@@ -30,7 +30,6 @@ import {
   sanitizeWarmRatio,
   type BrandIcon,
   type CardStamp,
-  type FontPackId,
   type LangPref,
   type MomoData,
   type UiScale,
@@ -40,12 +39,18 @@ import { FONT_PACKS, fontPackBytes, type FontPack } from '../../momo/fonts/pack'
 import { copy, LANG_NAMES, getLocale, resolveLocale, setLocale } from '../../momo/i18n'
 import type { BrandIconScan } from '../../momo/service'
 import { getLanguage } from 'obsidian'
-import { syncFontStyle, fontRoleCss, registerFontFaces } from '../../ui/shared/fontStyle'
+import {
+  syncFontStyle,
+  fontRoleCss,
+  fontPackRegistered,
+  registerFontFaces,
+} from '../../ui/shared/fontStyle'
 import { openConfirmModal } from '../caps'
 import { arrowNav, iconSvg, h } from './dom'
 import { actionsMock, metaMock, sizeMock, titleMock } from './mock'
 import type { SettingsCtx } from './context'
 import { PREFS_DEFAULTS } from './sections'
+import { createFontPackState, type FontPackState } from './fontPackState'
 
 // ② 界面外观：语言 / 配色 / 字体 / 左上角图标与名称 / 卡片解剖面上的五块
 // （信息行 → 标题 → 尺寸 → 操作 → 预热，v0.9.33）。
@@ -178,7 +183,12 @@ function applyFonts(ctx: SettingsCtx, patch: { uiFont?: string; cardFont?: strin
   syncFontStyle({ uiFont: p.uiFont, cardFont: p.cardFont })
 }
 
-function buildFontRow(ctx: SettingsCtx, card: HTMLElement, slot: 'uiFont' | 'cardFont'): void {
+function buildFontRow(
+  ctx: SettingsCtx,
+  card: HTMLElement,
+  slot: 'uiFont' | 'cardFont',
+  packs: FontPackState,
+): void {
   const f = copy.settingsPage.look.fonts
   const field = slot === 'uiFont' ? f.uiFont : f.cardFont
   const ctrl = ctx.row(card, field.name, field.desc, { wide: true })
@@ -224,10 +234,9 @@ function buildFontRow(ctx: SettingsCtx, card: HTMLElement, slot: 'uiFont' | 'car
   }
 
   // ---- 开源字体包格子（2026-10-13）：已下载即选、未下载先问后下 ----
-  /** 已下载的包（异步状态落地后填）；正在下载的包 id（一次只下一套） */
-  const installed = new Set<FontPackId>()
-  let busyId: FontPackId | null = null
-
+  // 装的包实时反映到格子上（异步：装没装是读盘判的，进页面时才知道）。观感全部
+  // 从**两行共享**的那份态派生（2026-10-14：一行里下载完，另一行不许还挂着
+  // 「未下载」虚线与大小标注——那正是用户报的「卡片字体里还要重复下载」）。
   for (const pack of FONT_PACKS) {
     const name = copy.meta.fontPack[pack.id]
     const tile = h('button', 'momo-set-font-tile')
@@ -246,13 +255,55 @@ function buildFontRow(ctx: SettingsCtx, card: HTMLElement, slot: 'uiFont' | 'car
     grid.append(tile)
   }
 
+  /** 大小行的文字（只动文字节点，图标留着） */
+  const sizeText = (pack: FontPack, text: string): void => {
+    const t = tiles.find((x) => x.pack?.id === pack.id)
+    const el = t?.size?.querySelector<HTMLElement>('.momo-set-font-size-text')
+    if (el) el.textContent = text
+  }
+
+  /** 一个包的格子按共享态重画：已下载（样字穿那套字 + 大小行收起）/ 下载中
+   *  （虚线 + 进度）/ 未下载（虚线 + 大小）。 */
+  const paintPack = (pack: FontPack): void => {
+    const t = tiles.find((x) => x.pack?.id === pack.id)
+    if (!t) return
+    const on = packs.has(pack.id)
+    const busy = packs.busy() === pack.id
+    t.el.classList.toggle('is-pending', !on && !busy)
+    t.el.classList.toggle('is-busy', busy)
+    t.size?.classList.toggle('is-hidden', on)
+    if (on) {
+      const sample = t.el.querySelector<HTMLElement>('.momo-set-font-sample')
+      if (sample) sample.style.fontFamily = `"${pack.files[0].family}"`
+    }
+    sizeText(pack, busy ? f.downloading(0, pack.files.length) : f.packSize(fontPackBytes(pack.id)))
+  }
+  const paintPacks = (): void => {
+    for (const pack of FONT_PACKS) paintPack(pack)
+  }
+
   /** 字体包格的点击：已下载 → 直接选中；未下载 → 确认框 → 下载 → 注册 → 选中 */
   const onPackClick = async (pack: FontPack): Promise<void> => {
-    if (busyId !== null) return
-    if (installed.has(pack.id)) {
+    // 「一次只走一套」是**全局**纪律（两行共用那个占位）：另一行正开着确认框 /
+    // 正在下时，点任何一套都不该再起一个流程——各起一个就是同样的字节下两遍
+    if (packs.active() !== null) return
+    if (packs.has(pack.id)) {
       apply(pack.files[0].family)
+      // 换个 Obsidian 会话后注册记忆是空的（模块级）：补注册一次，样字与面板才真
+      // 用那套字。已注册过就不读盘——一套 ttf 十几到二十几 MB，不重复读
+      if (!fontPackRegistered(pack.files[0].family)) {
+        void (async () => {
+          try {
+            await registerFontFaces(await ctx.service.readFontPackFiles(pack.id))
+          } catch {
+            // 缺件 / 读盘失败：偏好照常选中，字体栈逐级回落
+          }
+        })()
+      }
       return
     }
+    // 占位从点格子这一刻就开始（确认框还开着）：这期间另一行点同一套，直接不理
+    packs.begin(pack.id)
     const ok = await openConfirmModal(
       ctx.service.app,
       {
@@ -264,17 +315,18 @@ function buildFontRow(ctx: SettingsCtx, card: HTMLElement, slot: 'uiFont' | 'car
       },
       ctx.service.data.prefs.colorScheme,
     )
-    if (!ok) return
-    busyId = pack.id
-    paintBusy(pack)
+    if (!ok) {
+      packs.settle(pack.id, false)
+      return
+    }
+    packs.downloading(pack.id)
     const res = await ctx.service.downloadFontPack(pack.id, (done, total) => {
       sizeText(pack, f.downloading(done, total))
     })
-    busyId = null
     if (!res.ok) {
-      // 失败：格子退回未下载态，大小行换成一句人话（不弹窗——用户在设置页看着
-      // 这一行，就地报比 Notice 更近）
-      setPending(pack)
+      // 失败：两行的格子都退回未下载态，下载那一行的大小行换成一句人话（不弹窗——
+      // 用户在设置页看着这一行，就地报比 Notice 更近）
+      packs.settle(pack.id, false)
       sizeText(pack, f.downloadFailed(res.failed.length, pack.files.length))
       return
     }
@@ -285,46 +337,9 @@ function buildFontRow(ctx: SettingsCtx, card: HTMLElement, slot: 'uiFont' | 'car
       // 注册失败（字节不被内核接受）：偏好照常选中，字体栈逐级回落——下一次
       // 打开设置页 / 面板挂载还会再试（注册记忆按 family@weight 幂等）
     }
-    installed.add(pack.id)
-    setInstalled(pack)
+    // 广播：另一行同一个包的格子当场换成已下载态（观感全从共享态派生）
+    packs.settle(pack.id, true)
     apply(pack.files[0].family)
-  }
-
-  /** 大小行的文字（只动文字节点，图标留着） */
-  const sizeText = (pack: FontPack, text: string): void => {
-    const t = tiles.find((x) => x.pack?.id === pack.id)
-    const el = t?.size?.querySelector<HTMLElement>('.momo-set-font-size-text')
-    if (el) el.textContent = text
-  }
-
-  /** 未下载态：虚线格 + 大小行可见 */
-  const setPending = (pack: FontPack): void => {
-    const t = tiles.find((x) => x.pack?.id === pack.id)
-    if (!t) return
-    t.el.classList.remove('is-busy')
-    t.el.classList.add('is-pending')
-    t.size?.classList.remove('is-hidden')
-    sizeText(pack, f.packSize(fontPackBytes(pack.id)))
-  }
-
-  /** 已下载态：样字换成那套字体，大小行收起来 */
-  const setInstalled = (pack: FontPack): void => {
-    const t = tiles.find((x) => x.pack?.id === pack.id)
-    if (!t) return
-    t.el.classList.remove('is-pending', 'is-busy')
-    t.size?.classList.add('is-hidden')
-    const sample = t.el.querySelector<HTMLElement>('.momo-set-font-sample')
-    if (sample) sample.style.fontFamily = `"${pack.files[0].family}"`
-  }
-
-  /** 下载中：格子进 busy 态，大小行报进度 */
-  const paintBusy = (pack: FontPack): void => {
-    const t = tiles.find((x) => x.pack?.id === pack.id)
-    if (!t) return
-    t.el.classList.remove('is-pending')
-    t.el.classList.add('is-busy')
-    t.size?.classList.remove('is-hidden')
-    sizeText(pack, f.downloading(0, pack.files.length))
   }
 
   const paint = (): void => {
@@ -345,18 +360,13 @@ function buildFontRow(ctx: SettingsCtx, card: HTMLElement, slot: 'uiFont' | 'car
   wrap.append(grid)
   ctrl.append(wrap)
   paint()
-  // 装的包实时反映到格子上（异步：装没装是读盘判的，进页面时才知道）
-  void ctx.service.fontPackStatus().then((s) => {
-    for (const pack of FONT_PACKS) {
-      if (s.packs[pack.id]) {
-        installed.add(pack.id)
-        setInstalled(pack)
-      } else {
-        setPending(pack)
-      }
-    }
-    paint()
-  })
+  // 读盘未落地前先按「未下载」画（虚线 + 大小），落地后由下面的订阅换成真状态
+  paintPacks()
+  // 共享态：开页读一次盘（两行合并成一次读盘，同一份快照），之后任何一行下载
+  // 成功 / 失败都会广播到这里重画。退订随共享态一起寿终——重建 = 新造一份态、
+  // 重新读盘（旧订阅连旧 DOM 一起被回收），所以这里不攥退订函数
+  packs.subscribe(paintPacks)
+  void packs.status()
   // radio 的箭头即选择：与配色方案卡 / 图标格子同一套键盘语言（WAI-ARIA 自动激活）
   arrowNav(grid, '.momo-set-font-tile', (el) => el.click())
 }
@@ -767,8 +777,13 @@ export function buildLookTab(ctx: SettingsCtx): void {
       ctx.rerender()
     },
   })
-  buildFontRow(ctx, cFont, 'uiFont')
-  buildFontRow(ctx, cFont, 'cardFont')
+  // 字体包的安装态**两行共享**（2026-10-14）：同一个盘上事实（fonts/ 齐不齐）
+  // 只有一份，一行里下载完，另一行要当场换成已下载态——旧实现两行各持一份
+  // 快照，用户在卡片字体行又看一遍「未下载 + 大小」、点一下再下一遍同样的字节
+  // （用户报障「系统字体里下载了思源黑体，卡片字体里还需要重复下载思源黑体」）。
+  const fontPacks = createFontPackState(() => ctx.service.fontPackStatus().then((s) => s.packs))
+  buildFontRow(ctx, cFont, 'uiFont', fontPacks)
+  buildFontRow(ctx, cFont, 'cardFont', fontPacks)
 
   // ======================= ④ 头像与名称 =======================
   // 恢复 = 叶子形状 + 默认名 + 生效位回空串。**上传的图片清单不动**（BUG-88）：
