@@ -44,9 +44,12 @@ import * as field from './fields'
 // 用户要的是「点 Momo 直接进设置页」。取舍与代价（评审 no-deprecated-display warning +
 // 设置搜索搜不到本页的设置项）见 display() 处注释与 BUG-236 工单。
 //
-// 2026-10-14 另修：卡片曾被 CSS 按 `display: none` 藏起来（要靠 JS 打 is-active 才亮），
-// BUG-236 删掉打类的 paintTab() 后整页空白——基础规则已改回 display: block，
-// 两个方向的回归守卫见 settings-host-war.test.mts 与 settings-page.test.mts。
+// 2026-10-14 两次反复的收尾（BUG-246）：BUG-236 删掉分页导航时把卡片的基础规则改成
+// `display: block`（修当时的整页空白——paintTab 没了、`display:none` 没人翻回来）；
+// 用户裁决回到经典 `display()` + 页内横向 Tab 后，nav / paintTab 回来了，CSS 闸门
+// 也必须一起回来（`display: none` + `.is-active` 覆写）。两半同进同退，两个方向各有
+// 一道守卫：settings-host-war.test.mts（CSS 侧：闸门在）与 settings-page.test.mts
+// （DOM 侧：有且只有一个区段亮着、且与 is-on 的 chip 同区段）。
 
 export type { MomoHost } from './sections'
 export { PREFS_DEFAULTS, SECTION_IDS, sectionLabel } from './sections'

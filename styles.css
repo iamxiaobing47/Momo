@@ -7318,17 +7318,25 @@
 }
 
 /* ---- 卡片：白底 + 1px line + r8；卡头下、每块之间一条 line-soft ----
-   分页：BUG-236（Obsidian 1.13 声明式设置 API）起七个分页各自成页，一页里的卡片
-   **全部可见**——旧的「同一时刻只有一个区段可见」靠 `.is-active` 切显隐（由
-   settings.ts 的 paintTab() 打上），paintTab 随分页导航一并删除后那把开关没人打了，
-   卡片却还留着 `display: none`：整页内容建得好好的（DOM 在、htmlLen 正常）却一片
-   空白。2026-10-14 修：基础规则直接 `display: block`，`.is-active` 覆写随之退役。 */
+   分页：同一时刻只有一个区段可见（v0.9.6 起一个区段可以有多张卡）。
+   `is-active` 由 settings.ts 的 paintTab() 打上，它在所有卡片都建完之后才调用，
+   所以这里不必担心「谁都没亮」导致整页空白。
+   2026-10-14 的两次反复（BUG-246）：BUG-236 一度把分页导航整块删掉（七个分页各自成
+   Obsidian 设置页），那把「同一时刻只亮一个区段」的开关没人打了，卡片却还留着
+   `display: none` → 整页空白；当天用户裁决回到经典 `display()` + 页内横向 Tab，
+   nav / paintTab 在 settings.ts 侧恢复了，**这把 CSS 闸门却留在了 `display: block`**
+   → 七个分页的卡片全部摊在同一页上，Tab 点得动、内容不切换（用户报障原形）。
+   闸门与打类的一侧必须同进同退：CSS 侧「闸门在」由 settings-host-war.test.mts 守，
+   DOM 侧「有且只有一个区段亮着」由 settings-page.test.mts 守。 */
 .momo-settings .momo-set-card {
-  display: block;
+  display: none;
   background: var(--momo-card);
   border: 1px solid var(--momo-line);
   border-radius: var(--momo-set-r-card);
   overflow: hidden;
+}
+.momo-settings .momo-set-card.is-active {
+  display: block;
 }
 .momo-settings .momo-set-card > * + * {
   border-top: 1px solid var(--momo-line-soft);
