@@ -36,8 +36,10 @@ export const SCRIPT_ALWAYS_SYNC = [
   'scripts/fetch-fonts.d.mts',
 ]
 
-/** 全量目录面：本仓的这两个目录是唯一真源——本仓有的全搬过去，公开仓多出来的就是退役文件 */
-export const SYNC_DIRS = ['src', 'styles.src']
+/** 全量目录面：本仓这几个目录是唯一真源——本仓有的全搬过去，公开仓多出来的就是退役文件。
+ *  `src` / `styles.src` 是源码与样式真源；`assets` 收 README 的配图（三份 README 引用
+ *  `assets/image-N.png`；不进同步面，公开仓检出里那些图就是裂的）——别往这里放面外的东西。 */
+export const SYNC_DIRS = ['src', 'styles.src', 'assets']
 
 /** 根级业务文件（精确名）。与 AGENTS.md §0 的枚举同源；改口径先改这里，再改 §0 那句话 */
 export const ROOT_BUSINESS_EXACT = [
