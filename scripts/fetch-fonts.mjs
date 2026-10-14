@@ -101,23 +101,30 @@ export const FILES = [
  * 载荷」，所以闸是结构式的（含 SIL OPEN FONT LICENSE 字样 + 含本家族版权行 +
  * 体积封顶），不钉 sha256——上游修订许可文本时不该被一道摘要闸卡死（ttf 那边
  * 换内容必须重算摘要，因为字节就是字体本身）。
+ *
+ * `copyright` 是**上游版权行的片段**，不是家族名——按家族名猜过一次，三道闸里
+ * 唯一没真跑过的那闸，1.0.4 首发 CI 才暴露（BUG-247）：LXGW 的许可署的是
+ * 「LXGW」与 Klee（Lite 是 Klee 的衍生），Noto Sans SC 署的是 Adobe /
+ * Reserved Font Name 'Source'（Source Han Sans 的授权链），Noto Serif SC 署的是
+ * 「Copyright 2012 Google Inc.」——三份全文都没有家族名字样。URL 都是**不可变
+ * 引用**（tag / 40 位 commit SHA），所以这些片段照抄即可，不会再变。
  */
 export const LICENSE_SOURCES = [
   {
     family: 'LXGW WenKai Lite',
     url: 'https://cdn.jsdelivr.net/gh/lxgw/LxgwWenKai-Lite@v1.522/OFL.txt',
-    /** 这一家族的版权行片段（拼进 combined 文件的头部，也当结构闸用） */
-    copyright: 'LXGW WenKai Lite',
+    /** 这一家族的版权行片段（结构闸用：防取错家族的许可；拼进 combined 文件的是整份原文） */
+    copyright: 'Copyright 2021-2026 LXGW',
   },
   {
     family: 'Noto Sans SC',
     url: 'https://raw.githubusercontent.com/google/fonts/2894aab31764f10f29c421bdfd2340d3b382d384/ofl/notosanssc/OFL.txt',
-    copyright: 'Noto Sans SC',
+    copyright: "Copyright 2014-2021 Adobe",
   },
   {
     family: 'Noto Serif SC',
     url: 'https://raw.githubusercontent.com/google/fonts/2e61f4355afd22b801791b0df176065082423b87/ofl/notoserifsc/OFL.txt',
-    copyright: 'Noto Serif SC',
+    copyright: 'Copyright 2012 Google Inc.',
   },
   {
     family: 'JetBrains Mono',
