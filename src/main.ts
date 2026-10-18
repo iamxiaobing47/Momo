@@ -7,6 +7,7 @@ import { MomoView, VIEW_MOMO } from './views/views'
 import { MomoSettingTab } from './views/settings'
 import { COMMANDS, type CommandHost } from './views/commands'
 import { attachmentPasteExtension } from './views/attachmentPaste'
+import { installSelectionCapture } from './views/selectionCapture'
 import { useUi } from './ui/store'
 import { removeFontVars } from './ui/shared/fontStyle'
 
@@ -102,6 +103,28 @@ export default class MomoPlugin extends Plugin {
         )
       }),
     )
+
+    // 选区右键菜单（PDF / HTML Reader / 阅读视图）：与上面的编辑器右键**分工不重叠**——
+    // editor-menu 只覆盖编辑器 / Live Preview（`.markdown-source-view`），这里管的是
+    // 内置 PDF 视图、obsidian-html-plugin 的 srcdoc 帧与 Markdown 阅读视图，三面各要
+    // 捕获阶段 / 帧内 realm 的特殊处理（理由全在 views/selectionCapture.ts 的文件头）。
+    installSelectionCapture({
+      app: this.app,
+      // Plugin.registerDomEvent 的三个重载按 el 的类型分派 K 的合法事件表；本模块的
+      // 入口签名是 Document | Window | HTMLElement 的联合，重载解析对不上。实际只传
+      // Document（主文档 + HTML Reader 帧的 contentDocument），按 Document 窄化。
+      registerDomEvent: (el, type, callback, options) =>
+        this.registerDomEvent(el as Document, type as keyof DocumentEventMap, callback, options),
+      // 品牌名现读：用户在设置里改名后，下一次右键就是新名字，不必重载插件
+      // （与 editor-menu 回调里现读同一口径）
+      brandName: () => this.service.data.prefs.brandName,
+      // 落库走与编辑器右键同一条原语（service.create + 刷新）；失败静默由
+      // installSelectionCapture 统一 catch，这里不弹提醒
+      save: async (content) => {
+        await this.service.create(content, parseInlineTags(content))
+        await useUi.getState().refresh()
+      },
+    })
 
     // 功能区图标（v0.9.3 起固定内置 notebook-pen：自定义 Ribbon 图标的能力已
     // 移除——「上传自己的图片」迁移到设置 → 界面外观 → 左上角图标，侧栏那枚

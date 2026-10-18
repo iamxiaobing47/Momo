@@ -6,6 +6,7 @@ import { dayMoment, localDay } from '../momo/dates'
 import { errMsg } from '../momo/core'
 import { applyFontVars } from '../ui/shared/fontStyle'
 import type { GlobeEarth } from '../momo/types'
+import { writeClipboardText } from './clipboard'
 
 // `MomoCaps` 的组装：ui/ 与 service 之间**唯一**的通道。
 // ui/ 不 import obsidian（AGENTS.md §3.1），所有需要 Obsidian 能力的地方都在这里
@@ -308,18 +309,12 @@ export function buildCaps(service: MomoService): MomoCaps {
       fragment: () => createFragment(),
     },
     // 剪贴板写入的唯一出口（BUG-235，契约写在 store/types.ts 的 MomoCaps.writeClipboard）：
-    // 只在用户手势里写、永不读、失败静默（reject 交给调用方）。两个写入点——
-    // CopyButton 的点击与 views.tsx 的 Ctrl+C 兜底——都经这里，全仓不再有第二处
-    // `navigator.clipboard.writeText`。
-    //
-    // 「未取到方法」按失败算（B12：旧写法 Promise.resolve(undefined) 是假成功）：
-    // 老 Electron / 非安全上下文里 `navigator.clipboard` 不存在，这时 reject，
-    // CopyButton 显示失败态、Ctrl+C 兜底静默吞掉让原生复制兜底。
-    writeClipboard: (text) => {
-      const write = navigator.clipboard?.writeText?.bind(navigator.clipboard)
-      if (!write) return Promise.reject(new Error('clipboard unavailable'))
-      return write(text)
-    },
+    // 只在用户手势里写、永不读、失败静默（reject 交给调用方）。三个写入点——
+    // CopyButton 的点击、views.tsx 的 Ctrl+C 兜底、选区右键菜单的「复制」——都经这里，
+    // 全仓不再有第二处 `navigator.clipboard.writeText`。实现搬到了 views/clipboard.ts：
+    // 右键菜单可能在面板还没挂载时打开（那一刻没有 caps），所以那一侧直调同一个函数，
+    // 本文件只做转发；B12「未取到方法按失败算」的口径一并住在那边的文件头。
+    writeClipboard: (text) => writeClipboardText(text),
     // 发布 Momo：创建失败必须让调用方知道（别让「点了一下，什么都没发生」）
     publish: async (content, tags) => {
       try {

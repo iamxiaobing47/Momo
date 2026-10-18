@@ -3,6 +3,7 @@ import { tagNodeMapOf } from '../../momo/tags'
 import { copy } from '../../momo/i18n'
 import { errMsg } from '../../momo/core'
 import { computeAttachmentStats, type AttachmentStats } from '../../momo/stats'
+import type { MomoEntry } from '../../momo/types'
 import { NO_ATTACHMENT_FILES, attachCache, sameAttachmentStats, sameFileList } from './caches'
 import type { StoreActions } from './slice'
 import type { UiState } from './types'
@@ -66,15 +67,37 @@ const readOnce = async ({ set, get }: StoreActions): Promise<void> => {
   // 回顾批次是**抽批时的对象快照**：从回顾里「打开」笔记改完正文，vault 事件
   // 刷新了 entries，但批次里攥着的还是旧对象——卡片就一直显示改前的话
   // （v0.5.2 用户反馈）。按路径把批次条目换成本轮的新对象：改了的换新，
-  // 没改的是同一引用（整批没变就不 set，避免无意义重渲）；批次长度不动，
-  // 游标与「本轮已看完」的判定不受影响。批次里已被删除的条目保留旧对象
-  // （本批走到它时「打开」会因文件不存在而原地不动，属罕见边角，可接受）。
+  // 没改的是同一引用（整批没变就不 set，避免无意义重渲）。
+  //
+  // BUG-249：快照还**必须对账**——索引里没有的路径（删到回收站 / 外部删除 /
+  // 改名）已经不是「可回顾的 Momo」，攥着旧对象就会继续渲染那张卡、「第 N 张 /
+  // 共 M 张」也一动不动（用户在回顾里删笔记撞上的正是这个：`?? e` 保留旧对象，
+  // 而删除若是本轮唯一变化，连 set 都不会发）。判据与下面的 reviewSeen /
+  // pinnedNotes 自愈同源，外加**回收站登记**这条更硬的：`record.originalPath`
+  // 里出现过就立刻摘掉——库被删空那一刻索引本就为空，只有它还能证明这是「删了」；
+  // 反过来，空索引更可能是 root 还没就绪，那时没登记就一条都不动（宁可不删也不误清）。
+  // 游标跟着摘除走：摘的是游标之前的条目就前移，当前那张被摘则原地指向后一张
+  // （不是回退到前一张）；批次被摘空而池子还有内容 → 重抽一批（等价于点「再抽一批」），
+  // 免得空态那句「暂无可回顾」与还在库里的笔记打架。
   const batch = get().reviewBatch
   if (batch.length > 0) {
     const byPath = new Map(stable.map((e) => [e.path, e]))
-    const nextBatch = batch.map((e) => byPath.get(e.path) ?? e)
-    const batchSame = nextBatch.every((e, i) => e === batch[i])
-    if (!batchSame) set({ reviewBatch: nextBatch })
+    const trashed = new Set(trash.map((t) => t.record.originalPath))
+    const index = get().reviewIndex
+    const nextBatch: MomoEntry[] = []
+    let droppedBefore = 0
+    for (let i = 0; i < batch.length; i++) {
+      const e = batch[i]
+      if (!byPath.has(e.path) && (trashed.has(e.path) || stable.length > 0)) {
+        if (i < index) droppedBefore++
+        continue
+      }
+      nextBatch.push(byPath.get(e.path) ?? e)
+    }
+    const batchSame = nextBatch.length === batch.length && nextBatch.every((e, i) => e === batch[i])
+    const nextIndex = Math.max(0, Math.min(nextBatch.length, index - droppedBefore))
+    if (nextBatch.length === 0) get().newReviewBatch()
+    else if (!batchSame || nextIndex !== index) set({ reviewBatch: nextBatch, reviewIndex: nextIndex })
   }
 
   // 僵尸置顶清理（ADR-004 §2.7）：标签被删光 / 改名后，置顶里对应的项要跟着消失。
