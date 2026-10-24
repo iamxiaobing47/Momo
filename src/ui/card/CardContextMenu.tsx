@@ -27,9 +27,29 @@ const CardContextMenu: React.FC<CardContextMenuProps> = ({ x, y, path, isPinned,
   const prevFocusRef = useRef<Element | null>(null)
   if (prevFocusRef.current === null) prevFocusRef.current = document.activeElement
 
+  // 菜单挂到 .momo-app 根上，**不留在卡片里**（设计稿把它定义为「全屏定位元素」）：
+  // ① 焦点滚动会把退后的卡 transform: scale(0.96) + blur(2.3px)，留在卡里的菜单
+  //    会跟着变小变糊；② 挂到 app 根后包含块就是 .momo-app（position: relative），
+  //    坐标换算只有一个基准。portal 目标用 closest 现找，不新增容器节点。
+  // host 声明在监听 effect 之前：那个 effect 的依赖表要用它（TDZ）。
+  const anchorRef = useRef<HTMLSpanElement>(null)
+  const [host, setHost] = useState<HTMLElement | null>(null)
+  useLayoutEffect(() => {
+    setHost((anchorRef.current?.closest('.momo-app') as HTMLElement | null) ?? null)
+  }, [])
+
   useEffect(() => {
+    // host 未定先不装监听：本组件是「隐藏锚点 → portal」两步 mount（见上方 host 的
+    // useLayoutEffect），首帧 commit 后、portal commit 前，`ref.current` 还是 null——
+    // 无条件「挂载时抓一次菜单节点」会把 null 永久冻进闭包，`menuEl && …` 恒假，
+    // 点外面关闭整条路成了 no-op（BUG-250a：左键 / 右键别处都不收，还能同屏挂两个
+    // 菜单；Esc 不依赖 menuEl 所以只有它活着）。[host] 这拍菜单已进 DOM，抓下来的
+    // 才是菜单节点；host 实际只定一次，监听整段仍只装一遍，原意不变。
+    // 「抓一次」而不是 cleanup 里现读 `ref.current`，是给 ref 清理规则留的形状——
+    // 旧注释宣称「挂载那拍抓到的就是同一个节点」，在两步 mount 下不成立，才有的本单。
+    if (!host) return
     // 挂载时抓一次菜单节点：cleanup 里再读 `ref.current`，规则会判「读到的是可能已
-    // 换过的 ref」；本 effect 无依赖表、只跑一次，抓下来的就是同一个节点，语义不变。
+    // 换过的 ref」；本 effect 只在 host 定下后跑一次，抓下来的就是同一个节点，语义不变。
     const menuEl = ref.current
     const handlePointerDown = (event: MouseEvent) => {
       const target = event.target as Node
@@ -54,22 +74,12 @@ const CardContextMenu: React.FC<CardContextMenuProps> = ({ x, y, path, isPinned,
       const prev = prevFocusRef.current
       if (lost && prev instanceof HTMLElement && prev.isConnected) prev.focus()
     }
-  }, [])
+  }, [host])
 
   const handlePin = useCallback(() => {
     toggleNotePin(path)
     onCloseRef.current()
   }, [toggleNotePin, path])
-
-  // 菜单挂到 .momo-app 根上，**不留在卡片里**（设计稿把它定义为「全屏定位元素」）：
-  // ① 焦点滚动会把退后的卡 transform: scale(0.96) + blur(2.3px)，留在卡里的菜单
-  //    会跟着变小变糊；② 挂到 app 根后包含块就是 .momo-app（position: relative），
-  //    坐标换算只有一个基准。portal 目标用 closest 现找，不新增容器节点。
-  const anchorRef = useRef<HTMLSpanElement>(null)
-  const [host, setHost] = useState<HTMLElement | null>(null)
-  useLayoutEffect(() => {
-    setHost((anchorRef.current?.closest('.momo-app') as HTMLElement | null) ?? null)
-  }, [])
 
   // BUG-128d：菜单声明的 role=menu 里子项是裸 button（无 role=menuitem）、弹层既不
   // focus 也无方向键——AT 读到一个空 menu。host 定下（portal 挂上菜单）后把焦点

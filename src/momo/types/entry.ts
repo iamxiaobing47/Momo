@@ -1,6 +1,7 @@
 import type { LatLon } from '../locations'
 import type { LocRegion } from '../locations'
 import type { IconOverrides } from '../icons'
+import type { ReviewMode } from '../review/review'
 import type {
   BrandIcon,
   CardStamp,
@@ -242,6 +243,11 @@ export interface MomoData {
   /** 回顾展示记录（路径 → 上次展示时间 ISO）：只被「很久没看」档用来排序。
     *  属于视图偏好（不是正文 / 标签 / 图片），随 refresh 自愈清理已消失的路径。 */
     reviewSeen: Record<string, string>
+    /** 回顾抽法档位（random / week / month / stale / onthisday，2026-10-24 起持久化）。
+    *  视图偏好（ADR-003）：此前是会话态，重载插件后静默掉回「随机」——用户选的
+    *  「一周未看」以为还在生效，实际抽法一直没跟上。旧 data.json 无此键 →
+    *  'random'（= 升级前每次重载后的实际档位），零迁移。 */
+    reviewMode: ReviewMode
     /** 内部侧栏宽度（px）：拖拽手柄可调（clamp 到 SIDEBAR_WIDTH 区间），关面板 / 重开后保持 */
     sidebarWidth: number
     /** 面板内的内部侧栏停靠侧：'left'（默认，flomo 风）| 'right' */

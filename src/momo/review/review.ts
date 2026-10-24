@@ -1,8 +1,9 @@
 import type { MomoEntry } from '../types'
-import { compareTimeKey, dayKey, localDay, pad2 } from '../dates'
+import { compareTimeKey, dayDiff, dayKey, localDay, pad2 } from '../dates'
 
 // 随机回顾的五档抽取（concept-momo-review）：
-// - random    ：纯随机一批（历史行为）
+// - random    ：按「距上次展示的天数」加权的无放回抽一批（2026-10-24 重设计，见
+//               pickReview 的 random 分支；此前是无记忆的独立均匀抽样）
 // - week      ：一周未看——上次展示 ≥7 天前（或从没展示过），洗牌取 N
 // - month     ：一月未看——上次展示 ≥30 天前（或从没展示过），洗牌取 N
 // - stale     ：优先推「很久没回顾过」的（按 lastShown 升序，从没回顾过的排最前）
@@ -17,6 +18,21 @@ export const REVIEW_SIZE = 10
 
 /** 「一周 / 一月未看」两档的回看窗口（天） */
 const MODE_MIN_DAYS: Partial<Record<ReviewMode, number>> = { week: 7, month: 30 }
+
+/** random 档权重的封顶：距上次展示 ≥ 这么多个日历日的，与「从没展示过」同档 */
+const RANDOM_WEIGHT_MAX = 30
+
+/**
+ * random 档一条的权重：距上次展示的**日历日**数（今天看过 = 1，越久权重越高），
+ * 夹在 1..RANDOM_WEIGHT_MAX；从没展示过 / 展示时间串损坏 = 顶格（与 week / month
+ * 档「脏戳 = 该看了」同一口径，条目不会因脏数据永远抽不回来）。
+ */
+function randomWeight(shown: string | undefined, today: string): number {
+  if (!shown) return RANDOM_WEIGHT_MAX
+  const d = new Date(shown)
+  if (Number.isNaN(d.getTime())) return RANDOM_WEIGHT_MAX
+  return Math.max(1, Math.min(RANDOM_WEIGHT_MAX, dayDiff(localDay(d), today)))
+}
 
 /** 无放回洗牌（返回新数组，不改动入参） */
 function shuffle<T>(list: readonly T[]): T[] {
@@ -89,5 +105,17 @@ export function pickReview(
       }),
     ).slice(0, size)
   }
-  return shuffle(pool).slice(0, size)
+  // random（2026-10-24 重设计）：按「距上次展示的天数」加权的无放回抽样
+  // （Efraimidis–Spirakis：每条 key = u^(1/w)，取最大的 size 条，入选概率 ∝ 权重）。
+  // 此前是批间无记忆的独立均匀抽样——对大库就是优惠券收集者问题：619 条的库抽
+  // 24 批后约 2/3 的条目一次没轮到、几十条被反复抽中（实测预测 67.6% vs 实际
+  // 68.5%），用户报障「有些很久没刷到、有些反复刷到」正是它的指纹。加权后当天
+  // 刚看过的权重最低、越久没看越可能被抽中，条目不会长期饿死；seen 全空（全新库
+  // / 测试）时权重全等，退化为均匀洗牌，与旧行为的断言兼容。
+  const today = localDay(now)
+  return pool
+    .map((e) => ({ e, key: Math.random() ** (1 / randomWeight(seen[e.path], today)) }))
+    .sort((a, b) => b.key - a.key)
+    .slice(0, size)
+    .map((x) => x.e)
 }

@@ -5,6 +5,8 @@
 // 与 entry.ts（data.json 的条目 / 设置形状）的分工：这边是「一个偏好长什么样」，
 // 那边是「整个 data.json 长什么样」。
 
+import type { ReviewMode } from '../review/review'
+
 /**
  * 内部侧栏宽度（px）：`prefs.sidebarWidth` 的合法区间与默认值。
  * 拖拽 / 键盘步进的钳制与 data.json 加载时的兜底共用这一套边界，别各写各的。
@@ -347,6 +349,22 @@ export type _AllSectionsGrouped = _AssertNever<Exclude<keyof StatsSections, _Gro
 
 /** 随机回顾每批条数：合法区间与默认值 */
 export const REVIEW_COUNT = { min: 1, max: 50, default: 10 } as const
+
+// ---- 随机回顾的抽法档位（2026-10-24 起持久化） ----
+
+/**
+ * 回顾抽法档位的全部合法值（sanitize 白名单；回顾顶栏分段的五颗与之一一对应，
+ * 显示名在 `copy.review.mode` 的 Record 里）。类型 `ReviewMode` 的定义住在
+ * momo/review（域逻辑），这里只收结构；两边都是 type-only 引用，不成环。
+ */
+export const REVIEW_MODES: readonly ReviewMode[] = ['random', 'week', 'month', 'stale', 'onthisday']
+
+/**
+ * 默认档：随机。= 本字段存在之前**每次重载后**的实际档位（此前是会话态，重载
+ * 插件 / 重启 Obsidian 都静默掉回 random——用户选的「一周未看」以为自己还在用，
+ * 实际一直是无加权的随机抽，见 2026-10-24 报障）。旧盘缺键 → 这个值，零迁移。
+ */
+export const DEFAULT_REVIEW_MODE: ReviewMode = 'random'
 
 /**
  * 活跃度热力图滚动窗口（月）：合法区间与默认值。

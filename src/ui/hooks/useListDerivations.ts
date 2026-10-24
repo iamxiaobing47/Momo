@@ -4,7 +4,12 @@
 // BUG-67 起：筛选读取面由 `useMatchedInputs()` 整份订阅 + `matchEntries` 纯函数消费，
 // 依赖数组就是这份输入对象本身——不再手抄一份字段清单去对齐 matched() 的读取面
 // （v0.7.6 / BUG-48/49 都是漏抄发作；漏字段现在编译不过）。
-import { useCallback, useMemo } from 'react'
+//
+// BUG-251 起：这条链在 `matchEntries` 之上加了「粘住」（store/sticky.ts）——条件不变
+// 时，上一轮还在视图里的条目即使被改成不再命中也不掉出去（摘掉筛选的那个标签后
+// 卡片当场消失，等于每改一次卡就丢一张）。判据在 sticky.ts 的文件头，这里只负责
+// 把上一帧的快照一路带下去。
+import { useCallback, useMemo, useRef } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { pinnedNotesSetOf, useUi } from '../store'
 import type { Density, MomoEntry, SortMode, WarmRatio } from '../../momo/types'
@@ -13,7 +18,7 @@ import { groupByDate } from '../../momo/dates'
 import { groupByLocation, locationTallies } from '../../momo/locations'
 import { buildLocTree } from '../../momo/locations'
 import { sortEntries } from '../../momo/core'
-import { matchEntries } from '../store/matched'
+import { matchEntriesHolding, type FilterHold } from '../store/sticky'
 import { useMatchedInputs } from './useMatchedInputs'
 import { useTodayKey } from './useTodayKey'
 import { bodyOf } from '../card'
@@ -113,14 +118,20 @@ export function useListDerivations(input: ListDerivationsInput): ListDerivations
   // 真实的依赖变化（与统计页 BUG-111c 同一个钟）。
   const todayKey = useTodayKey()
 
+  // BUG-251：上一轮筛完还在视图里的路径（「粘住」的载体）。住 ref 而不进 store：
+  // 它只是派生链的上一帧，别的消费者不该看见它，也不该因它重渲。在 useMemo 体内
+  // 写 ref 是刻意为之——同一份 (inputs, entries, todayKey, sortMode) 重算结果相同，
+  // 写入幂等；快照的读、写都在同一次重算里，不会出现「读了半份」。
+  const holdRef = useRef<FilterHold | null>(null)
+
   // 排序（键 × 方向）与比较器在 momo/core/sort.ts：定宽 ISO 串走 compareTimeKey，
   // 别用 localeCompare——后者每次比较都要起 Intl 排序器，@10k 每次筛选白付几毫秒
   const entriesSorted = useMemo(() => {
-    // todayKey 只是「跨零点要重算」的信号：`matchEntries` 在函数层按调用时刻折算
-    // recent7/30 窗口，body 里不直接读它，规则会判「多余依赖」。显式读一次它才算
-    // **真依赖**（BUG-221 同一口径：依赖表里写下的，body 里要看得见）。
-    void todayKey
-    return sortEntries(matchEntries(matchedInputs, entries), sortMode)
+    // todayKey 是**真依赖**：它既让 `matchEntries` 的 recent7/30 窗口跨零点重算
+    // （BUG-131c），也让上一轮粘住的快照在同一刻作废（BUG-251）。
+    const next = matchEntriesHolding(matchedInputs, entries, todayKey, holdRef.current)
+    holdRef.current = next.hold
+    return sortEntries(next.entries, sortMode)
   }, [matchedInputs, sortMode, entries, todayKey])
 
   /**

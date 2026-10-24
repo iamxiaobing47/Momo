@@ -84,6 +84,18 @@ export function parseDay(day: string): Date {
 }
 
 /**
+ * 两个日期键相差几个**日历日**（`to − from`：`dayDiff('2026-10-17', '2026-10-24')` → 7）。
+ *
+ * 随机回顾按「距上次展示几天」加权（momo/review）要的就是这个整数。不能把两个
+ * `Date.getTime()` 裸除 86400000（`dayWindowStart` 注释同款理由：本地日不总是
+ * 24 小时）——这里两端都取**本地午夜**（`parseDay`），差值离整天最多差夏令时那
+ * 1 小时，`Math.round` 抹平。
+ */
+export function dayDiff(from: string, to: string): number {
+  return Math.round((parseDay(to).getTime() - parseDay(from).getTime()) / 86400000)
+}
+
+/**
  * `end` 往前 `months` 个自然月的**同一天**；目标月没这一天就夹到该月最后一天。
  *
  * 不能直接 `setMonth(getMonth() - months)`：Date 会向下月溢出——3/31 往前 1 个月

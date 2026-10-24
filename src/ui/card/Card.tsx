@@ -129,6 +129,10 @@ export const Card = memo(function Card({
       // 回收站模式不开右键菜单：菜单里只有「置顶」一颗，而置顶表按 entries 对账、
       // 回收站路径进不去也留不住（refresh 会剔掉），开了只会是一个点了没反应的动作
       if (mode === 'trash') return
+      // 回顾档不开（BUG-250b）：菜单里只有「置顶」一颗，随机回顾是快照浏览，
+      // 置顶入口留在主列表；且回顾页自带 ← → / 空格 / Esc 键盘流，菜单一开还会
+      // 把焦点抢进第一项，直接打断翻张（键盘路径同门，见下方 onKeyDown）
+      if (mode === 'review') return
       // 预览卡不开（统计页那三张）：预览是「看一眼然后去 Obsidian 读」，没有
       // 「在这里改它」的交互，见文件头 preview 的注释
       if (preview) return
@@ -224,6 +228,8 @@ export const Card = memo(function Card({
               tabIndex: 0,
               onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
                 if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+                  // 回顾档不开右键菜单（BUG-250b，判据同 onContextMenu）
+                  if (mode === 'review') return
                   e.preventDefault()
                   const r = e.currentTarget.getBoundingClientRect()
                   setContextMenu({ x: r.left + r.width / 2, y: r.top + r.height / 2 })

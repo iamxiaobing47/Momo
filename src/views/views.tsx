@@ -131,6 +131,9 @@ export class MomoView extends ReactItemView {
       pinned: service.data.prefs.pinned,
       pinnedNotes: service.data.prefs.pinnedNotes,
       reviewSeen: service.data.prefs.reviewSeen,
+      // 回顾抽法档位（2026-10-24 起持久化）：漏灌 = 重载后档位静默掉回「随机」，
+      // 用户选的「一周未看」以为自己还在用——这正是本轮修的那个报障
+      reviewMode: service.data.prefs.reviewMode,
       sidebarWidth: service.data.prefs.sidebarWidth,
       sidebarSide: service.data.prefs.sidebarSide,
       sections: service.data.prefs.sections,

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { CARD_FONT_SIZE, CARD_RADIUS, CARD_TITLE_SIZE, DEFAULT_BRAND_NAME, DEFAULT_DENSITY_VIEWS, DEFAULT_GLOBE_EARTH, DEFAULT_LOC_LEVEL, DEFAULT_LOC_TREE_EXPAND, DEFAULT_SECTIONS, DEFAULT_STATS_SECTIONS, DEFAULT_TAG_MATCH, DEFAULT_TAG_SORT, HEATMAP_MONTHS, REVIEW_COUNT, SIDEBAR_WIDTH, TITLE_MAX } from '../../momo/types'
+import { CARD_FONT_SIZE, CARD_RADIUS, CARD_TITLE_SIZE, DEFAULT_BRAND_NAME, DEFAULT_DENSITY_VIEWS, DEFAULT_GLOBE_EARTH, DEFAULT_LOC_LEVEL, DEFAULT_LOC_TREE_EXPAND, DEFAULT_REVIEW_MODE, DEFAULT_SECTIONS, DEFAULT_STATS_SECTIONS, DEFAULT_TAG_MATCH, DEFAULT_TAG_SORT, HEATMAP_MONTHS, REVIEW_COUNT, SIDEBAR_WIDTH, TITLE_MAX } from '../../momo/types'
 import { DEFAULT_TAG_FILTER } from '../../momo/tags'
 import { DEFAULT_LOC_TREE_LEVELS } from '../../momo/locations'
 import { GLOBE_DEFAULT_POSE } from '../globe/globeMath'
@@ -96,10 +96,12 @@ export const useUi = create<UiState>((set, get) => ({
   drillPastOnly: false,
   pinned: [],
   pinnedNotes: [],
-  reviewMode: 'random',
+  reviewMode: DEFAULT_REVIEW_MODE,
   reviewSeen: {},
   reviewBatch: [],
   reviewIndex: 0,
+  // 当前批次的盖章时间戳（翻页幂等用，见 types.ts 的字段注释）
+  reviewEpoch: '',
   sidebarWidth: SIDEBAR_WIDTH.default,
   sidebarSide: 'left',
   sections: { ...DEFAULT_SECTIONS },

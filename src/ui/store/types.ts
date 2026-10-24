@@ -58,6 +58,8 @@ export type PrefsPatch = {
   pinned?: string[]
   pinnedNotes?: string[]
   reviewSeen?: Record<string, string>
+  /** 回顾抽法档位（2026-10-24 起持久化）：默认随机 = 本字段存在前每次重载后的实际档位 */
+  reviewMode?: ReviewMode
   sortMode?: SortMode
   /** 侧栏标签区排序键（v0.9.18，持久化偏好；默认「数量」= 升级前写死的行为） */
   tagSort?: TagSortKey
@@ -481,7 +483,8 @@ export interface UiState {
    * 不写进 Momo 文件。
    */
   pinnedNotes: string[]
-  /** 回顾模式（随机 / 一周未看 / 一月未看 / 很久没看 / 往年今日） */
+  /** 回顾模式（随机 / 一周未看 / 一月未看 / 很久没看 / 往年今日）。2026-10-24 起
+   *  持久化偏好（此前是会话态，重载插件后静默掉回「随机」）。 */
   reviewMode: ReviewMode
   /** 回顾展示记录（路径 → 上次展示时间 ISO）：被「很久没看」用来排序、「一周 / 一月未看」用来过滤 */
   reviewSeen: Record<string, string>
@@ -705,6 +708,13 @@ export interface UiState {
    * 不入 data.json —— 它是一轮会话内的位置，重开面板从第一张开始更合理。
    */
   reviewIndex: number
+  /**
+   * 当前批次的盖章时间戳（抽批那一刻的 ISO，整批共用）。翻页盖章写的就是它：
+   * 同一张来回翻只会落一次盘（幂等），整批的 reviewSeen 也因此共享同一时刻——
+   * 与窗口 / 排序的日粒度口径一致。'' = 当前没有批次（空批 / 未抽过）。
+   * 会话态，不入 data.json。
+   */
+  reviewEpoch: string
   /** 附件统计（全库口径） */
   attachmentStats: { total: number; totalBytes: number; entriesWithImages: number; monthlyTrend: { month: string; count: number; bytes: number }[] }
 

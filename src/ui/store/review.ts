@@ -18,33 +18,50 @@ export function createReviewSlice({ set, get }: StoreActions): ReviewSlice {
      */
     setReviewMode(mode: ReviewMode) {
       if (mode === get().reviewMode) return
-      set({ reviewMode: mode })
+      // 落盘（2026-10-24）：此前只 set 不存——reviewMode 不在持久化清单里，重载
+      // 插件 / 重启 Obsidian 后静默掉回「随机」，用户选的「一周未看」以为还在生效
+      // （2026-10-24 报障「随机回顾不随机」的成因之一）。与 sortMode 同一条路。
+      get().setPrefs({ reviewMode: mode })
       get().newReviewBatch()
     },
 
     /**
-     * 抽一批回顾：池子 = 当前筛选命中的 Momo（matched()）。抽完把本批各条的展示时间
-     * 记进 reviewSeen（只服务「很久没看」档；写的是插件偏好不是 Momo 内容）。
+     * 抽一批回顾：池子 = 当前筛选命中的 Momo（matched()）。抽完只盖**第一张**的
+     * 展示时间——它此刻就摆在屏上；其余的翻页到哪张盖哪张（`reviewNext`），没翻到
+     * 的不进 `reviewSeen`（2026-10-24 改，此前整批在抽的瞬间全盖：连点「换一批」
+     * 就把一批**从没看过**的卡冻结在「一周 / 一月未看」窗外，week/month 档越换越空）。
+     * 整批共用抽批那一刻的时间戳（`reviewEpoch`）：同一批里来回翻不重复落盘。
      */
     newReviewBatch() {
       const { reviewMode, reviewSeen, reviewCount } = get()
       const batch = pickReview(get().matched(), reviewMode, reviewSeen, reviewCount)
       if (batch.length === 0) {
-        set({ reviewBatch: [], reviewIndex: 0 })
+        set({ reviewBatch: [], reviewIndex: 0, reviewEpoch: '' })
         return
       }
       const now = new Date().toISOString()
-      const nextSeen = { ...reviewSeen }
-      for (const e of batch) nextSeen[e.path] = now
-      set({ reviewBatch: batch, reviewSeen: nextSeen, reviewIndex: 0 })
+      const first = batch[0]
+      const nextSeen = { ...reviewSeen, [first.path]: now }
+      set({ reviewBatch: batch, reviewSeen: nextSeen, reviewIndex: 0, reviewEpoch: now })
       // N08：同上——失败时 caps 层已提示，这里只接住 rejection
       void get().caps?.savePrefs({ reviewSeen: nextSeen })?.catch(() => {})
     },
 
     reviewNext() {
-      const { reviewBatch, reviewIndex } = get()
+      const { reviewBatch, reviewIndex, reviewSeen, reviewEpoch } = get()
       // 允许走到 reviewBatch.length —— 那正是「本轮已看完」的收尾态
-      set({ reviewIndex: Math.min(reviewBatch.length, reviewIndex + 1) })
+      const next = Math.min(reviewBatch.length, reviewIndex + 1)
+      const entry = reviewBatch[next]
+      // 翻到哪张盖哪张：写的是本批的 reviewEpoch（幂等——来回翻同一张不重复落盘；
+      // 批次是测试直接塞进 store 时 epoch 为空，退回当场时刻，宁可多写一次也不错写旧值）
+      if (entry && reviewSeen[entry.path] !== reviewEpoch) {
+        const stamp = reviewEpoch || new Date().toISOString()
+        const nextSeen = { ...reviewSeen, [entry.path]: stamp }
+        set({ reviewIndex: next, reviewSeen: nextSeen })
+        void get().caps?.savePrefs({ reviewSeen: nextSeen })?.catch(() => {})
+        return
+      }
+      set({ reviewIndex: next })
     },
 
     reviewPrev() {

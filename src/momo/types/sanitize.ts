@@ -19,6 +19,7 @@ import {
   DEFAULT_LOC_LEVEL,
   DEFAULT_LOC_TREE_EXPAND,
   DEFAULT_NEW_NOTE_LOCATIONS,
+  DEFAULT_REVIEW_MODE,
   DEFAULT_SECTIONS,
   DEFAULT_STATS_SECTIONS,
   DEFAULT_TAG_MATCH,
@@ -33,6 +34,7 @@ import {
   LOC_LEVELS,
   LOC_TREE_EXPANDS,
   REVIEW_COUNT,
+  REVIEW_MODES,
   SIDEBAR_WIDTH,
   SORT_MODES,
   STATS_RANGES,
@@ -65,6 +67,7 @@ import {
   type ViewId,
   type WarmRatio,
 } from './prefs'
+import type { ReviewMode } from '../review/review'
 import { DEFAULT_SETTINGS, type MomoSettings, type TrashRecord } from './entry'
 import { boolOf, clampNumber, enumOr, pickEnum, sanitizeTable, uniqueList } from './sanitizeKit'
 
@@ -153,6 +156,13 @@ export const sanitizeTagSort: (value: unknown) => TagSortKey = enumOr(TAG_SORT_K
  * 没这个键 / 手改坏）一律回「并集」—— 那是本字段存在之前的行为，对老盘零变化。
  */
 export const sanitizeTagMatch: (value: unknown) => TagMatchMode = enumOr(TAG_MATCH_MODES, DEFAULT_TAG_MATCH)
+
+/**
+ * 回顾抽法档位兜底（2026-10-24 起持久化）：只认白名单里的五个值，其余（旧
+ * data.json 没这个键 / 手改坏 / 将来删掉的档）一律回「随机」—— 那是本字段存在
+ * 之前**每次重载后**的实际档位，老盘升级后行为零变化、零迁移。
+ */
+export const sanitizeReviewMode: (value: unknown) => ReviewMode = enumOr(REVIEW_MODES, DEFAULT_REVIEW_MODE)
 
 /**
  * 新建笔记带不带空 `locations` 字段的兜底（v0.9.28）：只认布尔，其余（旧

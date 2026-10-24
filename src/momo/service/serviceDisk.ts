@@ -21,6 +21,7 @@ import {
   DEFAULT_LOC_LEVEL,
   DEFAULT_LOC_TREE_EXPAND,
   DEFAULT_NEW_NOTE_LOCATIONS,
+  DEFAULT_REVIEW_MODE,
   DEFAULT_SECTIONS,
   DEFAULT_STATS_SECTIONS,
   DEFAULT_TAG_MATCH,
@@ -56,6 +57,7 @@ import {
   sanitizeLocTreeExpand,
   sanitizeNewNoteLocations,
   sanitizePinnedNotes,
+  sanitizeReviewMode,
   sanitizeSections,
   sanitizeSettings,
   sanitizeSortMode,
@@ -121,6 +123,8 @@ export const DEFAULT_DATA: MomoData = {
     pinned: [],
     pinnedNotes: [],
     reviewSeen: {},
+    // 回顾抽法档位（2026-10-24 起持久化）：默认随机 = 本字段存在前每次重载后的实际档位
+    reviewMode: DEFAULT_REVIEW_MODE,
     sortMode: 'createdDesc',
     // 侧栏标签区排序（v0.9.18）：默认「数量」= 升级前写死的那个顺序
     tagSort: DEFAULT_TAG_SORT,
@@ -273,6 +277,9 @@ export function prefsFromDisk(raw: Record<string, unknown>): MomoData['prefs'] {
     pinnedNotes: sanitizePinnedNotes(view.pinnedNotes),
     // 回顾展示记录：只保留「路径 → 字符串时间」的合法项
     reviewSeen: sanitizeSeen(view.reviewSeen),
+    // 回顾抽法档位（2026-10-24 起持久化）：旧 data.json 无此键 → 随机（= 升级前
+    // 每次重载后的实际档位）；脏值 / 退役档位同样回随机，不清数据、零迁移
+    reviewMode: sanitizeReviewMode(view.reviewMode),
     // 排序模式（v0.9.15 起四值枚举）：合法 sortMode 直接用；旧 data.json 只有
     // sortAsc 布尔，按方向无损迁移（sanitizeSortMode 的第二参数）
     sortMode: sanitizeSortMode(view.sortMode, view.sortAsc),
